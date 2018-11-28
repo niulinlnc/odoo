@@ -677,7 +677,7 @@
             <field eval="592" name="phone_code" />
         </record>
         <record id="hk" model="res.country">
-            <field name="name">Hong Kong</field>
+            <field name="name">Hong Kong, China</field>
             <field name="code">hk</field>
             <field file="base/static/img/country_flags/hk.png" name="image" type="base64" />
             <field name="currency_id" ref="HKD" />
@@ -1058,7 +1058,7 @@
             <field eval="976" name="phone_code" />
         </record>
         <record id="mo" model="res.country">
-            <field name="name">Macau</field>
+            <field name="name">Macao, China</field>
             <field name="code">mo</field>
             <field file="base/static/img/country_flags/mo.png" name="image" type="base64" />
             <field name="currency_id" ref="MOP" />
@@ -1630,7 +1630,7 @@
             <field eval="688" name="phone_code" />
         </record>
         <record id="tw" model="res.country">
-            <field name="name">Taiwan</field>
+            <field name="name">Taiwan, China</field>
             <field name="code">tw</field>
             <field name="currency_id" ref="TWD" />
             <field eval="886" name="phone_code" />
