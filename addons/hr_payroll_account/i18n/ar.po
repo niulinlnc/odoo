@@ -5,16 +5,15 @@
 # Translators:
 # Mustafa Rawi <mustafa@cubexco.com>, 2018
 # Martin Trigaux, 2018
+# Ahmed Alshareef <enghmed@gmail.com>, 2018
 # hamza tayseer atieh <hamza.atieh@minervadata.com>, 2018
-# Walid Baruni <baruni@osoul.ly>, 2019
-# 
 msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server saas~11.5\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2018-09-21 13:17+0000\n"
-"PO-Revision-Date: 2018-08-24 09:19+0000\n"
-"Last-Translator: Walid Baruni <baruni@osoul.ly>, 2019\n"
+"PO-Revision-Date: 2018-09-21 13:17+0000\n"
+"Last-Translator: hamza tayseer atieh <hamza.atieh@minervadata.com>, 2018\n"
 "Language-Team: Arabic (https://www.transifex.com/odoo/teams/41243/ar/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -26,12 +25,12 @@ msgstr ""
 #: model_terms:ir.ui.view,arch_db:hr_payroll_account.hr_contract_form_inherit
 #: model_terms:ir.ui.view,arch_db:hr_payroll_account.hr_salary_rule_form_inherit
 msgid "Accounting"
-msgstr "المحاسبة"
+msgstr "الحسابات"
 
 #. module: hr_payroll_account
 #: model:ir.model.fields,field_description:hr_payroll_account.field_hr_payslip__move_id
 msgid "Accounting Entry"
-msgstr "القيد المحاسبي"
+msgstr "قيد محاسبي"
 
 #. module: hr_payroll_account
 #: code:addons/hr_payroll_account/models/hr_payroll_account.py:114
@@ -51,54 +50,54 @@ msgstr "الحساب التحليلي"
 #: model:ir.model.fields,field_description:hr_payroll_account.field_hr_payslip_line__account_credit
 #: model:ir.model.fields,field_description:hr_payroll_account.field_hr_salary_rule__account_credit
 msgid "Credit Account"
-msgstr "الحساب الدائن"
+msgstr "حساب دائن"
 
 #. module: hr_payroll_account
 #: model:ir.model.fields,field_description:hr_payroll_account.field_hr_payslip__date
 msgid "Date Account"
-msgstr "التاريخ المحاسبي"
+msgstr "تاريخ الحساب"
 
 #. module: hr_payroll_account
 #: model:ir.model.fields,field_description:hr_payroll_account.field_hr_payslip_line__account_debit
 #: model:ir.model.fields,field_description:hr_payroll_account.field_hr_salary_rule__account_debit
 msgid "Debit Account"
-msgstr "الحساب المدين"
+msgstr "حساب مدين"
 
 #. module: hr_payroll_account
 #: model:ir.model,name:hr_payroll_account.model_hr_contract
 msgid "Employee Contract"
-msgstr "عقد الموظف"
+msgstr "عقود الموظف"
 
 #. module: hr_payroll_account
 #: model:ir.model,name:hr_payroll_account.model_hr_payslip_employees
 msgid "Generate payslips for all selected employees"
-msgstr "إنشاء قسيمات المرتب لجميع الموظفين الذين تم تحديدهم"
+msgstr "إنشاء قسائم دفع الرواتب لجميع الموظفين الذين تم تحديدهم"
 
 #. module: hr_payroll_account
 #: model:ir.model.fields,help:hr_payroll_account.field_hr_payslip__date
 msgid "Keep empty to use the period of the validation(Payslip) date."
-msgstr "اتركه فارغا لاستخدام تاريخ تأكيد واقفال قسيمة المرتب"
+msgstr "اتركها فارغة لاستخدامها في الفترة من تاريخ التحقق لظرف المرتب."
 
 #. module: hr_payroll_account
 #: model:ir.model,name:hr_payroll_account.model_hr_payslip
 msgid "Pay Slip"
-msgstr "قسيمة المرتب"
+msgstr "ظرف المرتب"
 
 #. module: hr_payroll_account
 #: model:ir.model,name:hr_payroll_account.model_hr_payslip_run
 msgid "Payslip Batches"
-msgstr "دفعات المرتب"
+msgstr "دفعات ظرف المرتب"
 
 #. module: hr_payroll_account
 #: model:ir.model,name:hr_payroll_account.model_hr_payslip_line
 msgid "Payslip Line"
-msgstr "بند المرتب"
+msgstr "خط قسيمة الدفع"
 
 #. module: hr_payroll_account
 #: code:addons/hr_payroll_account/models/hr_payroll_account.py:65
 #, python-format
 msgid "Payslip of %s"
-msgstr "قسيمة مرتب لـ %s"
+msgstr "قسيمة دفع مرتب لـ %s"
 
 #. module: hr_payroll_account
 #: model:ir.model.fields,field_description:hr_payroll_account.field_hr_contract__journal_id
@@ -110,7 +109,7 @@ msgstr "يومية الرواتب"
 #. module: hr_payroll_account
 #: model:ir.model,name:hr_payroll_account.model_hr_salary_rule
 msgid "Salary Rule"
-msgstr "قاعدة المرتب"
+msgstr ""
 
 #. module: hr_payroll_account
 #: model:ir.model.fields,field_description:hr_payroll_account.field_hr_payslip_line__account_tax_id
@@ -122,10 +121,10 @@ msgstr "الضريبة"
 #: code:addons/hr_payroll_account/models/hr_payroll_account.py:112
 #, python-format
 msgid "The Expense Journal \"%s\" has not properly configured the Credit Account!"
-msgstr "لم يتم تحديد حساب دائن في يومية الرواتب \"%s\"!"
+msgstr "يومية النفقات \"%s\" لم يتم إعدادها بشكل صحيح لحساب الخصم الائتمان!"
 
 #. module: hr_payroll_account
 #: code:addons/hr_payroll_account/models/hr_payroll_account.py:127
 #, python-format
 msgid "The Expense Journal \"%s\" has not properly configured the Debit Account!"
-msgstr "لم يتم تحديد حساب مدين في يومية الرواتب \"%s\"!"
+msgstr "يومية النفقات \"%s\" لم يتم إعدادها بشكل صحيح لحساب الخصم!"

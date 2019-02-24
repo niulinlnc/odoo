@@ -51,12 +51,12 @@ class TestMrpByProduct(common.TransactionCase):
         # Create production order for product A
         # -------------------------------------
 
-        mnf_product_a = self.env['mrp.production'].create({
-                        'product_id': self.product_a.id,
-                        'product_qty': 2.0,
-                        'product_uom_id': self.uom_unit_id,
-                        'bom_id': bom_product_a.id,
-                    })
+        mnf_product_a_form = Form(self.env['mrp.production'])
+        mnf_product_a_form.product_id = self.product_a
+        mnf_product_a_form.bom_id = bom_product_a
+        mnf_product_a_form.product_qty = 2.0
+        mnf_product_a = mnf_product_a_form.save()
+        mnf_product_a.action_confirm()
 
         # I compute the data of production order
         context = {"active_model": "mrp.production", "active_ids": [mnf_product_a.id], "active_id": mnf_product_a.id}
@@ -72,7 +72,7 @@ class TestMrpByProduct(common.TransactionCase):
         # I consume and produce the production of products.
         # I create record for selecting mode and quantity of products to produce.
         produce_form = Form(self.env['mrp.product.produce'].with_context(context))
-        produce_form.product_qty = 2.00
+        produce_form.qty_producing = 2.00
         product_consume = produce_form.save()
         # I finish the production order.
         self.assertEqual(len(mnf_product_a.move_raw_ids), 1, "Wrong consume move on production order.")

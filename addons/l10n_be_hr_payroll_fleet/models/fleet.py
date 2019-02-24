@@ -13,7 +13,7 @@ class FleetVehicle(models.Model):
 
     co2_fee = fields.Float(compute='_compute_co2_fee', string="CO2 Fee", store=True)
     total_depreciated_cost = fields.Float(compute='_compute_total_depreciated_cost', store=True,
-        string="Total Cost (Depreciated)", track_visibility="onchange",
+        string="Total Cost (Depreciated)", tracking=True,
         help="This includes all the depreciated costs and the CO2 fee")
     total_cost = fields.Float(compute='_compute_total_cost', string="Total Cost", help="This include all the costs and the CO2 fee")
     fuel_type = fields.Selection(required=True, default='diesel')
@@ -47,12 +47,10 @@ class FleetVehicle(models.Model):
 
     def _get_co2_fee(self, co2, fuel_type):
         fuel_coefficient = {'diesel': 600, 'gasoline': 768, 'lpg': 990, 'electric': 0, 'hybrid': 600}
-        co2_fee = 0
-        if fuel_type and fuel_type != 'electric':
-            if not co2:
-                co2 = 165 if fuel_type in ['diesel', 'hybrid'] else 182
-            co2_fee = (((co2 * 9.0) - fuel_coefficient.get(fuel_type, 0)) * 144.97 / 114.08) / 12.0
-        return max(co2_fee, 26.47)
+        co2_fee = 26.47
+        if fuel_type and fuel_type not in ['electric', 'hybrid']:
+            co2_fee = (((co2 * 9.0) - fuel_coefficient.get(fuel_type)) * 144.97 / 114.08) / 12.0
+        return max(co2_fee , 26.47)
 
     @api.depends('co2', 'fuel_type')
     def _compute_co2_fee(self):
@@ -117,12 +115,9 @@ class FleetVehicle(models.Model):
                 atn = 0.0
             else:
                 if fuel_type in ['diesel', 'hybrid']:
-                    reference = 88.0
+                    reference = 86.0
                 else:
-                    reference = 107.0
-
-                if not co2:
-                    co2 = 195 if fuel_type in ['diesel', 'hybrid'] else 205
+                    reference = 88.0
 
                 if co2 <= reference:
                     atn = car_value * max(0.04, (0.055 - 0.001 * (reference - co2))) * magic_coeff
@@ -140,7 +135,7 @@ class FleetVehicle(models.Model):
 class FleetVehicleLogContract(models.Model):
     _inherit = 'fleet.vehicle.log.contract'
 
-    recurring_cost_amount_depreciated = fields.Float("Recurring Cost Amount (depreciated)", track_visibility="onchange")
+    recurring_cost_amount_depreciated = fields.Float("Recurring Cost Amount (depreciated)", tracking=True)
 
 
 class FleetVehicleModel(models.Model):

@@ -487,6 +487,23 @@ var Animation = Widget.extend({
             new AnimationEffect(this, updateCallback, startEvents, $startTarget, options)
         );
     },
+    /**
+     * @private
+     * @param {boolean} [extra=false]
+     * @param {Object} [extraContext]
+     * @returns {Object}
+     */
+    _getContext: function (extra, extraContext) {
+        var context;
+        this.trigger_up('context_get', {
+            extra: extra || false,
+            context: extraContext,
+            callback: function (ctx) {
+                context = ctx;
+            },
+        });
+        return context;
+    },
 });
 
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -983,7 +1000,8 @@ registry.socialShare = Animation.extend({
      * @private
      */
     _renderSocial: function (social) {
-        var url = encodeURIComponent(document.URL.split(/[?#]/)[0]);  // get current url without query string
+        var url = this.$el.data('urlshare') || document.URL.split(/[?#]/)[0];
+        url = encodeURIComponent(url);
         var title = document.title.split(" | ")[0];  // get the page title without the company name
         var hashtags = ' #'+ document.title.split(" | ")[1].replace(' ','') + ' ' + this.hashtags;  // company name without spaces (for hashtag)
         var social_network = {
@@ -1076,6 +1094,38 @@ registry._fixAppleCollapse = Animation.extend({
     selector: '.s_faq_collapse [data-toggle="collapse"]',
     events: {
         'click': function () {},
+    },
+});
+
+registry.anchorSlide = Animation.extend({
+    selector: 'a[href^="/"][href*="#"], a[href^="#"]',
+    read_events: {
+        'click': '_onAnimateClick',
+    },
+
+    //--------------------------------------------------------------------------
+    // Handlers
+    //--------------------------------------------------------------------------
+
+    /**
+     * @private
+     */
+    _onAnimateClick: function (ev) {
+        if (this.$target[0].pathname !== window.location.pathname) {
+            return;
+        }
+        var hash = this.$target[0].hash;
+        if (!/^#[\w-]+$/.test(hash)) {
+            return;
+        }
+        var $anchor = $(hash);
+        if (!$anchor.length || !$anchor.attr('data-anchor')) {
+            return;
+        }
+        ev.preventDefault();
+        $('html, body').animate({
+            scrollTop: $anchor.offset().top,
+        }, 500);
     },
 });
 

@@ -25,8 +25,16 @@ class StockQuantPackage(models.Model):
                 weight += quant.quantity * quant.product_id.weight
         self.weight = weight
 
-    weight = fields.Float(compute='_compute_weight', help="Weight computed based on the sum of the weights of the products.")
-    shipping_weight = fields.Float(string='Shipping Weight', help="Weight used to compute the price of the delivery (if applicable).")
+    def _get_default_weight_uom(self):
+        return self.env['product.template']._get_weight_uom_name_from_ir_config_parameter()
+
+    def _compute_weight_uom_name(self):
+        for package in self:
+            package.weight_uom_name = self.env['product.template']._get_weight_uom_name_from_ir_config_parameter()
+
+    weight = fields.Float(compute='_compute_weight', help="Total weight of all the products contained in the package.")
+    weight_uom_name = fields.Char(string='Weight unit of measure label', compute='_compute_weight_uom_name', readonly=True, default=_get_default_weight_uom)
+    shipping_weight = fields.Float(string='Shipping Weight', help="Total weight of the package.")
 
 
 class StockMoveLine(models.Model):
@@ -79,28 +87,38 @@ class StockPicking(models.Model):
     def _compute_shipping_weight(self):
         self.shipping_weight = self.weight_bulk + sum([pack.shipping_weight for pack in self.package_ids])
 
+    def _get_default_weight_uom(self):
+        return self.env['product.template']._get_weight_uom_name_from_ir_config_parameter()
+
+    def _compute_weight_uom_name(self):
+        for package in self:
+            package.weight_uom_name = self.env['product.template']._get_weight_uom_name_from_ir_config_parameter()
+
     carrier_price = fields.Float(string="Shipping Cost")
     delivery_type = fields.Selection(related='carrier_id.delivery_type', readonly=True)
     carrier_id = fields.Many2one("delivery.carrier", string="Carrier")
     volume = fields.Float(copy=False)
-    weight = fields.Float(compute='_cal_weight', digits=dp.get_precision('Stock Weight'), store=True)
+    weight = fields.Float(compute='_cal_weight', digits=dp.get_precision('Stock Weight'), store=True, help="Total weight of the products in the picking.")
     carrier_tracking_ref = fields.Char(string='Tracking Reference', copy=False)
     carrier_tracking_url = fields.Char(string='Tracking URL', compute='_compute_carrier_tracking_url')
-    weight_uom_id = fields.Many2one('uom.uom', string='Unit of Measure', compute='_compute_weight_uom_id', help="Unit of measurement for Weight")
+    weight_uom_name = fields.Char(string='Weight unit of measure label', compute='_compute_weight_uom_name', readonly=True, default=_get_default_weight_uom)
     package_ids = fields.Many2many('stock.quant.package', compute='_compute_packages', string='Packages')
     weight_bulk = fields.Float('Bulk Weight', compute='_compute_bulk_weight')
-    shipping_weight = fields.Float("Weight for Shipping", compute='_compute_shipping_weight')
+    shipping_weight = fields.Float("Weight for Shipping", compute='_compute_shipping_weight', help="Total weight of the packages and products which are not in a package. That's the weight used to compute the cost of the shipping.")
+    is_return_picking = fields.Boolean(compute='_compute_return_picking')
 
     @api.depends('carrier_id', 'carrier_tracking_ref')
     def _compute_carrier_tracking_url(self):
         for picking in self:
             picking.carrier_tracking_url = picking.carrier_id.get_tracking_link(picking) if picking.carrier_id and picking.carrier_tracking_ref else False
 
-    def _compute_weight_uom_id(self):
-        weight_uom_id = self.env['product.template']._get_weight_uom_id_from_ir_config_parameter()
+    @api.depends('carrier_id', 'move_ids_without_package')
+    def _compute_return_picking(self):
         for picking in self:
-            picking.weight_uom_id = weight_uom_id
-
+            if picking.carrier_id and hasattr(picking.carrier_id, '%s_get_return_label' % picking.carrier_id.delivery_type):
+                picking.is_return_picking = any(m.origin_returned_move_id for m in picking.move_ids_without_package)
+            else:
+                picking.is_return_picking = False
     @api.depends('move_lines')
     def _cal_weight(self):
         for picking in self:
@@ -111,7 +129,7 @@ class StockPicking(models.Model):
         res = super(StockPicking, self).action_done()
         for pick in self:
             if pick.carrier_id:
-                if pick.carrier_id.integration_level == 'rate_and_ship':
+                if pick.carrier_id.integration_level == 'rate_and_ship' and pick.picking_type_code != 'incoming':
                     pick.send_to_shipper()
                 pick._add_delivery_cost_to_so()
         return res
@@ -176,12 +194,38 @@ class StockPicking(models.Model):
         msg = _("Shipment sent to carrier %s for shipping with tracking number %s<br/>Cost: %.2f %s") % (self.carrier_id.name, self.carrier_tracking_ref, self.carrier_price, order_currency.name)
         self.message_post(body=msg)
 
+    def _get_new_delivery_price(self):
+        if self.carrier_id.integration_level != 'rate_and_ship':
+            res = self.carrier_id.rate_shipment(self.sale_id)
+            if res['success']:
+                self.carrier_price = res['price']
+            else:
+                raise UserError(_("Unable to update the delivery price because of: ") + res['error_message'])
+
+    @api.multi
+    def print_return_label(self):
+        self.ensure_one()
+        res = self.carrier_id.get_return_label(self)
+
     @api.multi
     def _add_delivery_cost_to_so(self):
         self.ensure_one()
         sale_order = self.sale_id
+        # if there isn't a delivery line on the SO yet
         if sale_order.invoice_shipping_on_delivery:
-            sale_order._create_delivery_line(self.carrier_id, self.carrier_price)
+            self._get_new_delivery_price()  # fill `self.carrier_price` if needed
+            sale_order._create_delivery_line(self.carrier_id, self.carrier_price, price_unit_in_description=False)
+        else:
+            # we only want to update the price of the delivery line if the invoice
+            # policy is 'Real' but we chose not to if the user updated it in the meantime
+            delivery_line = sale_order.order_line.filtered(lambda line: line.is_delivery)
+            if self.carrier_id.invoice_policy == 'real' and delivery_line.currency_id.is_zero(delivery_line.price_unit):
+                self._get_new_delivery_price()
+                delivery_line.write({
+                    'price_unit': self.carrier_price,
+                    # remove the estimated price from the description
+                    'name': sale_order.carrier_id.with_context(lang=self.partner_id.lang).name,
+                })
 
     @api.multi
     def open_website_url(self):

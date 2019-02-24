@@ -10,12 +10,13 @@ var ProductConfiguratorFormController = FormController.extend({
     custom_events: _.extend({}, FormController.prototype.custom_events, {
         field_changed: '_onFieldChanged'
     }),
-    className: 'o_product_configurator',
+
     /**
      * @override
      */
-    init: function (){
-        this._super.apply(this, arguments);
+    start: function () {
+        this.$el.addClass('o_product_configurator');
+        return this._super.apply(this, arguments);
     },
     /**
      * We need to override the default click behavior for our "Add" button
@@ -128,7 +129,8 @@ var ProductConfiguratorFormController = FormController.extend({
                 pricelistId: self.renderer.pricelistId,
                 okButtonText: _t('Confirm'),
                 cancelButtonText: _t('Back'),
-                title: _t('Configure')
+                title: _t('Configure'),
+                context: self.initialState.context,
             }).open();
 
             self.optionalProductsModal.on('options_empty', null,

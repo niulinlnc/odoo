@@ -65,7 +65,7 @@ class AccountVoucher(models.Model):
         ('cancel', 'Cancelled'),
         ('proforma', 'Pro-forma'),
         ('posted', 'Posted')
-        ], 'Status', readonly=True, track_visibility='onchange', copy=False, default='draft',
+        ], 'Status', readonly=True, tracking=True, copy=False, default='draft',
         help=" * The 'Draft' status is used when a user is encoding a new and unconfirmed Voucher.\n"
              " * The 'Pro-forma' status is used when the voucher does not have a voucher number.\n"
              " * The 'Posted' status is used when user create voucher,a voucher number is generated and voucher entries are created in account.\n"
@@ -419,7 +419,7 @@ class AccountVoucher(models.Model):
     @api.multi
     def _track_subtype(self, init_values):
         if 'state' in init_values:
-            return 'account_voucher.mt_voucher_state_change'
+            return self.env.ref('account_voucher.mt_voucher_state_change')
         return super(AccountVoucher, self)._track_subtype(init_values)
 
 

@@ -41,20 +41,26 @@ class SaleOrder(models.Model):
             order.only_services = all(l.product_id.type in ('service', 'digital') for l in order.website_order_line)
 
     @api.multi
-    @api.depends('team_id.team_type', 'date_order', 'order_line', 'state', 'partner_id')
+    @api.depends('website_id', 'date_order', 'order_line', 'state', 'partner_id')
     def _compute_abandoned_cart(self):
-        abandoned_delay = self.website_id and self.website_id.cart_abandoned_delay or 1.0
-        abandoned_datetime = datetime.utcnow() - relativedelta(hours=abandoned_delay)
         for order in self:
-            domain = order.date_order and order.date_order <= abandoned_datetime and order.team_id.team_type == 'website' and order.state == 'draft' and order.partner_id.id != self.env.ref('base.public_partner').id and order.order_line
-            order.is_abandoned_cart = bool(domain)
+            # a quotation can be considered as an abandonned cart if it is linked to a website,
+            # is in the 'draft' state and has an expiration date
+            if order.website_id and order.state == 'draft' and order.date_order:
+                public_partner_id = order.website_id.user_id.partner_id
+                # by default the expiration date is 1 hour if not specified on the website configuration
+                abandoned_delay = order.website_id.cart_abandoned_delay or 1.0
+                abandoned_datetime = datetime.utcnow() - relativedelta(hours=abandoned_delay)
+                order.is_abandoned_cart = bool(order.date_order <= abandoned_datetime and order.partner_id != public_partner_id and order.order_line)
+            else:
+                order.is_abandoned_cart = False
 
     def _search_abandoned_cart(self, operator, value):
         abandoned_delay = self.website_id and self.website_id.cart_abandoned_delay or 1.0
         abandoned_datetime = fields.Datetime.to_string(datetime.utcnow() - relativedelta(hours=abandoned_delay))
         abandoned_domain = expression.normalize_domain([
             ('date_order', '<=', abandoned_datetime),
-            ('team_id.team_type', '=', 'website'),
+            ('website_id', '!=', False),
             ('state', '=', 'draft'),
             ('partner_id', '!=', self.env.ref('base.public_partner').id),
             ('order_line', '!=', False)

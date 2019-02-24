@@ -35,13 +35,15 @@ var PieChart = Widget.extend({
         });
 
         this.subViewParams = {
-            context: record.context,
-            domain: domain,
-            groupBy: [],
             modelName: record.model,
             withControlPanel: false,
             isEmbedded: true,
             mode: 'pie',
+        };
+        this.subViewParams.searchQuery = {
+            context: record.context,
+            domain: domain,
+            groupBy: [],
         };
 
         this.viewInfo = {

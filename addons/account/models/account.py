@@ -396,6 +396,7 @@ class AccountJournal(models.Model):
     _name = "account.journal"
     _description = "Journal"
     _order = 'sequence, type, code'
+    _inherit = ['mail.thread', 'mail.activity.mixin']
 
     def _default_inbound_payment_methods(self):
         return self.env.ref('account.account_payment_method_manual_in')
@@ -413,7 +414,7 @@ class AccountJournal(models.Model):
     code = fields.Char(string='Short Code', size=5, required=True, help="The journal entries of this journal will be named using this prefix.")
     active = fields.Boolean(default=True, help="Set active to false to hide the Journal without removing it.")
     type = fields.Selection([
-            ('sale', 'Sale'),
+            ('sale', 'Sales'),
             ('purchase', 'Purchase'),
             ('cash', 'Cash'),
             ('bank', 'Bank'),
@@ -778,7 +779,7 @@ class AccountJournal(models.Model):
             vals.update({'sequence_id': self.sudo()._create_sequence(vals).id})
         if vals.get('type') in ('sale', 'purchase') and vals.get('refund_sequence') and not vals.get('refund_sequence_id'):
             vals.update({'refund_sequence_id': self.sudo()._create_sequence(vals, refund=True).id})
-        journal = super(AccountJournal, self).create(vals)
+        journal = super(AccountJournal, self.with_context(mail_create_nolog=True)).create(vals)
         if journal.type == 'purchase':
             # create a mail alias for purchase journals (always, deactivated if alias_name isn't set)
             journal._update_mail_alias(vals)
@@ -1060,6 +1061,7 @@ class AccountTax(models.Model):
         RETURN: {
             'total_excluded': 0.0,    # Total without taxes
             'total_included': 0.0,    # Total with taxes
+            'total_void'    : 0.0,    # Total with those taxes, that don't have an account set
             'taxes': [{               # One dict for each tax in self and their children
                 'id': int,
                 'name': str,
@@ -1103,9 +1105,9 @@ class AccountTax(models.Model):
 
         base_values = self.env.context.get('base_values')
         if not base_values:
-            total_excluded = total_included = base = round(price_unit * quantity, prec)
+            total_excluded = total_included = total_void = base = round(price_unit * quantity, prec)
         else:
-            total_excluded, total_included, base = base_values
+            total_excluded, total_included, total_void, base = base_values
 
         # Sorting key is mandatory in this case. When no key is provided, sorted() will perform a
         # search. However, the search method is overridden in account.tax in order to add a domain
@@ -1117,11 +1119,12 @@ class AccountTax(models.Model):
             price_include = self._context.get('force_price_include', tax.price_include)
 
             if tax.amount_type == 'group':
-                children = tax.children_tax_ids.with_context(base_values=(total_excluded, total_included, base))
+                children = tax.children_tax_ids.with_context(base_values=(total_excluded, total_included, total_void, base))
                 ret = children.compute_all(price_unit, currency, quantity, product, partner)
                 total_excluded = ret['total_excluded']
                 base = ret['base'] if tax.include_base_amount else base
                 total_included = ret['total_included']
+                total_void = ret['total_void']
                 tax_amount = total_included - total_excluded
                 taxes += ret['taxes']
                 continue
@@ -1137,6 +1140,10 @@ class AccountTax(models.Model):
                 base -= tax_amount
             else:
                 total_included += tax_amount
+            # The total_void amount is computed as the sum of total_excluded
+            # with all tax_amount, where tax has an account set
+            if not tax.account_id:
+                total_void += tax_amount
 
             # Keep base amount used for the current tax
             tax_base = base
@@ -1161,6 +1168,7 @@ class AccountTax(models.Model):
             'taxes': sorted(taxes, key=lambda k: k['sequence']),
             'total_excluded': currency.round(total_excluded) if round_total else total_excluded,
             'total_included': currency.round(total_included) if round_total else total_included,
+            'total_void': currency.round(total_void) if round_total else total_void,
             'base': base,
         }
 

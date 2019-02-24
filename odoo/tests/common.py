@@ -33,7 +33,6 @@ from lxml import etree, html
 
 from odoo.models import BaseModel
 from odoo.osv.expression import normalize_domain
-from odoo.tools import pycompat
 from odoo.tools import single_email_re
 from odoo.tools.misc import find_in_path
 from odoo.tools.safe_eval import safe_eval
@@ -355,10 +354,9 @@ class BaseCase(TreeCase, MetaCase('DummyCase', (object,), {})):
         doc = self._testMethodDoc
         return doc and ' '.join(l.strip() for l in doc.splitlines() if not l.isspace()) or None
 
-    if not pycompat.PY2:
-        # turns out this thing may not be quite as useful as we thought...
-        def assertItemsEqual(self, a, b, msg=None):
-            self.assertCountEqual(a, b, msg=None)
+    # turns out this thing may not be quite as useful as we thought...
+    def assertItemsEqual(self, a, b, msg=None):
+        self.assertCountEqual(a, b, msg=None)
 
 
 class TransactionCase(BaseCase):
@@ -447,7 +445,7 @@ class SavepointCase(SingleTransactionCase):
 class ChromeBrowser():
     """ Helper object to control a Chrome headless process. """
 
-    def __init__(self, logger):
+    def __init__(self, logger, window_size):
         self._logger = logger
         if websocket is None:
             self._logger.warning("websocket-client module is not installed")
@@ -459,6 +457,7 @@ class ChromeBrowser():
         self.user_data_dir = tempfile.mkdtemp(suffix='_chrome_odoo')
         self.chrome_process = None
         self.screencast_frames = []
+        self.window_size = window_size
         self._chrome_start()
         self._find_websocket()
         self._logger.info('Websocket url found: %s', self.ws_url)
@@ -529,7 +528,7 @@ class ChromeBrowser():
             '--disable-extensions': '',
             '--user-data-dir': self.user_data_dir,
             '--disable-translate': '',
-            '--window-size': '1366x768',
+            '--window-size': self.window_size,
             '--remote-debugging-address': HOST,
             '--remote-debugging-port': str(self.devtools_port),
             '--no-sandbox': '',
@@ -735,26 +734,19 @@ class ChromeBrowser():
                 if res.get('result', {}).get('result').get('subtype', '') == 'error':
                     self._logger.error("Running code returned an error")
                     return False
-            elif res and res.get('method') == 'Runtime.consoleAPICalled' and res.get('params', {}).get('type') in ('log', 'error'):
+            elif res and res.get('method') == 'Runtime.consoleAPICalled' and res.get('params', {}).get('type') in ('log', 'error', 'trace'):
                 logs = res.get('params', {}).get('args')
                 log_type = res.get('params', {}).get('type')
                 content = " ".join([str(log.get('value', '')) for log in logs])
                 if log_type == 'error':
                     self._logger.error(content)
-                    logged_error = True
+                    self.take_screenshot()
+                    self._save_screencast()
+                    return False
                 else:
                     self._logger.info('console log: %s', content)
-                for log in logs:
-                    if log.get('type', '') == 'string' and log.get('value', '').lower() == 'ok':
-                        # it is possible that some tests returns ok while an error was shown in logs.
-                        # since runbot should always be red in this case, better explicitly fail.
-                        if logged_error:
-                            return False
+                    if 'test successful' in content:
                         return True
-                    elif log.get('type', '') == 'string' and log.get('value', '').lower().startswith('error'):
-                        self.take_screenshot()
-                        self._save_screencast()
-                        return False
             elif res and res.get('method') == 'Page.screencastFrame':
                 self.screencast_frames.append(res.get('params'))
             elif res:
@@ -790,6 +782,7 @@ class HttpCase(TransactionCase):
     """
     registry_test_mode = True
     browser = None
+    browser_size = '1366x768'
 
     def __init__(self, methodName='runTest'):
         super(HttpCase, self).__init__(methodName)
@@ -805,7 +798,7 @@ class HttpCase(TransactionCase):
     def start_browser(cls, logger):
         # start browser on demand
         if cls.browser is None:
-            cls.browser = ChromeBrowser(logger)
+            cls.browser = ChromeBrowser(logger, cls.browser_size)
 
     @classmethod
     def tearDownClass(cls):
@@ -892,10 +885,10 @@ class HttpCase(TransactionCase):
         - eval(code) inside the page
 
         To signal success test do:
-        console.log('ok')
+        console.log('test successful')
 
         To signal failure do:
-        console.log('error')
+        console.error('test failed')
 
         If neither are done before timeout test fails.
         """
@@ -1093,7 +1086,7 @@ class Form(object):
         if isinstance(view, BaseModel):
             assert view._name == 'ir.ui.view', "the view parameter must be a view id, xid or record, got %s" % view
             view_id = view.id
-        elif isinstance(view, pycompat.string_types):
+        elif isinstance(view, str):
             view_id = env.ref(view).id
         else:
             view_id = view or False
@@ -1101,44 +1094,6 @@ class Form(object):
         fvg['tree'] = etree.fromstring(fvg['arch'])
 
         object.__setattr__(self, '_view', fvg)
-        # TODO: make this less crappy?
-        # look up edition view for the O2M
-        for f, descr in fvg['fields'].items():
-            if descr['type'] != 'one2many':
-                continue
-
-            node = self._get_node(f)
-            default_view = next(
-                (m for m in node.get('mode', 'tree').split(',') if m != 'form'),
-                'tree'
-            )
-
-            refs = {
-                m.group('view_type'): m.group('view_id')
-                for m in ref_re.finditer(node.get('context', ''))
-            }
-            # always fetch for simplicity, ensure we always have a tree and
-            # a form view
-            submodel = env[descr['relation']]
-            views = submodel.with_context(**refs) \
-                .load_views([(False, 'tree'), (False, 'form')])['fields_views']
-            # embedded views should take the priority on externals
-            views.update(descr['views'])
-            # re-set all resolved views on the descriptor
-            descr['views'] = views
-
-            # if the default view is a kanban or a non-editable list, the
-            # "edition controller" is the form view
-            edition = views['form']
-            edition['tree'] = etree.fromstring(edition['arch'])
-            if default_view == 'tree':
-                subarch = etree.fromstring(views['tree']['arch'])
-                if subarch.get('editable'):
-                    edition = views['tree']
-                    edition['tree'] = subarch
-
-            self._process_fvg(submodel, edition)
-            descr['views']['edition'] = edition
 
         self._process_fvg(recordp, fvg)
 
@@ -1154,6 +1109,37 @@ class Form(object):
             self._init_from_values(recordp)
         else:
             self._init_from_defaults(self._model)
+
+    def _o2m_set_edition_view(self, descr, node):
+        default_view = next(
+            (m for m in node.get('mode', 'tree').split(',') if m != 'form'),
+            'tree'
+        )
+        refs = {
+            m.group('view_type'): m.group('view_id')
+            for m in ref_re.finditer(node.get('context', ''))
+        }
+        # always fetch for simplicity, ensure we always have a tree and
+        # a form view
+        submodel = self._env[descr['relation']]
+        views = submodel.with_context(**refs) \
+            .load_views([(False, 'tree'), (False, 'form')])['fields_views']
+        # embedded views should take the priority on externals
+        views.update(descr['views'])
+        # re-set all resolved views on the descriptor
+        descr['views'] = views
+        # if the default view is a kanban or a non-editable list, the
+        # "edition controller" is the form view
+        edition = views['form']
+        edition['tree'] = etree.fromstring(edition['arch'])
+        if default_view == 'tree':
+            subarch = etree.fromstring(views['tree']['arch'])
+            if subarch.get('editable'):
+                edition = views['tree']
+                edition['tree'] = subarch
+
+        self._process_fvg(submodel, edition)
+        descr['views']['edition'] = edition
 
     def _get_node(self, f):
         """ Find etree node for the field ``f`` in the current arch
@@ -1181,7 +1167,7 @@ class Form(object):
         # pre-resolve modifiers & bind to arch toplevel
         modifiers = fvg['modifiers'] = {}
         contexts = fvg['contexts'] = {}
-        for f in fvg['tree'].iter('field'):
+        for f in fvg['tree'].xpath('//field[not(ancestor::field)]'):
             fname = f.get('name')
             modifiers[fname] = {
                 modifier: domain if isinstance(domain, bool) else normalize_domain(domain)
@@ -1190,6 +1176,11 @@ class Form(object):
             ctx = f.get('context')
             if ctx:
                 contexts[fname] = ctx
+
+            descr = fvg['fields'].get(fname) or {'type': None}
+            if descr['type'] == 'one2many':
+                self._o2m_set_edition_view(descr, f)
+
         fvg['modifiers']['id'] = {'required': False, 'readonly': True}
         fvg['onchange'] = model._onchange_spec(fvg)
 
@@ -1435,7 +1426,7 @@ class Form(object):
                 return []
 
             v = []
-            c = {t[1]: t[2] for t in current if t[0] == 1}
+            c = {t[1]: t[2] for t in current if t[0] == 1} if current else {}
             # which view should this be???
             subfields = descr['views']['edition']['fields']
             for command in value:

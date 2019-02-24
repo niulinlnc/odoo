@@ -3,20 +3,19 @@
 # * sale
 # 
 # Translators:
+# Martin Trigaux, 2018
+# Jacara <baskhuujacara@gmail.com>, 2018
 # Otgonbayar.A <gobi.mn@gmail.com>, 2018
-# Purevsuren Demberel <purevsurento@gmail.com>, 2018
 # Khishigbat Ganbold <khishigbat@asterisk-tech.mn>, 2018
 # Onii Onii <onii0223@yahoo.com>, 2018
-# Martin Trigaux, 2019
-# Baskhuu Lodoikhuu <baskhuujacara@gmail.com>, 2019
-# 
+# Purevsuren Demberel <purevsurento@gmail.com>, 2018
 msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-01-09 10:32+0000\n"
-"PO-Revision-Date: 2018-08-24 09:24+0000\n"
-"Last-Translator: Baskhuu Lodoikhuu <baskhuujacara@gmail.com>, 2019\n"
+"POT-Creation-Date: 2018-10-08 06:49+0000\n"
+"PO-Revision-Date: 2018-10-08 06:49+0000\n"
+"Last-Translator: Purevsuren Demberel <purevsurento@gmail.com>, 2018\n"
 "Language-Team: Mongolian (https://www.transifex.com/odoo/teams/41243/mn/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -74,6 +73,13 @@ msgid "&amp;times;"
 msgstr "&amp;times;"
 
 #. module: sale
+#: model_terms:ir.ui.view,arch_db:sale.brand_promotion
+msgid ""
+",\n"
+"                an awesome"
+msgstr ""
+
+#. module: sale
 #: model:product.product,description_sale:sale.product_product_4e
 #: model:product.product,description_sale:sale.product_product_4f
 #: model:product.template,description_sale:sale.product_product_4e_product_template
@@ -123,11 +129,6 @@ msgstr ""
 
 #. module: sale
 #: model_terms:ir.ui.view,arch_db:sale.sale_order_portal_template
-msgid "<i class=\"fa fa-clock-o\" aria-title=\"Dates\" title=\"Dates\"/>"
-msgstr ""
-
-#. module: sale
-#: model_terms:ir.ui.view,arch_db:sale.sale_order_portal_template
 msgid "<i class=\"fa fa-comment\"/> Contact us to get a new quotation."
 msgstr ""
 
@@ -144,13 +145,6 @@ msgstr "<i class=\"fa fa-comment\"/> Санал хүсэлт"
 #. module: sale
 #: model_terms:ir.ui.view,arch_db:sale.sale_order_portal_template
 msgid "<i class=\"fa fa-comment\"/> Send message"
-msgstr ""
-
-#. module: sale
-#: model_terms:ir.ui.view,arch_db:sale.sale_order_portal_content
-msgid ""
-"<i class=\"fa fa-download mr-1\" role=\"img\" aria-label=\"Download\" "
-"title=\"Download\"/>"
 msgstr ""
 
 #. module: sale
@@ -184,21 +178,9 @@ msgid "<i class=\"fa fa-fw fa-remove\"/> Cancelled"
 msgstr ""
 
 #. module: sale
-#: model_terms:ir.ui.view,arch_db:sale.crm_lead_partner_kanban_view
-msgid ""
-"<i class=\"fa fa-fw fa-usd\" role=\"img\" aria-label=\"Sale orders\" "
-"title=\"Sales orders\"/>"
-msgstr ""
-
-#. module: sale
 #: model_terms:ir.ui.view,arch_db:sale.sale_order_portal_template
 msgid "<i class=\"fa fa-print\"/> Print"
 msgstr "<i class=\"fa fa-print\"/> Хэвлэх"
-
-#. module: sale
-#: model_terms:ir.ui.view,arch_db:sale.optional_product_items
-msgid "<i class=\"fa fa-shopping-cart add-optionnal-item\"/> Add to cart"
-msgstr ""
 
 #. module: sale
 #: model_terms:ir.ui.view,arch_db:sale.sale_order_portal_template
@@ -216,6 +198,20 @@ msgid "<small><b class=\"text-muted\">Your advantage</b></small>"
 msgstr ""
 
 #. module: sale
+#: model_terms:ir.ui.view,arch_db:sale.sale_order_portal_content
+msgid ""
+"<span class=\"badge badge-info orders_label_text_align\"><i class=\"fa fa-fw"
+" fa-clock-o\"/> Waiting Payment</span>"
+msgstr ""
+
+#. module: sale
+#: model_terms:ir.ui.view,arch_db:sale.sale_order_portal_content
+msgid ""
+"<span class=\"badge badge-success orders_label_text_align\"><i class=\"fa "
+"fa-fw fa-check\"/> Paid</span>"
+msgstr ""
+
+#. module: sale
 #: model_terms:ir.ui.view,arch_db:sale.portal_my_orders
 msgid ""
 "<span class=\"d-none d-md-inline\">Sales Order #</span>\n"
@@ -223,18 +219,10 @@ msgid ""
 msgstr ""
 
 #. module: sale
-#: model_terms:ir.ui.view,arch_db:sale.res_config_settings_view_form
+#: model_terms:ir.ui.view,arch_db:sale.optional_product_items
 msgid ""
-"<span class=\"fa fa-lg fa-building-o\" title=\"Values set here are company-"
-"specific.\" aria-label=\"Values set here are company-specific.\" "
-"groups=\"base.group_multi_company\" role=\"img\"/>"
-msgstr ""
-
-#. module: sale
-#: model_terms:ir.ui.view,arch_db:sale.res_config_settings_view_form
-msgid ""
-"<span class=\"fa fa-lg fa-building-o\" title=\"Values set here are company-"
-"specific.\" groups=\"base.group_multi_company\"/>"
+"<span class=\"js_item add_qty\">1 </span><span class=\"js_items d-none\">5 "
+"</span>"
 msgstr ""
 
 #. module: sale
@@ -317,6 +305,11 @@ msgid "<strong class=\"mr16\">Subtotal</strong>"
 msgstr ""
 
 #. module: sale
+#: model_terms:ir.ui.view,arch_db:sale.sale_order_portal_content
+msgid "<strong class=\"text-muted d-block mb-1\">Invoices</strong>"
+msgstr ""
+
+#. module: sale
 #: model_terms:ir.ui.view,arch_db:sale.sale_order_portal_template
 msgid "<strong class=\"text-muted\">Your Contact</strong>"
 msgstr ""
@@ -393,11 +386,6 @@ msgstr ""
 #: model_terms:ir.ui.view,arch_db:sale.sale_order_portal_template
 msgid "<strong>This quotation has been canceled.</strong>"
 msgstr ""
-
-#. module: sale
-#: model_terms:ir.ui.view,arch_db:sale.product_configurator_configure_optional_products
-msgid "<strong>Total:</strong>"
-msgstr "Нийт:"
 
 #. module: sale
 #: model_terms:ir.ui.view,arch_db:sale.report_saleorder_document
@@ -1488,7 +1476,7 @@ msgstr "Хэрэв сонгосон бол, шинэ зурвасуудад ан
 #. module: sale
 #: model:ir.model.fields,help:sale.field_sale_order__message_has_error
 msgid "If checked, some messages have a delivery error."
-msgstr "Үүнийг сонговол алдаа үүсэх үед зурвасууд ирнэ."
+msgstr ""
 
 #. module: sale
 #: model_terms:ir.ui.view,arch_db:sale.view_order_form
@@ -1735,11 +1723,6 @@ msgid "Invoicing address:"
 msgstr "Нэхэмжлэх Хаяг"
 
 #. module: sale
-#: model_terms:ir.ui.view,arch_db:sale.sale_order_portal_content
-msgid "Invoicing and Shipping Address"
-msgstr ""
-
-#. module: sale
 #: model_terms:ir.ui.view,arch_db:sale.report_saleorder_document
 msgid "Invoicing and shipping address:"
 msgstr "Нэхэмжлэх ба хүргэх хаяг"
@@ -1795,7 +1778,7 @@ msgstr ""
 #: selection:res.company,sale_onboarding_sample_quotation_state:0
 #: selection:res.company,sale_quotation_onboarding_state:0
 msgid "Just done"
-msgstr "Дөнгөж дууссан"
+msgstr ""
 
 #. module: sale
 #: model_terms:ir.ui.view,arch_db:sale.report_all_channels_sales_view_search
@@ -1872,12 +1855,12 @@ msgstr "Түгжигдсэн"
 #. module: sale
 #: model_terms:ir.ui.view,arch_db:sale.onboarding_quotation_layout_step
 msgid "Looks great!"
-msgstr "Дажгүй харагдаж байна!"
+msgstr ""
 
 #. module: sale
 #: model:ir.model.fields,field_description:sale.field_sale_order__message_main_attachment_id
 msgid "Main Attachment"
-msgstr "Үндсэн хавсралт"
+msgstr ""
 
 #. module: sale
 #: model_terms:ir.ui.view,arch_db:sale.res_config_settings_view_form
@@ -2007,7 +1990,7 @@ msgstr "Шинэ Үнийн санал"
 #. module: sale
 #: model:ir.model.fields,field_description:sale.field_sale_order__activity_date_deadline
 msgid "Next Activity Deadline"
-msgstr "Дараагийн ажилбарын эцсийн огноо"
+msgstr ""
 
 #. module: sale
 #: model:ir.model.fields,field_description:sale.field_sale_order__activity_summary
@@ -2017,7 +2000,7 @@ msgstr "Дараагийн Ажилбарын Хураангуй"
 #. module: sale
 #: model:ir.model.fields,field_description:sale.field_sale_order__activity_type_id
 msgid "Next Activity Type"
-msgstr "Дараагийн ажилбарын төрөл"
+msgstr ""
 
 #. module: sale
 #: selection:product.template,expense_policy:0
@@ -2050,7 +2033,7 @@ msgstr ""
 #: selection:res.company,sale_onboarding_sample_quotation_state:0
 #: selection:res.company,sale_quotation_onboarding_state:0
 msgid "Not done"
-msgstr "Дуусаагүй"
+msgstr ""
 
 #. module: sale
 #: model_terms:ir.ui.view,arch_db:sale.view_order_form
@@ -2081,7 +2064,7 @@ msgstr ""
 #. module: sale
 #: model:ir.model.fields,field_description:sale.field_sale_order__message_has_error_counter
 msgid "Number of error"
-msgstr "Алдааны тоо"
+msgstr ""
 
 #. module: sale
 #: model:ir.model.fields,help:sale.field_sale_order__message_needaction_counter
@@ -2091,7 +2074,7 @@ msgstr "Үйлдэл шаардлагатай зурвасын тоо"
 #. module: sale
 #: model:ir.model.fields,help:sale.field_sale_order__message_has_error_counter
 msgid "Number of messages with delivery error"
-msgstr "Алдааны мэдэгдэл бүхий зурвасын тоо"
+msgstr ""
 
 #. module: sale
 #: model:ir.model.fields,field_description:sale.field_crm_team__quotations_count
@@ -2107,6 +2090,11 @@ msgstr "Нэхэмжлэх борлуулалтын тоо"
 #: model:ir.model.fields,help:sale.field_sale_order__message_unread_counter
 msgid "Number of unread messages"
 msgstr "Уншаагүй зурвасын тоо"
+
+#. module: sale
+#: model_terms:ir.ui.view,arch_db:sale.brand_promotion
+msgid "Odoo"
+msgstr "Odoo"
 
 #. module: sale
 #: model:product.template,description_sale:sale.product_product_1_product_template
@@ -2155,10 +2143,15 @@ msgstr ""
 
 #. module: sale
 #. openerp-web
-#: code:addons/sale/static/src/js/sale.js:49
+#: code:addons/sale/static/src/js/sale.js:32
 #, python-format
 msgid "Only Integer Value should be valid."
 msgstr "Зөвхөн бүхэл тоо байх ёстой."
+
+#. module: sale
+#: model_terms:ir.ui.view,arch_db:sale.brand_promotion
+msgid "Open Source CRM"
+msgstr ""
 
 #. module: sale
 #: model_terms:ir.ui.view,arch_db:sale.optional_product_items
@@ -2480,6 +2473,11 @@ msgid "Posted"
 msgstr "Батлагдсан"
 
 #. module: sale
+#: model_terms:ir.ui.view,arch_db:sale.brand_promotion
+msgid "Powered by"
+msgstr "Дэмжсэн"
+
+#. module: sale
 #: model_terms:ir.ui.view,arch_db:sale.view_order_form
 msgid "Preview"
 msgstr "Урьдчилан харах"
@@ -2608,9 +2606,6 @@ msgstr "Барааны Ангилал"
 
 #. module: sale
 #: model:ir.model.fields,field_description:sale.field_sale_order_line__product_image
-#: model_terms:ir.ui.view,arch_db:sale.optional_product_items
-#: model_terms:ir.ui.view,arch_db:sale.product_configurator_configure
-#: model_terms:ir.ui.view,arch_db:sale.product_configurator_configure_optional_products
 msgid "Product Image"
 msgstr "Бүтээгдэхүүний Зураг"
 
@@ -3655,11 +3650,6 @@ msgid ""
 msgstr ""
 
 #. module: sale
-#: model_terms:ir.ui.view,arch_db:sale.product_configurator_configure
-msgid "This product has no valid combination."
-msgstr ""
-
-#. module: sale
 #: model_terms:ir.actions.act_window,help:sale.action_order_report_all
 msgid ""
 "This report performs analysis on your quotations and sales orders. Analysis "
@@ -3780,6 +3770,11 @@ msgstr ""
 #: model_terms:ir.ui.view,arch_db:sale.view_quotation_tree
 msgid "Total Tax Included"
 msgstr "Татвартай Нийлбэр"
+
+#. module: sale
+#: model_terms:ir.ui.view,arch_db:sale.product_configurator_configure_optional_products
+msgid "Total:"
+msgstr "Нийт:"
 
 #. module: sale
 #: model:ir.model.fields,field_description:sale.field_product_template__service_type

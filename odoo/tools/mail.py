@@ -16,7 +16,7 @@ from lxml import etree
 
 import odoo
 from odoo.loglevels import ustr
-from odoo.tools import pycompat, misc
+from odoo.tools import misc
 
 _logger = logging.getLogger(__name__)
 
@@ -176,11 +176,6 @@ def html_sanitize(src, silent=True, sanitize_tags=True, sanitize_attributes=Fals
 
     logger = logging.getLogger(__name__ + '.html_sanitize')
 
-    # html encode email tags
-    part = re.compile(r"(<(([^a<>]|a[^<>\s])[^<>]*)@[^<>]+>)", re.IGNORECASE | re.DOTALL)
-    # remove results containing cite="mid:email_like@address" (ex: blockquote cite)
-    # cite_except = re.compile(r"^((?!cite[\s]*=['\"]).)*$", re.IGNORECASE)
-    src = part.sub(lambda m: (u'cite=' not in m.group(1) and u'alt=' not in m.group(1) and u'src=' not in m.group(1)) and misc.html_escape(m.group(1)) or m.group(1), src)
     # html encode mako tags <% ... %> to decode them later and keep them alive, otherwise they are stripped by the cleaner
     src = src.replace(u'<%', misc.html_escape(u'<%'))
     src = src.replace(u'%>', misc.html_escape(u'%>'))
@@ -224,7 +219,7 @@ def html_sanitize(src, silent=True, sanitize_tags=True, sanitize_attributes=Fals
         # some corner cases make the parser crash (such as <SCRIPT/XSS SRC=\"http://ha.ckers.org/xss.js\"></SCRIPT> in test_mail)
         cleaner = _Cleaner(**kwargs)
         cleaned = cleaner.clean_html(src)
-        assert isinstance(cleaned, pycompat.text_type)
+        assert isinstance(cleaned, str)
         # MAKO compatibility: $, { and } inside quotes are escaped, preventing correct mako execution
         cleaned = cleaned.replace(u'%24', u'$')
         cleaned = cleaned.replace(u'%7B', u'{')
@@ -238,7 +233,7 @@ def html_sanitize(src, silent=True, sanitize_tags=True, sanitize_attributes=Fals
         # html considerations so real html content match database value
         cleaned.replace(u'\xa0', u'&nbsp;')
     except etree.ParserError as e:
-        if u'empty' in pycompat.text_type(e):
+        if 'empty' in str(e):
             return u""
         if not silent:
             raise
@@ -502,6 +497,21 @@ def email_split_and_format(text):
                 if addr[1]
                 if '@' in addr[1]]
 
+def email_normalize(text):
+    """ Sanitize and standardize email address entries.
+        A normalized email is considered as :
+        - having a left part + @ + a right part (the domain can be without '.something')
+        - being lower case
+        - having no name before the address. Typically, having no 'Name <>'
+        Ex:
+        - Possible Input Email : 'Name <NaMe@DoMaIn.CoM>'
+        - Normalized Output Email : 'name@domain.com'
+    """
+    emails = email_split(text)
+    if not emails or len(emails) != 1:
+        return False
+    return emails[0].lower()
+
 def email_escape_char(email_address):
     """ Escape problematic characters in the given email address string"""
     return email_address.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
@@ -530,10 +540,7 @@ def decode_smtp_header(smtp_header):
         smtp_header = ustr(smtp_header)
     if smtp_header:
         text = decode_header(smtp_header.replace('\r', ''))
-        # The joining space will not be needed as of Python 3.3
-        # See https://github.com/python/cpython/commit/07ea53cb218812404cdbde820647ce6e4b2d0f8e
-        sep = ' ' if pycompat.PY2 else ''
-        return sep.join([ustr(x[0], x[1]) for x in text])
+        return ''.join([ustr(x[0], x[1]) for x in text])
     return u''
 
 # was mail_thread.decode_header()

@@ -12,7 +12,7 @@ The specific and easy-to-use Invoicing system in Odoo allows you to keep track o
 
 You could use this simplified accounting in case you work with an (external) account to keep your books, and you still want to keep track of payments. This module also offers you an easy method of registering payments, without having to encode complete abstracts of account.
     """,
-    'category': 'Invoicing Management',
+    'category': 'Invoicing',
     'website': 'https://www.odoo.com/page/billing',
     'images' : ['images/accounts.jpeg','images/bank_statement.jpeg','images/cash_register.jpeg','images/chart_of_accounts.jpeg','images/customer_invoice.jpeg','images/journal_entries.jpeg'],
     'depends' : ['base_setup', 'product', 'analytic', 'portal', 'digest'],
@@ -59,7 +59,6 @@ You could use this simplified accounting in case you work with an (external) acc
         'views/account_fiscal_year_view.xml',
         'views/account_incoterms_view.xml',
         'data/account_incoterms_data.xml',
-        'views/res_company_view.xml',
         'views/digest_views.xml',
         'wizard/account_invoice_send_views.xml',
     ],

@@ -10,7 +10,7 @@ from odoo.osv import expression
 
 from odoo.addons import decimal_precision as dp
 
-from odoo.tools import float_compare, pycompat
+from odoo.tools import float_compare
 
 _logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ class ProductProduct(models.Model):
     _name = "product.product"
     _description = "Product"
     _inherits = {'product.template': 'product_tmpl_id'}
-    _inherit = ['mail.thread', 'mail.activity.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'image.mixin']
     _order = 'default_code, name, id'
 
     # price: total price, context dependent (partner, pricelist, quantity)
@@ -97,7 +97,7 @@ class ProductProduct(models.Model):
         help="This is the sum of the extra price of all attributes")
     # lst_price: catalog value + extra, context dependent (uom)
     lst_price = fields.Float(
-        'Sale Price', compute='_compute_product_lst_price',
+        'Public Price', compute='_compute_product_lst_price',
         digits=dp.get_precision('Product Price'), inverse='_set_product_lst_price',
         help="The sale price is managed from the product template. Click on the 'Configure Variants' button to set the extra attribute prices.")
 
@@ -118,20 +118,6 @@ class ProductProduct(models.Model):
         'product.attribute.value', string='Attribute Values', ondelete='restrict')
     product_template_attribute_value_ids = fields.Many2many(
         'product.template.attribute.value', string='Template Attribute Values', compute="_compute_product_template_attribute_value_ids")
-    # image: all image fields are base64 encoded and PIL-supported
-    image_variant = fields.Binary(
-        "Variant Image", attachment=True,
-        help="This field holds the image used as image for the product variant, limited to 1024x1024px.")
-    image = fields.Binary(
-        "Big-sized image", compute='_compute_images', inverse='_set_image',
-        help="Image of the product variant (Big-sized image of product template if false). It is automatically "
-             "resized as a 1024x1024px image, with aspect ratio preserved.")
-    image_small = fields.Binary(
-        "Small-sized image", compute='_compute_images', inverse='_set_image_small',
-        help="Image of the product variant (Small-sized image of product template if false).")
-    image_medium = fields.Binary(
-        "Medium-sized image", compute='_compute_images', inverse='_set_image_medium',
-        help="Image of the product variant (Medium-sized image of product template if false).")
     is_product_variant = fields.Boolean(compute='_compute_is_product_variant')
 
     standard_price = fields.Float(
@@ -141,10 +127,8 @@ class ProductProduct(models.Model):
         help = "Cost used for stock valuation in standard price and as a first price to set in average/fifo. "
                "Also used as a base price for pricelists. "
                "Expressed in the default unit of measure of the product.")
-    volume = fields.Float('Volume', help="The volume in m3.")
-    weight = fields.Float(
-        'Weight', digits=dp.get_precision('Stock Weight'),
-        help="Weight of the product, packaging not included. The unit of measure can be changed in the general settings")
+    volume = fields.Float('Volume')
+    weight = fields.Float('Weight', digits=dp.get_precision('Stock Weight'))
 
     pricelist_item_ids = fields.Many2many(
         'product.pricelist.item', 'Pricelist Items', compute='_get_pricelist_items')
@@ -173,11 +157,11 @@ class ProductProduct(models.Model):
             quantity = self.env.context.get('quantity', 1.0)
 
             # Support context pricelists specified as display_name or ID for compatibility
-            if isinstance(pricelist_id_or_name, pycompat.string_types):
+            if isinstance(pricelist_id_or_name, str):
                 pricelist_name_search = self.env['product.pricelist'].name_search(pricelist_id_or_name, operator='=', limit=1)
                 if pricelist_name_search:
                     pricelist = self.env['product.pricelist'].browse([pricelist_name_search[0][0]])
-            elif isinstance(pricelist_id_or_name, pycompat.integer_types):
+            elif isinstance(pricelist_id_or_name, int):
                 pricelist = self.env['product.pricelist'].browse(pricelist_id_or_name)
 
             if pricelist:
@@ -237,52 +221,11 @@ class ProductProduct(models.Model):
     def _compute_partner_ref(self):
         for supplier_info in self.seller_ids:
             if supplier_info.name.id == self._context.get('partner_id'):
-                product_name = supplier_info.product_name or self.default_code or self.name
+                product_name = supplier_info.product_name or supplier_info.product_code or self.default_code or self.name
                 self.partner_ref = '%s%s' % (self.code and '[%s] ' % self.code or '', product_name)
                 break
         else:
-            self.partner_ref = self.name_get()[0][1]
-
-    @api.one
-    @api.depends('image_variant', 'product_tmpl_id.image')
-    def _compute_images(self):
-        if self._context.get('bin_size'):
-            self.image_medium = self.image_variant
-            self.image_small = self.image_variant
-            self.image = self.image_variant
-        else:
-            resized_images = tools.image_get_resized_images(self.image_variant, return_big=True, avoid_resize_medium=True)
-            self.image_medium = resized_images['image_medium']
-            self.image_small = resized_images['image_small']
-            self.image = resized_images['image']
-        if not self.image_medium:
-            self.image_medium = self.product_tmpl_id.image_medium
-        if not self.image_small:
-            self.image_small = self.product_tmpl_id.image_small
-        if not self.image:
-            self.image = self.product_tmpl_id.image
-
-    @api.one
-    def _set_image(self):
-        self._set_image_value(self.image)
-
-    @api.one
-    def _set_image_medium(self):
-        self._set_image_value(self.image_medium)
-
-    @api.one
-    def _set_image_small(self):
-        self._set_image_value(self.image_small)
-
-    @api.one
-    def _set_image_value(self, value):
-        if isinstance(value, pycompat.text_type):
-            value = value.encode('ascii')
-        image = tools.image_resize_image_big(value)
-        if self.product_tmpl_id.image:
-            self.image_variant = image
-        else:
-            self.product_tmpl_id.image = image
+            self.partner_ref = self.display_name
 
     @api.depends('product_tmpl_id', 'attribute_value_ids')
     def _compute_product_template_attribute_value_ids(self):
@@ -307,6 +250,26 @@ class ProductProduct(models.Model):
                     _logger.warning("A matching product.template.attribute.value was not found for the product.attribute.value #%s on the template #%s" % (pav.id, product.product_tmpl_id.id))
                 else:
                     product.product_template_attribute_value_ids += values_per_template[product.product_tmpl_id.id][pav.id]
+
+    @api.multi
+    def _get_image_fallback_record(self):
+        """Override to get the image from the template if no image is set on the
+        variant."""
+        return self.product_tmpl_id
+
+    @api.multi
+    def _force_write_image_on_fallback(self):
+        """Override to always write on the template if there is only one
+        variant.
+
+        This is needed because when there is only one variant, the user doesn't
+        know there is a difference between template and variant, he expects both
+        images to be the same.
+        """
+        return self.env['product.product'].search_count([
+            ('product_tmpl_id', '=', self.product_tmpl_id.id),
+            ('active', '=', True),
+        ]) <= 1
 
     @api.one
     def _get_pricelist_items(self):
@@ -334,7 +297,7 @@ class ProductProduct(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         products = super(ProductProduct, self.with_context(create_product_product=True)).create(vals_list)
-        for product, vals in pycompat.izip(products, vals_list):
+        for product, vals in zip(products, vals_list):
             # When a unique variant is created from tmpl then the standard price is set by _set_standard_price
             if not (self.env.context.get('create_from_tmpl') and len(product.product_tmpl_id.product_variant_ids) == 1):
                 product._set_standard_price(vals.get('standard_price') or 0.0)
@@ -405,6 +368,7 @@ class ProductProduct(models.Model):
             partner_ids = [partner_id, self.env['res.partner'].browse(partner_id).commercial_partner_id.id]
         else:
             partner_ids = []
+        company_id = self.env.context.get('company_id')
 
         # all user don't have access to seller and partner
         # check access and use superuser
@@ -442,6 +406,11 @@ class ProductProduct(models.Model):
                 sellers = [x for x in product_supplier_info if x.product_id and x.product_id == product]
                 if not sellers:
                     sellers = [x for x in product_supplier_info if not x.product_id]
+                # Filter out sellers based on the company. This is done afterwards for a better
+                # code readability. At this point, only a few sellers should remain, so it should
+                # not be a performance issue.
+                if company_id:
+                    sellers = [x for x in sellers if x.company_id.id in [company_id, False]]
             if sellers:
                 for s in sellers:
                     seller_variant = s.product_name and (
@@ -682,6 +651,14 @@ class ProductProduct(models.Model):
         self.ensure_one()
         return self.product_tmpl_id._is_combination_possible(self.product_template_attribute_value_ids, parent_combination=parent_combination)
 
+    @api.multi
+    def toggle_active(self):
+        """ Archiving related product.template if there is only one active product.product """
+        with_one_active = self.filtered(lambda product: len(product.product_tmpl_id.product_variant_ids) == 1)
+        for product in with_one_active:
+            product.product_tmpl_id.toggle_active()
+        return super(ProductProduct, self - with_one_active).toggle_active()
+
 
 class ProductPackaging(models.Model):
     _name = "product.packaging"
@@ -691,7 +668,7 @@ class ProductPackaging(models.Model):
     name = fields.Char('Package Type', required=True)
     sequence = fields.Integer('Sequence', default=1, help="The first in the sequence is the default one.")
     product_id = fields.Many2one('product.product', string='Product')
-    qty = fields.Float('Contained Quantity', help="The total number of products you can have per pallet or box.")
+    qty = fields.Float('Contained Quantity', help="Quantity of products contained in the packaging.")
     barcode = fields.Char('Barcode', copy=False, help="Barcode used for packaging identification.")
     product_uom_id = fields.Many2one('uom.uom', related='product_id.uom_id', readonly=True)
 

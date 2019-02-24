@@ -279,7 +279,7 @@ class MailThread(models.AbstractModel):
                 thread._message_log(body=_('%s created') % doc_name)
 
         # auto_subscribe: take values and defaults into account
-        for thread, values in pycompat.izip(threads, vals_list):
+        for thread, values in zip(threads, vals_list):
             create_values = dict(values)
             for key, val in self._context.items():
                 if key.startswith('default_') and key[8:] not in create_values:
@@ -292,7 +292,7 @@ class MailThread(models.AbstractModel):
                 track_threads = threads.with_context(lang=self.env.user.lang)
             else:
                 track_threads = threads
-            for thread, values in pycompat.izip(track_threads, vals_list):
+            for thread, values in zip(track_threads, vals_list):
                 tracked_fields = thread._get_tracked_fields(list(values))
                 if tracked_fields:
                     initial_values = {thread.id: dict.fromkeys(tracked_fields, False)}
@@ -378,7 +378,7 @@ class MailThread(models.AbstractModel):
                 alias = aliases[0]
 
         if alias:
-            email_link = "<a href='mailto:%(email)s'>%(email)s</a>" % {'email': alias.name_get()[0][1]}
+            email_link = "<a href='mailto:%(email)s'>%(email)s</a>" % {'email': alias.display_name}
             if nothing_here:
                 return "<p class='o_view_nocontent_smiling_face'>%(dyn_help)s</p>" % {
                     'dyn_help': _("Add a new %(document)s or send an email to %(email_link)s") % {
@@ -547,7 +547,8 @@ class MailThread(models.AbstractModel):
         """
         tracked_fields = []
         for name, field in self._fields.items():
-            if getattr(field, 'track_visibility', False):
+            tracking = getattr(field, 'tracking', None) or getattr(field, 'track_visibility', None)
+            if tracking:
                 tracked_fields.append(name)
 
         if tracked_fields:
@@ -564,7 +565,7 @@ class MailThread(models.AbstractModel):
         :param init_values: the original values of the record; only modified fields
                             are present in the dict
         :type init_values: dict
-        :returns: a subtype xml_id or False if no subtype is trigerred
+        :returns: a subtype browse record or False if no subtype is trigerred
         """
         return False
 
@@ -580,7 +581,7 @@ class MailThread(models.AbstractModel):
         for field_name, (template, post_kwargs) in templates.items():
             if not template:
                 continue
-            if isinstance(template, pycompat.string_types):
+            if isinstance(template, str):
                 self.message_post_with_view(template, **post_kwargs)
             else:
                 self.message_post_with_template(template.id, **post_kwargs)
@@ -600,7 +601,7 @@ class MailThread(models.AbstractModel):
         and initial values, return a structure that is a tuple containing :
 
          - a set of updated column names
-         - a list of changes (initial value, new value, column name, column info) """
+         - a list of ORM (0, 0, values) commands to create 'mail.tracking.value' """
         self.ensure_one()
         changes = set()  # contains onchange tracked fields that changed
         tracking_value_ids = []
@@ -611,8 +612,11 @@ class MailThread(models.AbstractModel):
             new_value = getattr(self, col_name)
 
             if new_value != initial_value and (new_value or initial_value):  # because browse null != False
-                track_sequence = getattr(self._fields[col_name], 'track_sequence', 100)
-                tracking = self.env['mail.tracking.value'].create_tracking_values(initial_value, new_value, col_name, col_info, track_sequence)
+                tracking_sequence = getattr(self._fields[col_name], 'tracking',
+                                            getattr(self._fields[col_name], 'track_sequence', 100))  # backward compatibility with old parameter name
+                if tracking_sequence is True:
+                    tracking_sequence = 100
+                tracking = self.env['mail.tracking.value'].create_tracking_values(initial_value, new_value, col_name, col_info, tracking_sequence)
                 if tracking:
                     tracking_value_ids.append([0, 0, tracking])
 
@@ -637,17 +641,15 @@ class MailThread(models.AbstractModel):
                 continue
 
             # find subtypes and post messages or log if no subtype found
-            subtype_xmlid = False
+            subtype = False
             # By passing this key, that allows to let the subtype empty and so don't sent email because partners_to_notify from mail_message._notify will be empty
             if not self._context.get('mail_track_log_only'):
-                subtype_xmlid = record._track_subtype(dict((col_name, initial_values[record.id][col_name]) for col_name in changes))
-
-            if subtype_xmlid:
-                subtype_rec = self.env.ref(subtype_xmlid)  # TDE FIXME check for raise if not found
-                if not (subtype_rec and subtype_rec.exists()):
-                    _logger.debug('subtype %s not found' % subtype_xmlid)
+                subtype = record._track_subtype(dict((col_name, initial_values[record.id][col_name]) for col_name in changes))
+            if subtype:
+                if not subtype.exists():
+                    _logger.debug('subtype "%s" not found' % subtype.name)
                     continue
-                record.message_post(subtype=subtype_xmlid, tracking_value_ids=tracking_value_ids)
+                record.message_post(subtype_id=subtype.id, tracking_value_ids=tracking_value_ids)
             elif tracking_value_ids:
                 record._message_log(tracking_value_ids=tracking_value_ids)
 
@@ -1395,15 +1397,9 @@ class MailThread(models.AbstractModel):
         # convert it to utf-8 for transport between the mailgate script and here.
         if isinstance(message, xmlrpclib.Binary):
             message = bytes(message.data)
-        # message_from_string parses from a *native string*, except apparently
-        # sometimes message is ISO-8859-1 binary data or some shit and the
-        # straightforward version (pycompat.to_native) won't work right ->
-        # always encode message to bytes then use the relevant method
-        # depending on ~python version
-        if isinstance(message, pycompat.text_type):
+        if isinstance(message, str):
             message = message.encode('utf-8')
-        extract = getattr(email, 'message_from_bytes', email.message_from_string)
-        msg_txt = extract(message)
+        msg_txt = email.message_from_bytes(message)
 
         # parse the message, verify we are not in a loop by checking message_id is not duplicated
         msg = self.message_parse(msg_txt, save_original=save_original)
@@ -1517,8 +1513,7 @@ class MailThread(models.AbstractModel):
         for node in to_remove:
             node.getparent().remove(node)
         if postprocessed:
-            body = etree.tostring(root, pretty_print=False, encoding='UTF-8')
-            body = pycompat.to_native(body)
+            body = etree.tostring(root, pretty_print=False, encoding='unicode')
         return body, attachments
 
     def _message_extract_payload(self, message, save_original=False):
@@ -1630,7 +1625,7 @@ class MailThread(models.AbstractModel):
         }
         if not isinstance(message, Message):
             # message_from_string works on a native str
-            message = pycompat.to_native(message)
+            message = pycompat.to_text(message)
             message = email.message_from_string(message)
 
         message_id = message['message-id']
@@ -1702,6 +1697,8 @@ class MailThread(models.AbstractModel):
             recipient_ids, email_to, email_cc = set(), False, False
             if 'partner_id' in self._fields and record.partner_id:
                 recipient_ids.add(record.partner_id.id)
+            elif 'email_normalized' in self._fields and record.email_normalized:
+                email_to = record.email_normalized
             elif 'email_from' in self._fields and record.email_from:
                 email_to = record.email_from
             elif 'partner_email' in self._fields and record.partner_email:
@@ -1888,7 +1885,7 @@ class MailThread(models.AbstractModel):
                 cid = info and info.get('cid')
             else:
                 continue
-            if isinstance(content, pycompat.text_type):
+            if isinstance(content, str):
                 content = content.encode('utf-8')
             elif content is None:
                 continue
@@ -1982,7 +1979,7 @@ class MailThread(models.AbstractModel):
                 partner_ids.add(partner_id[1])
             if isinstance(partner_id, (list, tuple)) and partner_id[0] == 6 and len(partner_id) == 3:
                 partner_ids |= set(partner_id[2])
-            elif isinstance(partner_id, pycompat.integer_types):
+            elif isinstance(partner_id, int):
                 partner_ids.add(partner_id)
             else:
                 pass  # we do not manage anything else
@@ -2102,7 +2099,7 @@ class MailThread(models.AbstractModel):
             values['slug'] = slug
         except ImportError:
             values['slug'] = lambda self: self.id
-        if isinstance(views_or_xmlid, pycompat.string_types):
+        if isinstance(views_or_xmlid, str):
             views = self.env.ref(views_or_xmlid, raise_if_not_found=False)
         else:
             views = views_or_xmlid
@@ -2318,7 +2315,7 @@ class MailThread(models.AbstractModel):
         """
         fnames = []
         for name, field in self._fields.items():
-            if name == 'user_id' and updated_values.get(name) and getattr(field, 'track_visibility', False):
+            if name == 'user_id' and updated_values.get(name) and (getattr(field, 'track_visibility', False) or getattr(field, 'tracking', False)):
                 if field.comodel_name == 'res.users':
                     fnames.append(name)
 

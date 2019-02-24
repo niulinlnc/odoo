@@ -76,13 +76,12 @@ QUnit.module('base_settings_tests', {
                 '</form>',
         });
 
-        form.$("div[setting='project']").click();
-        assert.strictEqual(form.$('.selected').attr('data-key'),"crm","crm setting selected");
-        assert.strictEqual(form.$(".settings .app_settings_block").hasClass('o_hidden'),false,"project settings show");
+        assert.hasAttrValue(form.$('.selected'), 'data-key',"crm","crm setting selected");
+        assert.isVisible(form.$(".settings .app_settings_block"), "project settings show");
         form.$('.searchInput').val('b').trigger('keyup');
         assert.strictEqual($('.highlighter').html(),"B","b word hilited");
         form.$('.searchInput').val('bx').trigger('keyup');
-        assert.strictEqual(form.$('.notFound').hasClass('o_hidden'),false,"record not found message shown");
+        assert.isVisible(form.$('.notFound'), "record not found message shown");
         form.destroy();
     });
 
@@ -125,10 +124,9 @@ QUnit.module('base_settings_tests', {
         });
 
         actionManager.doAction(1);
-        actionManager.$('button[name="4"]').click();
-        $('.o_control_panel .breadcrumb-item a').click();
-        assert.ok(actionManager.$('.o_form_view').hasClass('o_form_editable'),
-            'settings view should still be in edit mode');
+        testUtils.dom.click(actionManager.$('button[name="4"]'));
+        testUtils.dom.click($('.o_control_panel .breadcrumb-item a'));
+        assert.hasClass(actionManager.$('.o_form_view'), 'o_form_editable');
         assert.verifySteps([
             'load_views', // initial setting action
             'default_get', // this is a setting view => create new record
@@ -177,6 +175,42 @@ QUnit.module('base_settings_tests', {
         assert.strictEqual(form.$('.app_settings_block').text().replace(/\s/g,''), 'CRMcrmtab');
         form.reload();
         assert.strictEqual(form.$('.app_settings_block').text().replace(/\s/g,''), 'CRMcrmtab');
+        form.destroy();
+    });
+
+    QUnit.test('settings view shows statusbar buttons only if there are changes to save', function (assert) {
+        assert.expect(5);
+
+        var form = createView({
+            View: BaseSettingsView,
+            model: 'project',
+            data: this.data,
+            arch: '<form string="Settings" class="oe_form_configuration o_base_settings">' +
+                    '<header>' +
+                        '<button string="Save" type="object" name="execute" class="oe_highlight" />' +
+                        '<button string="Discard" type="object" name="cancel" special="cancel" />'+
+                    '</header>' +
+                    '<div class="o_setting_container">' +
+                        '<div class="settings_tab"/>' +
+                        '<div class="settings">' +
+                            '<div class="notFound o_hidden">No Record Found</div>' +
+                            '<div class="app_settings_block" string="Base Setting" data-key="base-setting">' +
+                                '<field name="bar"/>Make Changes' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</form>',
+        });
+
+        testUtils.mock.intercept(form, "field_changed", function (event) {
+            assert.ok("field changed");
+        }, true);
+
+        assert.containsNone(form, '.o_field_boolean input:checked', "checkbox should not be checked");
+        assert.hasClass(form.$('.o_statusbar_buttons'), 'd-none', "statusbar buttons should not be shown");
+        testUtils.dom.click(form.$("input[type='checkbox']"));
+        assert.strictEqual(form.$('.o_field_boolean input:checked').length, 1,"checkbox should be checked");
+        assert.isVisible(form.$('.o_statusbar_buttons'), "statusbar buttons should be shown");
         form.destroy();
     });
 

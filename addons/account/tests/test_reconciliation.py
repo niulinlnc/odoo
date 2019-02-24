@@ -1,5 +1,6 @@
 from odoo import api, fields
 from odoo.addons.account.tests.account_test_classes import AccountingTestCase
+from odoo.exceptions import UserError
 from odoo.tests import tagged
 import time
 import unittest
@@ -388,7 +389,7 @@ class TestReconciliation(AccountingTestCase):
         self.assertEquals(invoice.state, 'paid', 'The invoice should be paid by now')
         reconcile = None
         for payment in invoice.payment_ids:
-            reconcile = payment.reconcile_id
+            reconcile = payment.reconcile_model_id
             break
         # The invoice should be reconciled (entirely, not a partial reconciliation)
         self.assertTrue(reconcile, 'The invoice should be totally reconciled')
@@ -1453,6 +1454,40 @@ class TestReconciliation(AccountingTestCase):
                 expected['tax_10']
             )
             index += 1
+            
+    def test_reconciliation_to_check(self):
+        partner = self.env['res.partner'].create({'name': 'UncertainPartner'})
+        currency = self.env.user.company_id.currency_id
+        invoice = self.create_invoice_partner(currency_id=currency.id, partner_id=partner.id)
+        journal = self.env['account.journal'].create({'name': 'Bank', 'type': 'bank', 'code': 'THE', 'update_posted':True})
+        
+        statement = self.make_payment(invoice, journal, 50)
+        st_line = statement.line_ids
+        previous_move_lines = st_line.journal_entry_ids.ids
+        previous_name = st_line.move_name
+        
+        with self.assertRaises(UserError): #you need edition mode to be able to change it
+            st_line.with_context(edition_mode=False).process_reconciliation(
+                counterpart_aml_dicts=[],
+                new_aml_dicts = [{
+                  'debit': 0,
+                  'credit': 50,
+                  'name': 'exchange difference',
+                  'account_id': self.diff_income_account.id
+                }],
+            )
+            
+        st_line.with_context(edition_mode=True).process_reconciliation(
+            counterpart_aml_dicts=[],
+            new_aml_dicts = [{
+              'debit': 0,
+              'credit': 50,
+              'name': 'exchange difference',
+              'account_id': self.diff_income_account.id
+            }],
+        )
+        self.assertEqual(previous_name, st_line.move_name) # the name of the move hasnt changed
+        self.assertNotEqual(previous_move_lines, st_line.journal_entry_ids.ids) # the lines are new
 
     def test_reconciliation_cash_basis_fx_01(self):
         """

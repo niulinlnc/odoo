@@ -23,12 +23,12 @@ class ProductTemplate(models.Model):
     sale_line_warn_msg = fields.Text('Message for Sales Order Line')
     expense_policy = fields.Selection(
         [('no', 'No'), ('cost', 'At cost'), ('sales_price', 'Sales price')],
-        string='Re-Invoice Policy',
+        string='Re-Invoice Expenses',
         default='no',
         help="Expenses and vendor bills can be re-invoiced to a customer."
              "With this option, a validated expense can be re-invoice to a customer at its cost or sales price.")
+    visible_expense_policy = fields.Boolean("Re-Invoice Policy visible", compute='_compute_visible_expense_policy')
     sales_count = fields.Float(compute='_compute_sales_count', string='Sold')
-    hide_expense_policy = fields.Boolean(compute='_compute_hide_expense_policy')
     invoice_policy = fields.Selection([
         ('order', 'Ordered quantities'),
         ('delivery', 'Delivered quantities')], string='Invoicing Policy',
@@ -37,10 +37,11 @@ class ProductTemplate(models.Model):
         default='order')
 
     @api.multi
-    def _compute_hide_expense_policy(self):
-        hide_expense_policy = self.user_has_groups('!analytic.group_analytic_accounting,!project.group_project_user,!hr_expense.group_hr_expense_user')
-        for template in self:
-            template.hide_expense_policy = hide_expense_policy
+    @api.depends('name')
+    def _compute_visible_expense_policy(self):
+        visibility = self.user_has_groups('analytic.group_analytic_accounting')
+        for product_template in self:
+            product_template.visible_expense_policy = visibility
 
     @api.multi
     @api.depends('product_variant_ids.sales_count')
@@ -53,9 +54,11 @@ class ProductTemplate(models.Model):
         action = self.env.ref('sale.report_all_channels_sales_action').read()[0]
         action['domain'] = [('product_tmpl_id', 'in', self.ids)]
         action['context'] = {
-            'search_default_last_year': 1,
-            'pivot_measures': ['product_qty'],
-            'search_default_team_id': 1
+            'pivot_measures': ['product_uom_qty'],
+            'active_id': self._context.get('active_id'),
+            'active_model': 'sale.report',
+            'search_default_Sales': 1,
+            'time_ranges': {'field': 'date', 'range': 'last_365_days'}
         }
         return action
 

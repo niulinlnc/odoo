@@ -16,12 +16,20 @@ var session = require('web.session');
 var testUtilsCreate = require('web.test_utils_create');
 var testUtilsDom = require('web.test_utils_dom');
 var testUtilsFields = require('web.test_utils_fields');
+var testUtilsFile = require('web.test_utils_file');
 var testUtilsForm = require('web.test_utils_form');
 var testUtilsGraph = require('web.test_utils_graph');
 var testUtilsKanban = require('web.test_utils_kanban');
 var testUtilsMock = require('web.test_utils_mock');
 var testUtilsModal = require('web.test_utils_modal');
 var testUtilsPivot = require('web.test_utils_pivot');
+var tools = require('web.tools');
+
+function deprecated(fn, type) {
+    var msg = `Helper 'testUtils.${fn.name}' is deprecated. ` +
+        `Please use 'testUtils.${type}.${fn.name}' instead.`;
+    return tools.deprecated(fn, msg);
+}
 
 // Loading static files cannot be properly simulated when their real content is
 // really needed. This is the case for static XML files so we load them here,
@@ -38,25 +46,6 @@ return $.when(
         QUnit.start();
     }, 0);
     return {
-        addMockEnvironment: testUtilsMock.addMockEnvironment,
-        createActionManager: testUtilsCreate.createActionManager,
-        createDebugManager: testUtilsCreate.createDebugManager,
-        createAsyncView: testUtilsCreate.createAsyncView,
-        createModel: testUtilsCreate.createModel,
-        createParent: testUtilsCreate.createParent,
-        createView: testUtilsCreate.createView,
-        dragAndDrop: testUtilsDom.dragAndDrop,
-        fieldsViewGet: testUtilsMock.fieldsViewGet,
-        intercept: testUtilsMock.intercept,
-        openDatepicker: testUtilsDom.openDatepicker,
-        patch: testUtilsMock.patch,
-        patchDate: testUtilsMock.patchDate,
-        triggerKeypressEvent: testUtilsDom.triggerKeypressEvent,
-        triggerMouseEvent: testUtilsDom.triggerMouseEvent,
-        triggerPositionalMouseEvent: testUtilsDom.triggerPositionalMouseEvent,
-        unpatch: testUtilsMock.unpatch,
-
-        // backport of new tests helpers -> DO NOT FORWARD PORT
         mock: {
             addMockEnvironment: testUtilsMock.addMockEnvironment,
             intercept: testUtilsMock.intercept,
@@ -104,13 +93,39 @@ return $.when(
             many2one: {
                 clickOpenDropdown: testUtilsFields.clickOpenM2ODropdown,
                 clickHighlightedItem: testUtilsFields.clickM2OHighlightedItem,
-                clickItem: testUtilsFields.clickM2OItem,
+				clickItem: testUtilsFields.clickM2OItem,
                 searchAndClickItem: testUtilsFields.searchAndClickM2OItem,
             },
             editInput: testUtilsFields.editInput,
             editSelect: testUtilsFields.editSelect,
             editAndTrigger: testUtilsFields.editAndTrigger,
         },
+        file: {
+            createFile: testUtilsFile.createFile,
+            dragoverFile: testUtilsFile.dragoverFile,
+            dropFile: testUtilsFile.dropFile,
+        },
+
+        createActionManager: testUtilsCreate.createActionManager,
+        createDebugManager: testUtilsCreate.createDebugManager,
+        createAsyncView: testUtilsCreate.createAsyncView,
+        createControlPanel: testUtilsCreate.createControlPanel,
+        createView: testUtilsCreate.createView,
+        createModel: testUtilsCreate.createModel,
+        createParent: testUtilsCreate.createParent,
+
+        // backward-compatibility
+        addMockEnvironment: deprecated(testUtilsMock.addMockEnvironment, 'mock'),
+        dragAndDrop: deprecated(testUtilsDom.dragAndDrop, 'dom'),
+        fieldsViewGet: deprecated(testUtilsMock.fieldsViewGet, 'mock'),
+        intercept: deprecated(testUtilsMock.intercept, 'mock'),
+        openDatepicker: deprecated(testUtilsDom.openDatepicker, 'dom'),
+        patch: deprecated(testUtilsMock.patch, 'mock'),
+        patchDate: deprecated(testUtilsMock.patchDate, 'mock'),
+        triggerKeypressEvent: deprecated(testUtilsDom.triggerKeypressEvent, 'dom'),
+        triggerMouseEvent: deprecated(testUtilsDom.triggerMouseEvent, 'dom'),
+        triggerPositionalMouseEvent: deprecated(testUtilsDom.triggerPositionalMouseEvent, 'dom'),
+        unpatch: deprecated(testUtilsMock.unpatch, 'mock'),
     };
 });
 

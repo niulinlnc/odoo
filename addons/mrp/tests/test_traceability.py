@@ -53,15 +53,14 @@ class TestTraceability(TestMrpCommon):
                     (0, 0, {'product_id': consumed_serial.id, 'product_qty': 1}),
                 ],
             })
-            
-            mo = self.env['mrp.production'].create({
-                'name': 'MO %s' % finished_product.tracking,
-                'product_id': finished_product.id,
-                'product_uom_id': self.env.ref('uom.product_uom_unit').id,
-                'product_qty': 1,
-                'bom_id': bom.id,
-            })
-            
+
+            mo_form = Form(self.env['mrp.production'])
+            mo_form.product_id = finished_product
+            mo_form.bom_id = bom
+            mo_form.product_uom_id = self.env.ref('uom.product_uom_unit')
+            mo_form.product_qty = 1
+            mo = mo_form.save()
+            mo.action_confirm()
             mo.action_assign()
 
             # Start MO production
@@ -71,10 +70,10 @@ class TestTraceability(TestMrpCommon):
             }))
 
             if finished_product.tracking != 'serial':
-                produce_form.product_qty = 1
+                produce_form.qty_producing = 1
 
             if finished_product.tracking != 'none':
-                produce_form.lot_id = self.env['stock.production.lot'].create({'name': 'Serial or Lot finished', 'product_id': finished_product.id})
+                produce_form.final_lot_id = self.env['stock.production.lot'].create({'name': 'Serial or Lot finished', 'product_id': finished_product.id})
             produce_wizard = produce_form.save()
 
             produce_wizard.do_produce()
@@ -114,4 +113,3 @@ class TestTraceability(TestMrpCommon):
                     unfoldable,
                     'Parts with tracking type "%s", should have be unfoldable : %s' % (tracking, unfoldable)
                 )
-

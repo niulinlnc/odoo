@@ -45,7 +45,7 @@ QUnit.module('Basic', {
                 self.services.mail_service.prototype.THREAD_WINDOW_APPENDTO = '#qunit-fixture';
             }
 
-            testUtils.addMockEnvironment(widget, params);
+            testUtils.mock.addMockEnvironment(widget, params);
             return widget;
         };
     },
@@ -122,7 +122,7 @@ QUnit.test('close thread window using ESCAPE key', function (assert) {
         "there should be a thread window that is opened");
 
     // focus on the thread window and press ESCAPE
-    $('.o_thread_window .o_composer_text_field').click();
+    testUtils.dom.click($('.o_thread_window .o_composer_text_field'));
     assert.strictEqual(document.activeElement,
         $('.o_thread_window .o_composer_text_field')[0],
         "thread window's input should now be focused");
@@ -151,7 +151,7 @@ QUnit.test('thread window\'s input can still be focused when the UI is blocked',
     channel.detach();
 
     var $input = $('<input/>', {type: 'text'}).appendTo($dom);
-    $input.focus().click();
+    testUtils.dom.click($input.focus());
     assert.strictEqual(document.activeElement, $input[0],
         "fake input should be focused");
 
@@ -160,7 +160,7 @@ QUnit.test('thread window\'s input can still be focused when the UI is blocked',
     // makes no sense, this test is just about
     // making sure that the code which forces the
     // focus on click is not removed
-    $('.o_thread_window .o_composer_text_field').click();
+    testUtils.dom.click($('.o_thread_window .o_composer_text_field'));
     assert.strictEqual(document.activeElement,
         $('.o_thread_window .o_composer_text_field')[0],
         "thread window's input should now be focused");
@@ -182,7 +182,7 @@ QUnit.test('emoji popover should open correctly in thread windows', function (as
     channel.detach();
 
     var $emojiButton = $('.o_composer_button_emoji');
-    $emojiButton.trigger('focusin').focus().click();
+    testUtils.dom.click($emojiButton.trigger('focusin').focus());
     var $popover = $('.o_mail_emoji_container');
 
     var done = assert.async();
@@ -255,7 +255,7 @@ QUnit.test('do not increment unread counter with focus on thread window', functi
         "thread should have unread counter to 0 initially");
 
     // hard focus on thread window composer
-    $('.o_composer_text_field').click();
+    testUtils.dom.click($('.o_composer_text_field'));
 
     // simulate receiving message from someone else
     var messageData = {
@@ -347,7 +347,7 @@ QUnit.test('do not mark as read the newly open thread window from received messa
     assert.strictEqual($threadWindow.find('.o_thread_window_title').text().replace(/\s/g, ''), '#DM(1)',
         "open DM chat window should have one unread message");
 
-    $threadWindow.find('.o_thread_composer').click();
+    testUtils.dom.click($threadWindow.find('.o_thread_composer'));
     assert.strictEqual($threadWindow.find('.o_thread_window_title').text().replace(/\s/g, ''), '#DM',
         "open DM chat window should have message marked as read on composer focus");
 
@@ -493,7 +493,7 @@ QUnit.test('do not autofocus chat window on receiving new direct message', funct
         }
     });
 
-    var $formInput = form.$('input');
+    var $formInput = form.$('input[name=display_name]');
     $formInput.focus();
 
     assert.equal(document.activeElement, $formInput[0],
@@ -629,6 +629,69 @@ QUnit.test('do not auto-focus chat window on receiving new message from new DM',
     assert.ok($('.o_thread_window .o_thread_window_title').text().indexOf('(1)') !== -1,
         "DM should not still have one unread message after receiving detached info from polling");
 
+    parent.destroy();
+});
+
+QUnit.test('out-of-office status in thread window', function (assert) {
+    assert.expect(1);
+    this.data = {
+        'mail.message': {
+            fields: {},
+            records: [],
+        },
+        initMessaging: {
+            channel_slots: {
+                channel_channel: [{
+                    id: 1,
+                    name: "DM",
+                    channel_type: "chat",
+                    message_unread_counter: 0,
+                    direct_partner: [{ id: 666, name: 'DemoUser1', im_status: 'online', out_of_office_message: 'Please don\'t disturb'}],
+                }],
+            },
+        },
+    };
+    var parent = this.createParent({
+        data: this.data,
+        services: this.services,
+    });
+    // detach channel 1, so that it opens corresponding thread window.
+    parent.call('mail_service', 'getChannel', 1).detach();
+
+    var $threadWindow = $('.o_thread_window');
+    assert.containsOnce($threadWindow, '.o_out_of_office_text');
+
+    parent.destroy();
+});
+
+QUnit.test('no out-of-office status in thread window', function (assert) {
+    assert.expect(1);
+    this.data = {
+        'mail.message': {
+            fields: {},
+            records: [],
+        },
+        initMessaging: {
+            channel_slots: {
+                channel_channel: [{
+                    id: 1,
+                    name: "DM",
+                    channel_type: "chat",
+                    message_unread_counter: 0,
+                    direct_partner: [{ id: 666, name: 'DemoUser1', im_status: 'online'}],
+                }],
+            },
+        },
+    };
+    var parent = this.createParent({
+        data: this.data,
+        services: this.services,
+    });
+    // detach channel 1, so that it opens corresponding thread window.
+    parent.call('mail_service', 'getChannel', 1).detach();
+
+    var $threadWindow = $('.o_thread_window');
+    assert.containsNone($threadWindow, '.o_out_of_office_text');
     parent.destroy();
 });
 

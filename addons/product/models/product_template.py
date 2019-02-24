@@ -8,12 +8,11 @@ from odoo.addons import decimal_precision as dp
 from odoo import api, fields, models, tools, _
 from odoo.exceptions import ValidationError, RedirectWarning, UserError
 from odoo.osv import expression
-from odoo.tools import pycompat
 
 
 class ProductTemplate(models.Model):
     _name = "product.template"
-    _inherit = ['mail.thread', 'mail.activity.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'image.mixin']
     _description = "Product Template"
     _order = "name"
 
@@ -32,6 +31,12 @@ class ProductTemplate(models.Model):
 
     def _get_default_uom_id(self):
         return self.env["uom.uom"].search([], limit=1, order='id').id
+
+    def _get_default_weight_uom(self):
+        return self._get_weight_uom_name_from_ir_config_parameter()
+
+    def _get_default_volume_uom(self):
+        return self._get_volume_uom_name_from_ir_config_parameter()
 
     name = fields.Char('Name', index=True, required=True, translate=True)
     sequence = fields.Integer('Sequence', default=1, help='Gives the sequence order when displaying a product list')
@@ -65,7 +70,7 @@ class ProductTemplate(models.Model):
         digits=dp.get_precision('Product Price'))
     # list_price: catalog price, user defined
     list_price = fields.Float(
-        'Sales Price', default=1.0,
+        'Sale Price', default=1.0,
         digits=dp.get_precision('Product Price'),
         help="Price at which the product is sold to customers.")
     # lst_price: catalog price for template, but including extra for variants
@@ -79,14 +84,12 @@ class ProductTemplate(models.Model):
         help = "Cost used for stock valuation in standard price and as a first price to set in average/FIFO.")
 
     volume = fields.Float(
-        'Volume', compute='_compute_volume', inverse='_set_volume',
-        help="The volume in m3.", store=True)
+        'Volume', compute='_compute_volume', inverse='_set_volume', digits=dp.get_precision('Volume'), store=True)
+    volume_uom_name = fields.Char(string='Volume unit of measure label', compute='_compute_volume_uom_name', default=_get_default_volume_uom)
     weight = fields.Float(
         'Weight', compute='_compute_weight', digits=dp.get_precision('Stock Weight'),
-        inverse='_set_weight', store=True,
-        help="The weight of the contents in Kg, not including any packaging, etc.")
-    weight_uom_id = fields.Many2one('uom.uom', string='Weight Unit of Measure', compute='_compute_weight_uom_id')
-    weight_uom_name = fields.Char(string='Weight unit of measure label', related='weight_uom_id.name', readonly=True)
+        inverse='_set_weight', store=True)
+    weight_uom_name = fields.Char(string='Weight unit of measure label', compute='_compute_weight_uom_name', readonly=True, default=_get_default_weight_uom)
 
     sale_ok = fields.Boolean('Can be Sold', default=True)
     purchase_ok = fields.Boolean('Can be Purchased', default=True)
@@ -131,21 +134,6 @@ class ProductTemplate(models.Model):
 
     item_ids = fields.One2many('product.pricelist.item', 'product_tmpl_id', 'Pricelist Items')
 
-    # image: all image fields are base64 encoded and PIL-supported
-    image = fields.Binary(
-        "Image", attachment=True,
-        help="This field holds the image used as image for the product, limited to 1024x1024px.")
-    image_medium = fields.Binary(
-        "Medium-sized image", attachment=True,
-        help="Medium-sized image of the product. It is automatically "
-             "resized as a 128x128px image, with aspect ratio preserved, "
-             "only when the image exceeds one of those sizes. Use this field in form views or some kanban views.")
-    image_small = fields.Binary(
-        "Small-sized image", attachment=True,
-        help="Small-sized image of the product. It is automatically "
-             "resized as a 64x64px image, with aspect ratio preserved. "
-             "Use this field anywhere a small image is required.")
-
     @api.depends('product_variant_ids')
     def _compute_product_variant_id(self):
         for p in self:
@@ -176,11 +164,11 @@ class ProductTemplate(models.Model):
             quantity = self.env.context.get('quantity', 1.0)
 
             # Support context pricelists specified as display_name or ID for compatibility
-            if isinstance(pricelist_id_or_name, pycompat.string_types):
+            if isinstance(pricelist_id_or_name, str):
                 pricelist_data = self.env['product.pricelist'].name_search(pricelist_id_or_name, operator='=', limit=1)
                 if pricelist_data:
                     pricelist = self.env['product.pricelist'].browse(pricelist_data[0][0])
-            elif isinstance(pricelist_id_or_name, pycompat.integer_types):
+            elif isinstance(pricelist_id_or_name, int):
                 pricelist = self.env['product.pricelist'].browse(pricelist_id_or_name)
 
             if pricelist:
@@ -255,10 +243,27 @@ class ProductTemplate(models.Model):
         else:
             return self.env.ref('uom.product_uom_kgm')
 
-    def _compute_weight_uom_id(self):
-        weight_uom_id = self._get_weight_uom_id_from_ir_config_parameter()
-        for product_template in self:
-            product_template.weight_uom_id = weight_uom_id
+    @api.model
+    def _get_weight_uom_name_from_ir_config_parameter(self):
+        return self._get_weight_uom_id_from_ir_config_parameter().display_name
+
+    def _compute_weight_uom_name(self):
+        for template in self:
+            template.weight_uom_name = self._get_weight_uom_name_from_ir_config_parameter()
+
+    @api.model
+    def _get_volume_uom_name_from_ir_config_parameter(self):
+        """ Get the unit of measure to interpret the `volume` field. By default, we consider
+        that volumes are expressed in cubic meters. Users can configure to express them in cubic feet
+        by adding an ir.config_parameter record with "product.volume_in_cubic_feet" as key
+        and "1" as value.
+        """
+        get_param = self.env['ir.config_parameter'].sudo().get_param
+        return "ft³" if get_param('product.volume_in_cubic_feet') == '1' else "m³"
+
+    def _compute_volume_uom_name(self):
+        for template in self:
+            template.volume_uom_name = self._get_volume_uom_name_from_ir_config_parameter()
 
     @api.one
     def _set_weight(self):
@@ -309,15 +314,12 @@ class ProductTemplate(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         ''' Store the initial standard price in order to be able to retrieve the cost of a product template for a given date'''
-        # TDE FIXME: context brol
-        for vals in vals_list:
-            tools.image_resize_images(vals)
         templates = super(ProductTemplate, self).create(vals_list)
         if "create_product_product" not in self._context:
             templates.with_context(create_from_tmpl=True).create_variant_ids()
 
         # This is needed to set given values to first variant after creation
-        for template, vals in pycompat.izip(templates, vals_list):
+        for template, vals in zip(templates, vals_list):
             related_vals = {}
             if vals.get('barcode'):
                 related_vals['barcode'] = vals['barcode']
@@ -336,7 +338,6 @@ class ProductTemplate(models.Model):
 
     @api.multi
     def write(self, vals):
-        tools.image_resize_images(vals)
         res = super(ProductTemplate, self).write(vals)
         if 'attribute_line_ids' in vals or vals.get('active'):
             self.create_variant_ids()

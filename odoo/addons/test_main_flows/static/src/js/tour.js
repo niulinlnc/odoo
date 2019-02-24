@@ -58,8 +58,8 @@ tour.register('main_flow_tour', {
     content: _t('Uncheck Buy'),
     position: 'right',
 }, {
-    trigger: '.o_field_widget[name=route_ids] .custom-checkbox > label:contains("Make To Order")',
-    content: _t('Uncheck  Make To Order'),
+    trigger: '.o_field_widget[name=route_ids] .custom-checkbox > label:contains("Replenish on Order (MTO)")',
+    content: _t('Uncheck  Replenish on Order (MTO)'),
     position: 'right',
 }, {
     trigger: '.o_notebook a:contains("General Information")',
@@ -114,8 +114,8 @@ tour.register('main_flow_tour', {
     content: _t('Go to inventory tab'),
     position: 'top',
 }, {
-    trigger: '.o_field_widget[name=route_ids] .custom-checkbox > label:contains("Make To Order")',
-    content: _t('Check Make To Order'),
+    trigger: '.o_field_widget[name=route_ids] .custom-checkbox > label:contains("Replenish on Order (MTO)")',
+    content: _t('Check Replenish on Order (MTO)'),
     position: 'right',
 }, {
     trigger: '.o_notebook a:contains("Purchase")',
@@ -512,14 +512,7 @@ tour.register('main_flow_tour', {
     content: _t("Register Payment"),
     position: "bottom",
 }, {
-    trigger: "select.o_field_widget[name=journal_id]",
-    extra_trigger: ".modal-dialog",
-    content: _t("Select Journal"),
-    position: "bottom",
-    run: 'text(Bank (USD))',
-}, {
     trigger: ".modal-footer .btn-primary",
-    extra_trigger: ".o_field_widget[name=payment_method_id]", // FIXME: Wait onchange
     content: _t("Validate"),
     position: "bottom",
 }, {
@@ -554,11 +547,11 @@ tour.register('main_flow_tour', {
     content: _t("Check availability"),
     position: "bottom",
 }, {
-    trigger: ".o_statusbar_buttons > button.btn-primary:enabled:contains('Produce')",
+    trigger: ".o_statusbar_buttons > button:enabled:contains('Produce')",
     content: _t("Produce"),
     position: "bottom",
 }, {
-    trigger:  ".modal-footer .btn-primary:first",
+    trigger:  ".modal-footer .btn-primary:nth-child(3)",
     content: _t('Record Production'),
     position: 'bottom',
 }, {

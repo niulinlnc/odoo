@@ -32,6 +32,15 @@ class StockMoveLine(models.Model):
             lines |= raw_moves_lines.filtered(lambda ml: ml.product_id == self.product_id and (ml.lot_id or ml.lot_name) and ml.done_wo == self.done_wo)
         return lines
 
+    def _reservation_is_updatable(self, quantity, reserved_quant):
+        self.ensure_one()
+        if self.lot_produced_id:
+            ml_remaining_qty = self.qty_done - self.product_uom_qty
+            ml_remaining_qty = self.product_uom_id._compute_quantity(ml_remaining_qty, self.product_id.uom_id, rounding_method="HALF-UP")
+            if float_compare(ml_remaining_qty, quantity, precision_rounding=self.product_id.uom_id.rounding) < 0:
+                return False
+        return super(StockMoveLine, self)._reservation_is_updatable(quantity, reserved_quant)
+
     @api.multi
     def write(self, vals):
         for move_line in self:
@@ -158,15 +167,21 @@ class StockMove(models.Model):
         # all grouped in the same picking.
         if not self.picking_type_id:
             return self
-        bom = self.env['mrp.bom'].sudo()._bom_find(product=self.product_id, company_id=self.company_id.id)
-        if not bom or bom.type != 'phantom':
+        bom = self.env['mrp.bom'].sudo()._bom_find(product=self.product_id, company_id=self.company_id.id, bom_type='phantom')
+        if not bom:
             return self
         phantom_moves = self.env['stock.move']
         processed_moves = self.env['stock.move']
-        factor = self.product_uom._compute_quantity(self.product_uom_qty, bom.product_uom_id) / bom.product_qty
+        if self.picking_id.immediate_transfer:
+            factor = self.product_uom._compute_quantity(self.quantity_done, bom.product_uom_id) / bom.product_qty
+        else:
+            factor = self.product_uom._compute_quantity(self.product_uom_qty, bom.product_uom_id) / bom.product_qty
         boms, lines = bom.sudo().explode(self.product_id, factor, picking_type=bom.picking_type_id)
         for bom_line, line_data in lines:
-            phantom_moves += self._generate_move_phantom(bom_line, line_data['qty'])
+            if self.picking_id.immediate_transfer:
+                phantom_moves += self._generate_move_phantom(bom_line, 0, line_data['qty'])
+            else:
+                phantom_moves += self._generate_move_phantom(bom_line, line_data['qty'], 0)
 
         for new_move in phantom_moves:
             processed_moves |= new_move.action_explode()
@@ -200,79 +215,24 @@ class StockMove(models.Model):
         move_line_to_unlink.unlink()
         return True
 
-    def _prepare_phantom_move_values(self, bom_line, quantity):
+    def _prepare_phantom_move_values(self, bom_line, product_qty, quantity_done):
         return {
             'picking_id': self.picking_id.id if self.picking_id else False,
             'product_id': bom_line.product_id.id,
             'product_uom': bom_line.product_uom_id.id,
-            'product_uom_qty': quantity,
+            'product_uom_qty': product_qty,
+            'quantity_done': quantity_done,
             'state': 'draft',  # will be confirmed below
             'name': self.name,
+            'bom_line_id': bom_line.id,
         }
 
-    def _generate_move_phantom(self, bom_line, quantity):
+    def _generate_move_phantom(self, bom_line, product_qty, quantity_done):
         if bom_line.product_id.type in ['product', 'consu']:
-            return self.copy(default=self._prepare_phantom_move_values(bom_line, quantity))
+            move = self.copy(default=self._prepare_phantom_move_values(bom_line, product_qty, quantity_done))
+            move._adjust_procure_method()
+            return move
         return self.env['stock.move']
-
-    def _generate_consumed_move_line(self, qty_to_add, final_lot, lot=False):
-        if lot:
-            move_lines = self.move_line_ids.filtered(lambda ml: ml.lot_id == lot and not ml.lot_produced_id)
-        else:
-            move_lines = self.move_line_ids.filtered(lambda ml: not ml.lot_id and not ml.lot_produced_id)
-
-        # Sanity check: if the product is a serial number and `lot` is already present in the other
-        # consumed move lines, raise.
-        if lot and self.product_id.tracking == 'serial' and lot in self.move_line_ids.filtered(lambda ml: ml.qty_done).mapped('lot_id'):
-            raise UserError(_('You cannot consume the same serial number twice. Please correct the serial numbers encoded.'))
-
-        for ml in move_lines:
-            rounding = ml.product_uom_id.rounding
-            if float_compare(qty_to_add, 0, precision_rounding=rounding) <= 0:
-                break
-            quantity_to_process = min(qty_to_add, ml.product_uom_qty - ml.qty_done)
-            qty_to_add -= quantity_to_process
-
-            new_quantity_done = (ml.qty_done + quantity_to_process)
-            if float_compare(new_quantity_done, ml.product_uom_qty, precision_rounding=rounding) >= 0:
-                ml.write({'qty_done': new_quantity_done, 'lot_produced_id': final_lot.id})
-            else:
-                new_qty_reserved = ml.product_uom_qty - new_quantity_done
-                default = {'product_uom_qty': new_quantity_done,
-                           'qty_done': new_quantity_done,
-                           'lot_produced_id': final_lot.id}
-                ml.copy(default=default)
-                ml.with_context(bypass_reservation_update=True).write({'product_uom_qty': new_qty_reserved, 'qty_done': 0})
-
-        if float_compare(qty_to_add, 0, precision_rounding=self.product_uom.rounding) > 0:
-            # Search for a sub-location where the product is available. This might not be perfectly
-            # correct if the quantity available is spread in several sub-locations, but at least
-            # we should be closer to the reality. Anyway, no reservation is made, so it is still
-            # possible to change it afterwards.
-            quants = self.env['stock.quant']._gather(self.product_id, self.location_id, lot_id=lot, strict=False)
-            available_quantity = self.product_id.uom_id._compute_quantity(
-                self.env['stock.quant']._get_available_quantity(
-                    self.product_id, self.location_id, lot_id=lot, strict=False
-                ), self.product_uom
-            )
-            location_id = False
-            if float_compare(qty_to_add, available_quantity, precision_rounding=self.product_uom.rounding) < 0:
-                location_id = quants.filtered(lambda r: r.quantity > 0)[-1:].location_id
-
-            vals = {
-                'move_id': self.id,
-                'product_id': self.product_id.id,
-                'location_id': location_id.id if location_id else self.location_id.id,
-                'production_id': self.raw_material_production_id.id,
-                'location_dest_id': self.location_dest_id.id,
-                'product_uom_qty': 0,
-                'product_uom_id': self.product_uom.id,
-                'qty_done': qty_to_add,
-                'lot_produced_id': final_lot.id,
-            }
-            if lot:
-                vals.update({'lot_id': lot.id})
-            self.env['stock.move.line'].create(vals)
 
     def _get_upstream_documents_and_responsibles(self, visited):
             if self.created_production_id and self.created_production_id.state not in ('done', 'cancel'):
@@ -283,3 +243,38 @@ class StockMove(models.Model):
     def _should_be_assigned(self):
         res = super(StockMove, self)._should_be_assigned()
         return bool(res and not (self.production_id or self.raw_material_production_id))
+
+    def _compute_kit_quantities(self, product_id, kit_qty, kit_bom, filters):
+        """ Computes the quantity delivered or received when a kit is sold or purchased.
+        A ratio 'qty_processed/qty_needed' is computed for each component, and the lowest one is kept
+        to define the kit's quantity delivered or received.
+        :param product_id: The kit itself a.k.a. the finished product
+        :param kit_qty: The quantity from the order line
+        :param kit_bom: The kit's BoM
+        :param filters: Dict of lambda expression to define the moves to consider and the ones to ignore
+        :return: The quantity delivered or received
+        """
+        qty_ratios = []
+        boms, bom_sub_lines = kit_bom.explode(product_id, kit_qty)
+        for bom_line, bom_line_data in bom_sub_lines:
+            bom_line_moves = self.filtered(lambda m: m.bom_line_id == bom_line)
+            if bom_line_moves:
+                # We compute the quantities needed of each components to make one kit.
+                # Then, we collect every relevant moves related to a specific component
+                # to know how many are considered delivered.
+                uom_qty_per_kit = bom_line_data['qty'] / bom_line_data['original_qty']
+                qty_per_kit = bom_line.product_uom_id._compute_quantity(uom_qty_per_kit, bom_line.product_id.uom_id)
+                incoming_moves = bom_line_moves.filtered(filters['incoming_moves'])
+                outgoing_moves = bom_line_moves.filtered(filters['outgoing_moves'])
+                qty_processed = sum(incoming_moves.mapped('product_qty')) - sum(outgoing_moves.mapped('product_qty'))
+                # We compute a ratio to know how many kits we can produce with this quantity of that specific component
+                qty_ratios.append(qty_processed / qty_per_kit)
+            else:
+                return 0.0
+        if qty_ratios:
+            # Now that we have every ratio by components, we keep the lowest one to know how many kits we can produce
+            # with the quantities delivered of each component. We use the floor division here because a 'partial kit'
+            # doesn't make sense.
+            return min(qty_ratios) // 1
+        else:
+            return 0.0

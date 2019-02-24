@@ -5,7 +5,7 @@
 # Translators:
 # Bohdan Lisnenko, 2018
 # Martin Trigaux, 2018
-# Alina Lisnenko <alinasemeniuk1@gmail.com>, 2019
+# Alina Lisnenko <alinasemeniuk1@gmail.com>, 2018
 # 
 msgid ""
 msgstr ""
@@ -13,7 +13,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2018-09-21 13:17+0000\n"
 "PO-Revision-Date: 2018-08-24 09:25+0000\n"
-"Last-Translator: Alina Lisnenko <alinasemeniuk1@gmail.com>, 2019\n"
+"Last-Translator: Alina Lisnenko <alinasemeniuk1@gmail.com>, 2018\n"
 "Language-Team: Ukrainian (https://www.transifex.com/odoo/teams/41243/uk/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -26,7 +26,7 @@ msgstr ""
 #: code:addons/stock_account/models/product.py:152
 #, python-format
 msgid "%s changed cost from %s to %s - %s"
-msgstr "%s змінена вартість з%s на %s - %s"
+msgstr ""
 
 #. module: stock_account
 #: model:ir.model,name:stock_account.model_account_chart_template
@@ -65,8 +65,6 @@ msgid ""
 "Affect landed costs on reception operations and split them among products to"
 " update their cost price."
 msgstr ""
-"Вплив на додаткові витрати на операції прийому та розподіл їх між товарами з"
-" метою оновлення собівартості."
 
 #. module: stock_account
 #: model_terms:ir.ui.view,arch_db:stock_account.view_inventory_valuation_search
@@ -201,7 +199,7 @@ msgstr "Контрактна частина рахунку обов'язкова
 #. module: stock_account
 #: model_terms:ir.actions.act_window,help:stock_account.product_valuation_action
 msgid "Create a new product valuation"
-msgstr "Створіть нову оцінку товару"
+msgstr ""
 
 #. module: stock_account
 #: model:ir.model.fields,field_description:stock_account.field_stock_change_standard_price__create_uid
@@ -217,10 +215,8 @@ msgstr "Створено"
 #: model:ir.model.fields,help:stock_account.field_stock_inventory__accounting_date
 msgid ""
 "Date at which the accounting entries will be created in case of automated "
-"inventory valuation. If empty, the inventory date will be used."
+"inventory valuation. If empty, the inventoy date will be used."
 msgstr ""
-"Дата створення записів бухобліку у разі автоматизованої оцінки запасів. Якщо"
-" вона порожня, буде використана дата інвентаризації."
 
 #. module: stock_account
 #: model:ir.model.fields,field_description:stock_account.field_stock_change_standard_price__display_name
@@ -355,7 +351,7 @@ msgstr "Від’ємні запаси"
 #: code:addons/stock_account/models/product.py:128
 #, python-format
 msgid "No difference between the standard price and the new price."
-msgstr "Немає різниці між стандартною ціною та новою ціною."
+msgstr ""
 
 #. module: stock_account
 #: selection:product.template,property_valuation:0
@@ -390,7 +386,7 @@ msgstr "Категорія товару"
 #. module: stock_account
 #: model:ir.model,name:stock_account.model_stock_move_line
 msgid "Product Moves (Stock Move Line)"
-msgstr "Переміщення товару (Рядок складського переміщення)"
+msgstr ""
 
 #. module: stock_account
 #: model:ir.model,name:stock_account.model_product_template
@@ -431,7 +427,7 @@ msgstr "Повернути комплектування"
 #. module: stock_account
 #: model:ir.model,name:stock_account.model_stock_return_picking_line
 msgid "Return Picking Line"
-msgstr "Повернути рядок комплектування"
+msgstr ""
 
 #. module: stock_account
 #: selection:product.category,property_cost_method:0
@@ -547,8 +543,6 @@ msgid ""
 "The move lines are not in a consistent state: some are entering and other "
 "are leaving the company."
 msgstr ""
-"Рядки переміщення не є стабільними: деякі входять, а інші залишають "
-"компанію."
 
 #. module: stock_account
 #: code:addons/stock_account/models/stock.py:369
@@ -738,8 +732,6 @@ msgid ""
 "You don't have any stock journal defined on your product category, check if "
 "you have installed a chart of accounts."
 msgstr ""
-"Ви не маєте жодного журналу складу, визначеного у вашій категорії товарів, "
-"перевірте, чи встановлено план рахунків."
 
 #. module: stock_account
 #: code:addons/stock_account/models/product.py:130

@@ -190,15 +190,11 @@ var LivechatButton = Widget.extend({
      * @private
      */
     _loadQWebTemplate: function () {
-        var xml_files = ['/mail/static/src/xml/abstract_thread_window.xml',
-                         '/mail/static/src/xml/thread.xml',
-                         '/im_livechat/static/src/xml/im_livechat.xml'];
-        var defs = _.map(xml_files, function (tmpl) {
-            return session.rpc('/web/proxy/load', { path: tmpl }).then(function (xml) {
-                QWeb.add_template(xml);
+        return session.rpc('/im_livechat/load_templates').then(function (templates) {
+            _.each(templates, function (template) {
+                QWeb.add_template(template);
             });
         });
-        return $.when.apply($, defs);
     },
     /**
      * @private
@@ -223,7 +219,7 @@ var LivechatButton = Widget.extend({
         }
         def.then(function (livechatData) {
             if (!livechatData || !livechatData.operator_pid) {
-                alert(_t("None of our collaborators seems to be available, please try again later."));
+                alert(_t("None of our collaborators seem to be available, please try again later."));
             } else {
                 self._livechat = new WebsiteLivechat({
                     parent: self,
@@ -360,7 +356,7 @@ var LivechatButton = Widget.extend({
      */
     _onUpdatedTypingPartners: function (ev) {
         ev.stopPropagation();
-        this._chatWindow.renderTypingNotificationBar();
+        this._chatWindow.renderHeader();
     },
     /**
      * @private

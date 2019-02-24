@@ -27,10 +27,10 @@ class HrPayslipLine(models.Model):
 class HrPayslip(models.Model):
     _inherit = 'hr.payslip'
 
-    date = fields.Date('Date Account', states={'draft': [('readonly', False)]}, readonly=True,
+    date = fields.Date('Date Account', states={'draft': [('readonly', False)], 'verify': [('readonly', False)]}, readonly=True,
         help="Keep empty to use the period of the validation(Payslip) date.")
     journal_id = fields.Many2one('account.journal', 'Salary Journal', readonly=True, required=True,
-        states={'draft': [('readonly', False)]}, default=lambda self: self.env['account.journal'].search([('type', '=', 'general')], limit=1))
+        states={'draft': [('readonly', False)], 'verify': [('readonly', False)]}, default=lambda self: self.env['account.journal'].search([('type', '=', 'general')], limit=1))
     move_id = fields.Many2one('account.move', 'Accounting Entry', readonly=True, copy=False)
 
     @api.model
@@ -39,10 +39,10 @@ class HrPayslip(models.Model):
             vals['journal_id'] = self.env.context.get('journal_id')
         return super(HrPayslip, self).create(vals)
 
-    @api.onchange('contract_id')
-    def onchange_contract(self):
-        super(HrPayslip, self).onchange_contract()
-        self.journal_id = self.contract_id.journal_id.id or (not self.contract_id and self.default_get(['journal_id'])['journal_id'])
+    @api.onchange('employee_id', 'contract_id', 'date_from', 'date_to')
+    def onchange_employee(self):
+        super(HrPayslip, self).onchange_employee()
+        self.journal_id = self.contract_id.journal_id.id or self.default_get(['journal_id'])['journal_id']
 
     @api.multi
     def action_payslip_cancel(self):
@@ -69,7 +69,7 @@ class HrPayslip(models.Model):
                 'journal_id': slip.journal_id.id,
                 'date': date,
             }
-            for line in slip.details_by_salary_rule_category:
+            for line in slip.line_ids.filtered(lambda line: line.category_id):
                 amount = currency.round(slip.credit_note and -line.total or line.total)
                 if currency.is_zero(amount):
                     continue
@@ -85,7 +85,7 @@ class HrPayslip(models.Model):
                         'date': date,
                         'debit': amount > 0.0 and amount or 0.0,
                         'credit': amount < 0.0 and -amount or 0.0,
-                        'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
+                        'analytic_account_id': line.salary_rule_id.analytic_account_id.id or slip.contract_id.analytic_account_id.id,
                         'tax_line_id': line.salary_rule_id.account_tax_id.id,
                     })
                     line_ids.append(debit_line)
@@ -100,7 +100,7 @@ class HrPayslip(models.Model):
                         'date': date,
                         'debit': amount < 0.0 and -amount or 0.0,
                         'credit': amount > 0.0 and amount or 0.0,
-                        'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
+                        'analytic_account_id': line.salary_rule_id.analytic_account_id.id or slip.contract_id.analytic_account_id.id,
                         'tax_line_id': line.salary_rule_id.account_tax_id.id,
                     })
                     line_ids.append(credit_line)
@@ -145,10 +145,10 @@ class HrPayslip(models.Model):
 class HrSalaryRule(models.Model):
     _inherit = 'hr.salary.rule'
 
-    analytic_account_id = fields.Many2one('account.analytic.account', 'Analytic Account')
-    account_tax_id = fields.Many2one('account.tax', 'Tax')
-    account_debit = fields.Many2one('account.account', 'Debit Account', domain=[('deprecated', '=', False)])
-    account_credit = fields.Many2one('account.account', 'Credit Account', domain=[('deprecated', '=', False)])
+    analytic_account_id = fields.Many2one('account.analytic.account', 'Analytic Account', company_dependent=True)
+    account_tax_id = fields.Many2one('account.tax', 'Tax', company_dependent=True)
+    account_debit = fields.Many2one('account.account', 'Debit Account', company_dependent=True, domain=[('deprecated', '=', False)])
+    account_credit = fields.Many2one('account.account', 'Credit Account', company_dependent=True, domain=[('deprecated', '=', False)])
 
 class HrContract(models.Model):
     _inherit = 'hr.contract'

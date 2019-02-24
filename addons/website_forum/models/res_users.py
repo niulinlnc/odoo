@@ -19,39 +19,11 @@ class Users(models.Model):
             set(
                 self.SELF_WRITEABLE_FIELDS +
                 ['country_id', 'city', 'website', 'website_description', 'website_published']))
+        type(self).SELF_READABLE_FIELDS = type(self).SELF_READABLE_FIELDS + ['karma']
         return init_res
 
     create_date = fields.Datetime('Create Date', readonly=True, index=True)
-    karma = fields.Integer('Karma', default=0)
-    badge_ids = fields.One2many('gamification.badge.user', 'user_id', string='Badges', copy=False)
-    gold_badge = fields.Integer('Gold badges count', compute="_get_user_badge_level")
-    silver_badge = fields.Integer('Silver badges count', compute="_get_user_badge_level")
-    bronze_badge = fields.Integer('Bronze badges count', compute="_get_user_badge_level")
     forum_waiting_posts_count = fields.Integer('Waiting post', compute="_get_user_waiting_post")
-
-    @api.multi
-    @api.depends('badge_ids')
-    def _get_user_badge_level(self):
-        """ Return total badge per level of users
-        TDE CLEANME: shouldn't check type is forum ? """
-        for user in self:
-            user.gold_badge = 0
-            user.silver_badge = 0
-            user.bronze_badge = 0
-
-        self.env.cr.execute("""
-            SELECT bu.user_id, b.level, count(1)
-            FROM gamification_badge_user bu, gamification_badge b
-            WHERE bu.user_id IN %s
-              AND bu.badge_id = b.id
-              AND b.level IS NOT NULL
-            GROUP BY bu.user_id, b.level
-            ORDER BY bu.user_id;
-        """, [tuple(self.ids)])
-
-        for (user_id, level, count) in self.env.cr.fetchall():
-            # levels are gold, silver, bronze but fields have _badge postfix
-            self.browse(user_id)['{}_badge'.format(level)] = count
 
     @api.multi
     def _get_user_waiting_post(self):
@@ -74,7 +46,7 @@ class Users(models.Model):
         )).encode('utf-8')).hexdigest()
 
     @api.one
-    def send_forum_validation_email(self, forum_id=None):
+    def _send_forum_validation_email(self, forum_id=None):
         if not self.email:
             return False
         token = self._generate_forum_token(self.id, self.email)
@@ -111,13 +83,15 @@ class Users(models.Model):
             return self.write({'karma': karma})
         return False
 
-    @api.multi
-    def add_karma(self, karma):
-        for user in self:
-            user.karma += karma
-        return True
-
     # Wrapper for call_kw with inherits
     @api.multi
     def open_website_url(self):
         return self.mapped('partner_id').open_website_url()
+
+    def get_gamification_redirection_data(self):
+        res = super(Users, self).get_gamification_redirection_data()
+        res.append({
+            'url': '/forum',
+            'label': 'See our Forum'
+        })
+        return res

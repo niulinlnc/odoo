@@ -4,7 +4,7 @@
         <!-- Top menu item -->
         <menuitem id="sale_menu_root"
             name="Sales"
-            web_icon="sale,static/description/icon.png"
+            web_icon="sale_management,static/description/icon.png"
             active="False"
             sequence="7"/>
 
@@ -67,8 +67,8 @@
                 <p class="o_view_nocontent_smiling_face">
                     Create a new product
                 </p><p>
-                    You must define a product for everything you purchase,
-                    whether it's a physical product, a consumable or services.
+                    You must define a product for everything you sell or purchase,
+                    whether it's a storable product, a consumable or a service.
                 </p>
             </field>
         </record>
@@ -144,6 +144,8 @@
                     <field name="date_order"/>
                     <field name="state"/>
                     <field name="currency_id"/>
+                    <field name="activity_state"/>
+                    <progressbar field="activity_state" colors='{"planned": "success", "today": "warning", "overdue": "danger"}'/>
                     <templates>
                         <t t-name="kanban-box">
                             <div t-attf-class="oe_kanban_card oe_kanban_global_click">
@@ -308,6 +310,7 @@
                                                     'required': [('display_type', '=', False)],
                                                 }"
                                                 force_save="1"
+                                                widget="many2one_barcode"
                                                />
                                             <field name="invoice_status" invisible="1"/>
                                             <field name="qty_to_invoice" invisible="1"/>
@@ -386,10 +389,10 @@
                                     decoration-info="(not display_type and invoice_status == 'to invoice')"
                                 >
                                     <control>
-                                        <create string="Add a product"/>
-                                        <create string="Configure a product" context="{'open_product_configurator': True}" groups="product.group_product_variant"/>
-                                        <create string="Add a section" context="{'default_display_type': 'line_section'}"/>
-                                        <create string="Add a note" context="{'default_display_type': 'line_note'}"/>
+                                        <create name="add_product_control" string="Add a product"/>
+                                        <create name="configure_product_control" string="Configure a product" context="{'open_product_configurator': True}" groups="product.group_product_variant"/>
+                                        <create name="add_section_control" string="Add a section" context="{'default_display_type': 'line_section'}"/>
+                                        <create name="add_note_control" string="Add a note" context="{'default_display_type': 'line_note'}"/>
                                     </control>
 
                                     <field name="sequence" widget="handle" />
@@ -540,16 +543,18 @@
                                     </templates>
                                 </kanban>
                             </field>
-                            <group class="oe_subtotal_footer oe_right" colspan="2" name="sale_total">
-                                <field name="amount_untaxed" widget='monetary' options="{'currency_field': 'currency_id'}"/>
-                                <field name="amount_tax" widget='monetary' options="{'currency_field': 'currency_id'}"/>
-                                <div class="oe_subtotal_footer_separator oe_inline o_td_label">
-                                    <label for="amount_total" />
-                                </div>
-                                <field name="amount_total" nolabel="1" class="oe_subtotal_footer_separator" widget='monetary' options="{'currency_field': 'currency_id'}"/>
+                            <group name="note_group">
+                                <group class="oe_subtotal_footer oe_right" colspan="2" name="sale_total">
+                                    <field name="amount_untaxed" widget='monetary' options="{'currency_field': 'currency_id'}"/>
+                                    <field name="amount_tax" widget='monetary' options="{'currency_field': 'currency_id'}"/>
+                                    <div class="oe_subtotal_footer_separator oe_inline o_td_label">
+                                        <label for="amount_total" />
+                                    </div>
+                                    <field name="amount_total" nolabel="1" class="oe_subtotal_footer_separator" widget='monetary' options="{'currency_field': 'currency_id'}"/>
+                                </group>
+                                <field name="note" class="oe_inline" placeholder="Terms and conditions... (note: you can setup default ones in the Configuration menu)"/>
+                                <div class="oe_clear"/>
                             </group>
-                            <field name="note" class="oe_inline" placeholder="Terms and conditions... (note: you can setup default ones in the Configuration menu)"/>
-                            <div class="oe_clear"/>
                         </page>
                         <page string="Other Information" name="other_information">
                             <group>
@@ -576,6 +581,13 @@
                                     <field groups="base.group_no_one" name="origin"/>
                                 </group>
                                 <group name="utm_link" groups="base.group_no_one"/>
+                            </group>
+                        </page>
+                        <page groups="base.group_no_one" string="Customer Signature" name="customer_signature" attrs="{'invisible': [('require_signature', '=', False), ('signed_by', '=', False), ('signature', '=', False), ('signed_on', '=', False)]}">
+                            <group>
+                                <field name="signed_by"/>
+                                <field name="signed_on"/>
+                                <field name="signature" widget="image"/>
                             </group>
                         </page>
                     </notebook>
@@ -783,12 +795,13 @@
               <p class="o_view_nocontent_smiling_face">
                 No orders to upsell found
               </p><p>
-                These are orders with products invoiced based on ordered quantities,
-                in the case you have delivered more than what was ordered.
+                You can upsell an order when you have delivered more quantities
+                than initially ordered, with an invoicing policy based on
+                ordered quantities.
               </p><p>
                 A typical example is the pre-paid hours of service,
-                where you want to sell extra hours to the customer
-                because the initial hours have already been used.
+                when you want to sell extra hours because the initial
+                hours have already been used.
               </p>
             </field>
         </record>
@@ -966,7 +979,7 @@
             <field name="arch" type="xml">
                 <button name="toggle_active" position="before">
                     <button class="oe_stat_button" name="action_view_sales"
-                        type="object" icon="fa-signal" groups="sales_team.group_sale_salesman" help="Sold in the last 365 days">
+                        type="object" icon="fa-signal" groups="sales_team.group_sale_salesman" help="Sold in the last 365 days" attrs="{'invisible': [('sale_ok', '=', False)]}">
                         <div class="o_field_widget o_stat_info">
                             <span class="o_stat_value">
                                 <field name="sales_count" widget="statinfo" nolabel="1" class="mr4"/>
@@ -994,7 +1007,7 @@
             <field name="arch" type="xml">
                 <button name="toggle_active" position="before">
                     <button class="oe_stat_button" name="action_view_sales"
-                        type="object" icon="fa-signal" groups="sales_team.group_sale_salesman" help="Sold in the last 365 days">
+                        type="object" icon="fa-signal" groups="sales_team.group_sale_salesman" help="Sold in the last 365 days" attrs="{'invisible': [('sale_ok', '=', False)]}">
                         <div class="o_field_widget o_stat_info">
                             <span class="o_stat_value">
                                 <field name="sales_count" widget="statinfo" nolabel="1" class="mr4"/>
@@ -1023,8 +1036,8 @@
                     <group string="Invoicing" name="invoicing" invisible="1">
                         <field name="invoice_policy" widget="radio"/>
                         <field name="service_type" widget="radio" invisible="True"/>
-                        <field name="hide_expense_policy" invisible="1"/>
-                        <field name="expense_policy" widget="radio" attrs="{'invisible': [('hide_expense_policy', '=', True)]}"/>
+                        <field name="visible_expense_policy" invisible="1"/>
+                        <field name="expense_policy" widget="radio" attrs="{'invisible': [('visible_expense_policy', '=', False)]}"/>
                     </group>
                 </xpath>
             </field>
@@ -1247,8 +1260,8 @@
             <field name="name">Sales Analysis</field>
             <field name="res_model">sale.report</field>
             <field name="view_mode">graph</field>
-            <field name="domain">[('state','not in',('draft','cancel')),('team_id', '=', active_id)]</field>
-            <field name="context">{'search_default_order_month':1}</field>
+            <field name="domain">[('state','not in',('draft','cancel'))]</field>
+            <field name="context">{'search_default_Sales': 1, 'time_ranges': {'field':'confirmation_date', 'range':'last_30_days'}, 'search_default_team_id': [active_id]}</field>
             <field name="help">This report performs analysis on your sales orders. Analysis check your sales revenues and sort it by different group criteria (salesman, partner, product, etc.) Use this report to perform analysis on sales not having invoiced yet. If you want to analyse your turnover, you should use the Invoice Analysis report in the Accounting application.</field>
         </record>
 
@@ -1256,8 +1269,8 @@
             <field name="name">Invoices Analysis</field>
             <field name="res_model">account.invoice.report</field>
             <field name="view_mode">graph</field>
-            <field name="domain">[('team_id', '=', active_id),('state', 'not in', ['draft', 'cancel'])]</field>
-            <field name="context">{'search_default_month':1}</field>
+            <field name="domain">[('state', 'not in', ['draft', 'cancel'])]</field>
+            <field name="context">{'search_default_month':1, 'search_default_team_id': [active_id]}</field>
             <field name="help">From this report, you can have an overview of the amount invoiced to your customer. The search tool can also be used to personalise your Invoices reports and so, match this analysis to your needs.</field>
         </record>
 </odoo>

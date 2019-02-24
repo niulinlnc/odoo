@@ -76,6 +76,13 @@
             </header>
             <sheet>
                 <div class="oe_button_box" name="button_box">
+                    <button name="action_applications_email"
+                            class="oe_stat_button"
+                            icon="fa-file-o"
+                            type="object"
+                            attrs="{'invisible': [('application_count', '=', 0)]}">
+                        <field name="application_count" widget="statinfo" string="Applications"/>
+                    </button>
                     <button name="action_makeMeeting" class="oe_stat_button" icon="fa-calendar" type="object"
                          help="Schedule interview with this applicant">
                         <div class="o_field_widget o_stat_info">
@@ -201,7 +208,7 @@
                 <filter string="Unread Messages" name="message_needaction" domain="[('message_needaction','=',True)]"/>
                 <filter string="Archived" name="inactive" domain="[('active','=',False)]"/>
                 <field name="job_id"/>
-                <field name="department_id"/>
+                <field name="department_id" operator="child_of"/>
                 <field name="user_id"/>
                 <field name="stage_id" domain="[]"/>
                 <separator/>
@@ -690,18 +697,19 @@
         <field name="model">hr.recruitment.stage</field>
         <field name="arch" type="xml">
             <form string="Stage">
-                <group string="Stage Definition">
+            <sheet>
+                <group name="stage_definition" string="Stage Definition">
                     <group>
                         <field name="name"/>
                         <field name="sequence" groups="base.group_no_one"/>
                         <field name="job_id"/>
                     </group>
-                    <group>
-                         <field name="fold"/>
+                    <group name="stage_details">
+                        <field name="fold"/>
                         <field name="template_id" domain= "[('model_id.model', '=', 'hr.applicant')]"/>
                     </group>
                 </group>
-                <group string="Tooltips">
+                <group name="tooltips" string="Tooltips">
                     <p class="text-muted" colspan="2">
                         You can define here the labels that will be displayed for the kanban state instead
                         of the default labels.
@@ -715,6 +723,7 @@
                 </group>
                 <separator string="Requirements"/>
                 <field name="requirements"/>
+            </sheet>
             </form>
         </field>
     </record>
@@ -750,10 +759,12 @@
         <field name="model">hr.applicant.category</field>
         <field name="arch" type="xml">
             <form string="Tags">
+            <sheet>
                 <group>
                     <field name="name"/>
                     <field name="color"/>
                 </group>
+            </sheet>
             </form>
         </field>
     </record>
@@ -794,10 +805,12 @@
         <field name="model">hr.recruitment.degree</field>
         <field name="arch" type="xml">
             <form string="Degree">
+            <sheet>
                 <group>
                     <field name="name"/>
                     <field name="sequence" groups="base.group_no_one"/>
                 </group>
+            </sheet>
             </form>
         </field>
     </record>
@@ -882,7 +895,7 @@
          <field name="name">hr.applicant.pivot</field>
          <field name="model">hr.applicant</field>
          <field name="arch" type="xml">
-             <pivot string="Recruitment Analysis" disable_linking="True">
+             <pivot string="Recruitment Analysis">
                  <field name="stage_id" type="row"/>
                  <field name="job_id" type="col"/>
              </pivot>
@@ -907,7 +920,7 @@
         <field name="arch" type="xml">
             <search string="Recruitment Analysis">
                 <field name="job_id"/>
-                <field name="department_id"/>
+                <field name="department_id" operator="child_of"/>
                 <field name="user_id"/>
                 <filter string="Creation Date" name="year" date="create_date" default_period="this_year"/>
                 <separator/>

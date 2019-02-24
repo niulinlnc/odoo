@@ -6,7 +6,7 @@ from odoo import api, fields, models, tools, SUPERUSER_ID, _
 from odoo.exceptions import MissingError, UserError, ValidationError, AccessError
 from odoo.osv import expression
 from odoo.tools.safe_eval import safe_eval, test_python_expr
-from odoo.tools import pycompat, wrap_module
+from odoo.tools import wrap_module
 from odoo.http import request
 
 import base64
@@ -235,6 +235,9 @@ class IrActionsActWindow(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         self.clear_caches()
+        for vals in vals_list:
+            if not vals.get('name') and vals.get('res_model'):
+                vals['name'] = self.env[vals['res_model']]._description
         return super(IrActionsActWindow, self).create(vals_list)
 
     @api.multi
@@ -602,11 +605,11 @@ class IrServerObjectLines(models.Model):
                                             "When Formula type is selected, this field may be a Python expression "
                                             " that can use the same values as for the code field on the server action.\n"
                                             "If Value type is selected, the value will be used directly without evaluation.")
-    type = fields.Selection([
+    evaluation_type = fields.Selection([
         ('value', 'Value'),
         ('reference', 'Reference'),
         ('equation', 'Python expression')
-    ], 'Evaluation Type', default='value', required=True, change_default=True)
+    ], 'Evaluation Type', default='value', required=True, change_default=True, oldname='type')
     resource_ref = fields.Reference(
         string='Record', selection='_selection_target_model',
         compute='_compute_resource_ref', inverse='_set_resource_ref')
@@ -616,10 +619,10 @@ class IrServerObjectLines(models.Model):
         models = self.env['ir.model'].search([])
         return [(model.model, model.name) for model in models]
 
-    @api.depends('col1.relation', 'value', 'type')
+    @api.depends('col1.relation', 'value', 'evaluation_type')
     def _compute_resource_ref(self):
         for line in self:
-            if line.type in ['reference', 'value'] and line.col1 and line.col1.relation:
+            if line.evaluation_type in ['reference', 'value'] and line.col1 and line.col1.relation:
                 value = line.value or ''
                 try:
                     value = int(value)
@@ -635,7 +638,7 @@ class IrServerObjectLines(models.Model):
 
     @api.onchange('resource_ref')
     def _set_resource_ref(self):
-        for line in self.filtered(lambda line: line.type == 'reference'):
+        for line in self.filtered(lambda line: line.evaluation_type == 'reference'):
             if line.resource_ref:
                 line.value = str(line.resource_ref.id)
 
@@ -644,7 +647,7 @@ class IrServerObjectLines(models.Model):
         result = dict.fromkeys(self.ids, False)
         for line in self:
             expr = line.value
-            if line.type == 'equation':
+            if line.evaluation_type == 'equation':
                 expr = safe_eval(line.value, eval_context)
             elif line.col1.ttype in ['many2one', 'integer']:
                 try:
@@ -769,12 +772,12 @@ class IrActionsActClient(models.Model):
     params = fields.Binary(compute='_compute_params', inverse='_inverse_params', string='Supplementary arguments',
                            help="Arguments sent to the client along with "
                                 "the view tag")
-    params_store = fields.Binary(string='Params storage', readonly=True)
+    params_store = fields.Binary(string='Params storage', readonly=True, attachment=False)
 
     @api.depends('params_store')
     def _compute_params(self):
         self_bin = self.with_context(bin_size=False, bin_size_params_store=False)
-        for record, record_bin in pycompat.izip(self, self_bin):
+        for record, record_bin in zip(self, self_bin):
             record.params = record_bin.params_store and safe_eval(record_bin.params_store, {'uid': self._uid})
 
     def _inverse_params(self):

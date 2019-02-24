@@ -1,6 +1,7 @@
 odoo.define('web.ajax', function (require) {
 "use strict";
 
+var config = require('web.config');
 var core = require('web.core');
 var utils = require('web.utils');
 var time = require('web.time');
@@ -44,7 +45,6 @@ function genericJsonRpc (fct_name, params, settings, fct) {
         var def = $.Deferred();
         return def.reject.apply(def, ["communication"].concat(_.toArray(arguments)));
     });
-    // FIXME: jsonp?
     deferred.abort = function () {
         deferred.reject({message: "XmlHttpRequestError abort"}, $.Event('abort'));
         if (xhr.abort) {
@@ -102,80 +102,6 @@ function jsonRpc(url, fct_name, params, settings) {
             data: JSON.stringify(data, time.date_to_utc),
             contentType: 'application/json'
         }));
-    });
-}
-
-function jsonpRpc(url, fct_name, params, settings) {
-    settings = settings || {};
-    return genericJsonRpc(fct_name, params, settings, function(data) {
-        var payload_str = JSON.stringify(data, time.date_to_utc);
-        var payload_url = $.param({r:payload_str});
-        var force2step = settings.force2step || false;
-        delete settings.force2step;
-        var session_id = settings.session_id || null;
-        delete settings.session_id;
-        if (payload_url.length < 2000 && ! force2step) {
-            return $.ajax(url, _.extend({}, settings, {
-                url: url,
-                dataType: 'jsonp',
-                jsonp: 'jsonp',
-                type: 'GET',
-                cache: false,
-                data: {r: payload_str, session_id: session_id}
-            }));
-        } else {
-            var args = {session_id: session_id, id: data.id};
-            var ifid = _.uniqueId('oe_rpc_iframe');
-            var html = "<iframe src='javascript:false;' name='" + ifid + "' id='" + ifid + "' style='display:none'></iframe>";
-            var $iframe = $(html);
-            var nurl = 'jsonp=1&' + $.param(args);
-            nurl = url.indexOf("?") !== -1 ? url + "&" + nurl : url + "?" + nurl;
-            var $form = $('<form>')
-                        .attr('method', 'POST')
-                        .attr('target', ifid)
-                        .attr('enctype', "multipart/form-data")
-                        .attr('action', nurl)
-                        .append($('<input type="hidden" name="r" />').attr('value', payload_str))
-                        .hide()
-                        .appendTo($('body'));
-            var cleanUp = function() {
-                if ($iframe) {
-                    $iframe.unbind("load").remove();
-                }
-                $form.remove();
-            };
-            var deferred = $.Deferred();
-            // the first bind is fired up when the iframe is added to the DOM
-            $iframe.bind('load', function() {
-                // the second bind is fired up when the result of the form submission is received
-                $iframe.unbind('load').bind('load', function() {
-                    $.ajax({
-                        url: url,
-                        dataType: 'jsonp',
-                        jsonp: 'jsonp',
-                        type: 'GET',
-                        cache: false,
-                        data: {session_id: session_id, id: data.id}
-                    }).always(function() {
-                        cleanUp();
-                    }).done(function() {
-                        deferred.resolve.apply(deferred, arguments);
-                    }).fail(function() {
-                        deferred.reject.apply(deferred, arguments);
-                    });
-                });
-                // now that the iframe can receive data, we fill and submit the form
-                $form.submit();
-            });
-            // append the iframe to the DOM (will trigger the first load)
-            $form.after($iframe);
-            if (settings.timeout) {
-                realSetTimeout(function() {
-                    deferred.reject({});
-                }, settings.timeout);
-            }
-            return deferred;
-        }
     });
 }
 
@@ -311,7 +237,7 @@ function get_file(options) {
         xhr.open('POST', options.url);
         data = new FormData();
         _.each(options.data || {}, function (v, k) {
-            data.append(k, v)
+            data.append(k, v);
         });
     }
     data.append('token', 'dummy-because-api-expects-one');
@@ -359,7 +285,7 @@ function get_file(options) {
                         name: String(xhr.status),
                         title: nodes.length > 0 ? nodes[0].textContent : '',
                     }
-                }
+                };
             }
             options.error(err);
         };
@@ -374,7 +300,7 @@ function get_file(options) {
         }
     };
     if (options.complete) {
-        xhr.onloadend = function () { options.complete(); }
+        xhr.onloadend = function () { options.complete(); };
     }
 
     xhr.send(data);
@@ -503,6 +429,55 @@ var loadXML = (function () {
     };
 })();
 
+/**
+ * Loads a template file according to the given xmlId.
+ *
+ * @param {string} [xmlId] - the template xmlId
+ * @returns {Deferred} resolved with an object
+ *          cssLibs: list of css files
+ *          cssContents: list of style tag contents
+ *          jsLibs: list of JS files
+ *          jsContents: list of script tag contents
+ */
+var loadAsset = (function () {
+    var cache = {};
+
+    var load = function loadAsset(xmlId) {
+        if (cache[xmlId]) {
+            return $.when(cache[xmlId]);
+        }
+        var params = {
+            args: [xmlId, {
+                debug: config.debug
+            }],
+            kwargs: {
+                context: odoo.session_info.user_context,
+            },
+            method: 'render_template',
+            model: 'ir.ui.view',
+        };
+        return rpc('/web/dataset/call_kw/ir.ui.view/render_template', params).then(function (xml) {
+            var $xml = $(xml);
+            cache[xmlId] = {
+                cssLibs: $xml.filter('link[href]:not([type="image/x-icon"])').map(function () {
+                    return $(this).attr('href');
+                }).get(),
+                cssContents: $xml.filter('style').map(function () {
+                    return $(this).html();
+                }).get(),
+                jsLibs: $xml.filter('script[src]').map(function () {
+                    return $(this).attr('src');
+                }).get(),
+                jsContents: $xml.filter('script:not([src])').map(function () {
+                    return $(this).html();
+                }).get(),
+            };
+            return cache[xmlId];
+        });
+    };
+
+    return load;
+})();
 
 /**
  * Loads the given js and css libraries. Note that the ajax loadJS and loadCSS methods
@@ -515,6 +490,8 @@ var loadXML = (function () {
  *   parallel.
  * @param {Array<string>} [libs.cssLibs=[]] A list of css files, to be loaded in
  *   parallel
+ * @param {Array<string>} [libs.assetLibs=[]] A list of xmlId. The loaded template
+ *   contains the script and link to be loaded
  *
  * @returns {Deferred}
  */
@@ -534,16 +511,21 @@ function loadLibs (libs) {
     _.each(libs.cssLibs || [], function (url) {
         defs.push(ajax.loadCSS(url));
     });
+    _.each(libs.assetLibs || [], function (xmlId) {
+        defs.push(loadAsset(xmlId).then(function (asset) {
+            return loadLibs(asset);
+        }));
+    });
     return $.when.apply($, defs);
 }
 
 var ajax = {
     jsonRpc: jsonRpc,
-    jsonpRpc: jsonpRpc,
     rpc: rpc,
     loadCSS: loadCSS,
     loadJS: loadJS,
     loadXML: loadXML,
+    loadAsset: loadAsset,
     loadLibs: loadLibs,
     get_file: get_file,
     post: post,

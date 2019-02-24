@@ -10,10 +10,12 @@ var Dashboard = webSettingsDashboard.Dashboard;
 
 function createDashboard(params) {
     var widget = new Widget();
-    var dashboard = new Dashboard(widget);
+    // action content not used in tests apparently
+    var action = {};
+    var dashboard = new Dashboard(widget, action);
     dashboard.all_dashboards = params.dashboards || ['invitations']; // test only user invitations
 
-    testUtils.addMockEnvironment(widget, params);
+    testUtils.mock.addMockEnvironment(widget, params);
 
     var originalDestroy = Dashboard.prototype.destroy;
     dashboard.destroy = function () {
@@ -66,10 +68,10 @@ QUnit.module('settings_dashboard', function () {
             'input should have been cleared');
 
         // send invitation
-        dashboard.$('.o_web_settings_dashboard_invite').click();
+        testUtils.dom.click(dashboard.$('.o_web_settings_dashboard_invite'));
         assert.strictEqual(dashboard.$('.o_web_settings_dashboard_user').text().trim(), 'lagan@odoo.com',
             'should have created a badge in pending invitations');
-        assert.strictEqual(dashboard.$('.o_badge_text').length, 0,
+        assert.containsNone(dashboard, '.o_badge_text',
             'should have removed the badge from the invite area');
 
         dashboard.destroy();
@@ -105,7 +107,7 @@ QUnit.module('settings_dashboard', function () {
         dashboard.$('.o_user_emails').val('x@y').trigger($.Event('keydown', {
             which: $.ui.keyCode.ENTER,
         }));
-        assert.strictEqual(dashboard.$('.o_badge_text').length, 0,
+        assert.containsNone(dashboard, '.o_badge_text',
             'should not have generated any badge');
         assert.strictEqual(dashboard.$('.o_user_emails').val(), 'x@y',
             'input should not have been cleared');
@@ -115,7 +117,7 @@ QUnit.module('settings_dashboard', function () {
         dashboard.$('.o_user_emails').val('xyz@odoo.com').trigger($.Event('keydown', {
             which: $.ui.keyCode.ENTER,
         }));
-        assert.strictEqual(dashboard.$('.o_badge_text').length, 0,
+        assert.containsNone(dashboard, '.o_badge_text',
             'should not have generated any badge');
         assert.strictEqual(dashboard.$('.o_user_emails').val(), 'xyz@odoo.com',
             'input should not have been cleared');
@@ -148,7 +150,7 @@ QUnit.module('settings_dashboard', function () {
         dashboard.$('.o_user_emails').val(emails.join(' ')).trigger($.Event('keydown', {
             which: $.ui.keyCode.ENTER,
         }));
-        assert.strictEqual(dashboard.$('.o_badge_text').length, 4,
+        assert.containsN(dashboard, '.o_badge_text', 4,
             'should have generated 4 badges');
         assert.strictEqual(dashboard.$('.o_user_emails').val(), '',
             'input have been cleared');
@@ -187,7 +189,7 @@ QUnit.module('settings_dashboard', function () {
         dashboard.$('.o_user_emails').val(emails.join(' ')).trigger($.Event('keydown', {
             which: $.ui.keyCode.ENTER,
         }));
-        assert.strictEqual(dashboard.$('.o_badge_text').length, 1,
+        assert.containsOnce(dashboard, '.o_badge_text',
             'should have generated 1 badge');
         assert.strictEqual(dashboard.$('.o_user_emails').val(), '',
             'input have been cleared');
@@ -225,7 +227,7 @@ QUnit.module('settings_dashboard', function () {
             ev.preventDefault();
         });
 
-        $loadTranslation.click();
+        testUtils.dom.click($loadTranslation);
 
         $(document.body).off('click.o_test');
 
@@ -265,7 +267,7 @@ QUnit.module('settings_dashboard', function () {
             ev.preventDefault();
         });
 
-        $setupCompany.click();
+        testUtils.dom.click($setupCompany);
 
         $(document.body).off('click.o_test');
 
@@ -306,7 +308,7 @@ QUnit.module('settings_dashboard', function () {
         assert.strictEqual($browseAppsButton.length, 1,
             "should have button to browse apps");
 
-        $browseAppsButton.click();
+        testUtils.dom.click($browseAppsButton);
 
         $(document.body).off('click.o_test');
         dashboard.destroy();

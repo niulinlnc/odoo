@@ -3,7 +3,6 @@
 
 import unittest
 
-from odoo.tools import pycompat
 from odoo.tools import mute_logger
 from odoo.tools.translate import quote, unquote, xml_translate, html_translate
 from odoo.tests.common import TransactionCase, tagged
@@ -333,7 +332,7 @@ class TestXMLTranslation(TransactionCase):
             'arch': archf % terms,
         })
         for lang, trans_terms in kwargs.items():
-            for src, val in pycompat.izip(terms, trans_terms):
+            for src, val in zip(terms, trans_terms):
                 self.env['ir.translation'].create({
                     'type': 'model_terms',
                     'name': 'ir.ui.view,arch_db',
@@ -411,7 +410,7 @@ class TestXMLTranslation(TransactionCase):
         """ Check translations after minor change in source terms. """
         archf = '<form string="X"><div>%s</div><div>%s</div></form>'
         terms_src = ('Subtotal', 'Subtotal:')
-        terms_en = ('Subtotal', 'Sub total:')
+        terms_en = ('', 'Sub total:')
         view = self.create_view(archf, terms_src, en_US=terms_en)
 
         translations = self.env['ir.translation'].search([

@@ -5,6 +5,7 @@ var BasicRenderer = require('web.BasicRenderer');
 var config = require('web.config');
 var core = require('web.core');
 var dom = require('web.dom');
+var viewUtils = require('web.viewUtils');
 
 var _t = core._t;
 var qweb = core.qweb;
@@ -235,6 +236,15 @@ var FormRenderer = BasicRenderer.extend({
         });
     },
     /**
+     * Called each time the form view is attached into the DOM
+     */
+    on_attach_callback: function () {
+        _.forEach(this.allFieldWidgets, function (widgets){
+            _.invoke(widgets, 'on_attach_callback');
+        });
+        this._super.apply(this, arguments);
+    },
+    /**
      * @override method from AbstractRenderer
      * @param {Object} state a valid state given by the model
      * @param {Object} params
@@ -314,31 +324,7 @@ var FormRenderer = BasicRenderer.extend({
         });
     },
     /**
-     * Enable swipe event to allow navigating through records
-     *
-     * @private
-     */
-    _enableSwipe: function () {
-        var self = this;
-        this.$('.o_form_sheet').swipe({
-            swipeLeft: function () {
-                this.css({
-                    transform: 'translateX(-100%)',
-                    transition: '350ms'
-                });
-                self.trigger_up('swipe_left');
-            },
-            swipeRight: function () {
-                this.css({
-                    transform: 'translateX(100%)',
-                    transition: '350ms'
-                });
-                self.trigger_up('swipe_right');
-            },
             excludedElements: ".o_notebook .nav.nav-tabs",
-        });
-    },
-    /**
      * @private
      * @param {string} name
      * @returns {string}
@@ -442,7 +428,7 @@ var FormRenderer = BasicRenderer.extend({
      * @returns {jQueryElement}
      */
     _renderHeaderButton: function (node) {
-        var $button = this._renderButtonFromNode(node);
+        var $button = viewUtils.renderButtonFromNode(node);
 
         // Current API of odoo for rendering buttons is "if classes are given
         // use those on top of the 'btn' and 'btn-{size}' classes, otherwise act
@@ -642,7 +628,7 @@ var FormRenderer = BasicRenderer.extend({
      * @returns {jQueryElement}
      */
     _renderStatButton: function (node) {
-        var $button = this._renderButtonFromNode(node, {
+        var $button = viewUtils.renderButtonFromNode(node, {
             extraClass: 'oe_stat_button',
         });
         $button.append(_.map(node.children, this._renderNode.bind(this)));
@@ -688,7 +674,7 @@ var FormRenderer = BasicRenderer.extend({
      * @returns {jQueryElement}
      */
     _renderTagButton: function (node) {
-        var $button = this._renderButtonFromNode(node);
+        var $button = viewUtils.renderButtonFromNode(node);
         $button.append(_.map(node.children, this._renderNode.bind(this)));
         this._addOnClickAction($button, node);
         this._handleAttributes($button, node);
@@ -948,11 +934,6 @@ var FormRenderer = BasicRenderer.extend({
         this.$el.toggleClass('o_form_editable', this.mode === 'edit');
         this.$el.toggleClass('o_form_readonly', this.mode === 'readonly');
 
-        // Enable swipe for mobile when formview is in readonly mode and there are multiple records
-        if (config.device.isMobile && this.mode === 'readonly' && this.state.count > 1) {
-            this._enableSwipe();
-        }
-
         // Attach the tooltips on the fields' label
         _.each(this.allFieldWidgets[this.state.id], function (widget) {
             var idForLabel = self.idsForLabels[widget.name];
@@ -989,9 +970,14 @@ var FormRenderer = BasicRenderer.extend({
     //--------------------------------------------------------------------------
     // Handlers
     //--------------------------------------------------------------------------
-    _onActivateNextWidget: function (e) {
-        e.stopPropagation();
-        var index = this.allFieldWidgets[this.state.id].indexOf(e.data.target);
+
+    /**
+     * @private
+     * @param {OdooEvent} ev
+     */
+    _onActivateNextWidget: function (ev) {
+        ev.stopPropagation();
+        var index = this.allFieldWidgets[this.state.id].indexOf(ev.data.target);
         this._activateNextFieldWidget(this.state, index);
     },
     /**
@@ -1026,9 +1012,9 @@ var FormRenderer = BasicRenderer.extend({
      * @private
      * @param {MouseEvent} ev
      */
-    _onTranslate: function (event) {
-        event.preventDefault();
-        this.trigger_up('translate', {fieldName: event.target.name, id: this.state.id});
+    _onTranslate: function (ev) {
+        ev.preventDefault();
+        this.trigger_up('translate', {fieldName: ev.target.name, id: this.state.id});
     },
     /**
      * remove alert fields of record from alertFields object

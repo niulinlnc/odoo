@@ -9,10 +9,10 @@ class HrContract(models.Model):
 
     car_id = fields.Many2one('fleet.vehicle', string='Company Car',
         default=lambda self: self.env['fleet.vehicle'].search([('driver_id', '=', self.employee_id.address_home_id.id)], limit=1),
-        track_visibility="onchange",
+        tracking=True,
         help="Employee's company car.")
-    car_atn = fields.Float(compute='_compute_car_atn_and_costs', string='ATN Company Car', store=True)
-    company_car_total_depreciated_cost = fields.Float(compute='_compute_car_atn_and_costs', store=True)
+    car_atn = fields.Float(compute='_compute_car_atn_and_costs', string='ATN Company Car', store=True, compute_sudo=True)
+    company_car_total_depreciated_cost = fields.Float(compute='_compute_car_atn_and_costs', store=True, compute_sudo=True)
     available_cars_amount = fields.Integer(compute='_compute_available_cars_amount', string='Number of available cars')
     new_car = fields.Boolean('Request a new car')
     # YTI: Check if could be removed

@@ -2,7 +2,7 @@
 
 from odoo import api, fields, models, _
 from odoo.osv import expression
-from odoo.tools import float_is_zero, pycompat
+from odoo.tools import float_is_zero
 from odoo.tools import float_compare, float_round, float_repr
 from odoo.tools.misc import formatLang, format_date
 from odoo.exceptions import UserError, ValidationError
@@ -276,6 +276,16 @@ class AccountBankStatement(models.Model):
                     st_number = SequenceObj.with_context(**context).next_by_code('account.bank.statement')
                 statement.name = st_number
             statement.state = 'open'
+            
+    @api.multi
+    def action_bank_reconcile_bank_statements(self):
+        self.ensure_one()
+        bank_stmt_lines = self.mapped('line_ids')
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'bank_statement_reconciliation_view',
+            'context': {'statement_line_ids': bank_stmt_lines.ids, 'company_ids': self.mapped('company_id').ids},
+        }
 
 
 class AccountBankStatementLine(models.Model):
@@ -315,7 +325,8 @@ class AccountBankStatementLine(models.Model):
     def _check_amount(self):
         # Allow to enter bank statement line with an amount of 0,
         # so that user can enter/import the exact bank statement they have received from their bank in Odoo
-        if self.journal_id.type != 'bank' and self.currency_id.is_zero(self.amount):
+        currency = self.currency_id or self.journal_currency_id
+        if self.journal_id.type != 'bank' and currency.is_zero(self.amount):
             raise ValidationError(_('The amount of a cash transaction cannot be 0.'))
 
     @api.one
@@ -492,6 +503,36 @@ class AccountBankStatementLine(models.Model):
     def _get_communication(self, payment_method_id):
         return self.name or ''
 
+    def _prepare_payment_vals(self, total):
+        """ Prepare the dict of values to create the payment from a statement line. This method may be overridden for update dict
+            through model inheritance (make sure to call super() to establish a clean extension chain).
+
+           :param float total: will be used as the amount of the generated payment
+           :return: dict of value to create() the account.payment
+        """
+        self.ensure_one()
+        partner_type = False
+        if self.partner_id:
+            if total < 0:
+                partner_type = 'supplier'
+            else:
+                partner_type = 'customer'
+        currency = self.journal_id.currency_id or self.company_id.currency_id
+        payment_methods = (total > 0) and self.journal_id.inbound_payment_method_ids or self.journal_id.outbound_payment_method_ids
+        return {
+            'payment_method_id': payment_methods and payment_methods[0].id or False,
+            'payment_type': total > 0 and 'inbound' or 'outbound',
+            'partner_id': self.partner_id.id,
+            'partner_type': partner_type,
+            'journal_id': self.statement_id.journal_id.id,
+            'payment_date': self.date,
+            'state': 'reconciled',
+            'currency_id': currency.id,
+            'amount': abs(total),
+            'communication': self._get_communication(payment_methods[0] if payment_methods else False),
+            'name': self.statement_id.name or _("Bank Statement %s") %  self.date,
+        }
+
     def process_reconciliation(self, counterpart_aml_dicts=None, payment_aml_rec=None, new_aml_dicts=None):
         """ Match statement lines with existing payments (eg. checks) and/or payables/receivables (eg. invoices and credit notes) and/or new move lines (eg. write-offs).
             If any new journal item needs to be created (via new_aml_dicts or counterpart_aml_dicts), a new journal entry will be created and will contain those
@@ -516,12 +557,14 @@ class AccountBankStatementLine(models.Model):
                 - 'account_id'
                 - (optional) 'tax_ids'
                 - (optional) Other account.move.line fields like analytic_account_id or analytics_id
+                - (optional) 'reconcile_model_id'
 
             :returns: The journal entries with which the transaction was matched. If there was at least an entry in counterpart_aml_dicts or new_aml_dicts, this list contains
                 the move created by the reconciliation, containing entries for the statement.line (1), the counterpart move lines (0..*) and the new move lines (0..*).
         """
         payable_account_type = self.env.ref('account.data_account_type_payable')
         receivable_account_type = self.env.ref('account.data_account_type_receivable')
+        edition_mode = self._context.get('edition_mode')
         counterpart_aml_dicts = counterpart_aml_dicts or []
         payment_aml_rec = payment_aml_rec or self.env['account.move.line']
         new_aml_dicts = new_aml_dicts or []
@@ -538,22 +581,26 @@ class AccountBankStatementLine(models.Model):
         if any(rec.statement_id for rec in payment_aml_rec):
             raise UserError(_('A selected move line was already reconciled.'))
         for aml_dict in counterpart_aml_dicts:
-            if aml_dict['move_line'].reconciled:
+            if aml_dict['move_line'].reconciled and not edition_mode:
                 raise UserError(_('A selected move line was already reconciled.'))
-            if isinstance(aml_dict['move_line'], pycompat.integer_types):
+            if isinstance(aml_dict['move_line'], int):
                 aml_dict['move_line'] = aml_obj.browse(aml_dict['move_line'])
 
         account_types = self.env['account.account.type']
         for aml_dict in (counterpart_aml_dicts + new_aml_dicts):
-            if aml_dict.get('tax_ids') and isinstance(aml_dict['tax_ids'][0], pycompat.integer_types):
+            if aml_dict.get('tax_ids') and isinstance(aml_dict['tax_ids'][0], int):
                 # Transform the value in the format required for One2many and Many2many fields
                 aml_dict['tax_ids'] = [(4, id, None) for id in aml_dict['tax_ids']]
 
             user_type_id = self.env['account.account'].browse(aml_dict.get('account_id')).user_type_id
             if user_type_id in [payable_account_type, receivable_account_type] and user_type_id not in account_types:
                 account_types |= user_type_id
-        if any(line.journal_entry_ids for line in self):
-            raise UserError(_('A selected statement line was already reconciled with an account move.'))
+        if edition_mode:
+            if any(not line.journal_entry_ids for line in self):
+                raise UserError(_('Some selected statement line were not already reconciled with an account move.'))
+        else:
+            if any(line.journal_entry_ids for line in self):
+                raise UserError(_('A selected statement line was already reconciled with an account move.'))
 
         # Fully reconciled moves are just linked to the bank statement
         total = self.amount
@@ -583,37 +630,18 @@ class AccountBankStatementLine(models.Model):
             # Create the move
             self.sequence = self.statement_id.line_ids.ids.index(self.id) + 1
             move_vals = self._prepare_reconciliation_move(self.statement_id.name)
+            if edition_mode:
+                self.button_cancel_reconciliation()
             move = self.env['account.move'].create(move_vals)
             counterpart_moves = (counterpart_moves | move)
 
             # Create The payment
             payment = self.env['account.payment']
             if abs(total)>0.00001:
-                partner_id = self.partner_id and self.partner_id.id or False
-                partner_type = False
-                if partner_id and len(account_types) == 1:
-                    partner_type = 'customer' if account_types == receivable_account_type else 'supplier'
-                if partner_id and not partner_type:
-                    if total < 0:
-                        partner_type = 'supplier'
-                    else:
-                        partner_type = 'customer'
-
-                payment_methods = (total>0) and self.journal_id.inbound_payment_method_ids or self.journal_id.outbound_payment_method_ids
-                currency = self.journal_id.currency_id or self.company_id.currency_id
-                payment = self.env['account.payment'].create({
-                    'payment_method_id': payment_methods and payment_methods[0].id or False,
-                    'payment_type': total >0 and 'inbound' or 'outbound',
-                    'partner_id': self.partner_id and self.partner_id.id or False,
-                    'partner_type': partner_type,
-                    'journal_id': self.statement_id.journal_id.id,
-                    'payment_date': self.date,
-                    'state': 'reconciled',
-                    'currency_id': currency.id,
-                    'amount': abs(total),
-                    'communication': self._get_communication(payment_methods[0] if payment_methods else False),
-                    'name': self.statement_id.name or _("Bank Statement %s") %  self.date,
-                })
+                payment_vals = self._prepare_payment_vals(total)
+                if self.partner_id and len(account_types) == 1:
+                    payment_vals['partner_type'] = 'customer' if account_types == receivable_account_type else 'supplier'
+                payment = payment.create(payment_vals)
 
             # Complete dicts to create both counterpart move lines and write-offs
             to_create = (counterpart_aml_dicts + new_aml_dicts)

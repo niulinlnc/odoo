@@ -8,7 +8,7 @@
 # ТАрас <tratatuta@i.ua>, 2018
 # Martin Trigaux, 2018
 # Bohdan Lisnenko, 2018
-# Alina Lisnenko <alinasemeniuk1@gmail.com>, 2019
+# Alina Lisnenko <alinasemeniuk1@gmail.com>, 2018
 # 
 msgid ""
 msgstr ""
@@ -16,7 +16,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2018-10-02 10:06+0000\n"
 "PO-Revision-Date: 2018-08-24 09:33+0000\n"
-"Last-Translator: Alina Lisnenko <alinasemeniuk1@gmail.com>, 2019\n"
+"Last-Translator: Alina Lisnenko <alinasemeniuk1@gmail.com>, 2018\n"
 "Language-Team: Ukrainian (https://www.transifex.com/odoo/teams/41243/uk/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -32,9 +32,6 @@ msgid ""
 "'Alt tag' specifies an alternate text for an image, if the image cannot be "
 "displayed (slow connection, missing image, screen reader ...)."
 msgstr ""
-"\"Alt tag\" вказує альтернативний текст для зображення, якщо зображення не "
-"може бути відображене (повільне з'єднання, відсутнє зображення, перегляд "
-"екрану ...)."
 
 #. module: web_editor
 #. openerp-web
@@ -42,21 +39,20 @@ msgstr ""
 #, python-format
 msgid "'Title tag' is shown as a tooltip when you hover the picture."
 msgstr ""
-"'Title tag' відображається як підказка під час наведення на зображення."
 
 #. module: web_editor
 #. openerp-web
 #: code:addons/web_editor/static/src/xml/editor.xml:36
 #, python-format
 msgid "(ALT Tag)"
-msgstr "(ALT Tag)"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
 #: code:addons/web_editor/static/src/xml/editor.xml:45
 #, python-format
 msgid "(TITLE Tag)"
-msgstr "(TITLE Tag)"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
@@ -70,7 +66,7 @@ msgstr "(URL або Вставити)"
 #: code:addons/web_editor/static/src/js/editor/rte.summernote.js:1028
 #, python-format
 msgid "(YouTube, Vimeo, Vine, Instagram, DailyMotion or Youku)"
-msgstr "(YouTube, Vimeo, Vine, Instagram, DailyMotion або Youku)"
+msgstr "(YouTube, Vimeo, Vine, Instagram, DailyMotion or Youku)"
 
 #. module: web_editor
 #: model_terms:ir.ui.view,arch_db:web_editor.snippets
@@ -85,8 +81,6 @@ msgid ""
 "A server error occured. Please check you correctly signed in and that the "
 "file you are saving is correctly formatted."
 msgstr ""
-"Сталася помилка сервера. Переконайтеся, що ви правильно увійшли, а файл, "
-"який ви зберігаєте, правильно відформатований."
 
 #. module: web_editor
 #. openerp-web
@@ -154,7 +148,7 @@ msgstr "Альтернативне завантаження"
 #: code:addons/web_editor/static/src/xml/editor.xml:331
 #, python-format
 msgid "Aspect Ratio"
-msgstr "Співвідношення сторін"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
@@ -171,14 +165,14 @@ msgstr "Вкладення"
 #. module: web_editor
 #: model:ir.model.fields,field_description:web_editor.field_ir_attachment__local_url
 msgid "Attachment URL"
-msgstr "URL прикріплення"
+msgstr "URL долучення"
 
 #. module: web_editor
 #. openerp-web
 #: code:addons/web_editor/static/src/xml/editor.xml:197
 #, python-format
 msgid "Attention"
-msgstr "Увага"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
@@ -277,7 +271,7 @@ msgstr "Змініть опис відомостей про медіа та пі
 #: code:addons/web_editor/static/src/xml/editor.xml:197
 #, python-format
 msgid "Checked"
-msgstr "Перевірено"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
@@ -368,7 +362,7 @@ msgstr "Створено"
 #: code:addons/web_editor/static/src/js/widgets/widgets.js:1628
 #, python-format
 msgid "Crop Image"
-msgstr "Обрізати зображення"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
@@ -382,7 +376,7 @@ msgstr "Власний"
 #: code:addons/web_editor/static/src/js/editor/rte.summernote.js:1068
 #, python-format
 msgid "Custom Color"
-msgstr "Спеціальний колір"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
@@ -404,7 +398,7 @@ msgstr "Dailymotion"
 #: code:addons/web_editor/static/src/xml/editor.xml:269
 #, python-format
 msgid "Default"
-msgstr "За замовчуванням"
+msgstr "Типовий"
 
 #. module: web_editor
 #. openerp-web
@@ -513,14 +507,14 @@ msgstr "Фіксований"
 #: code:addons/web_editor/static/src/xml/editor.xml:348
 #, python-format
 msgid "Flip Horizontal"
-msgstr "Перевернути горизонтально"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
 #: code:addons/web_editor/static/src/xml/editor.xml:349
 #, python-format
 msgid "Flip Vertical"
-msgstr "Перевернути вертикально"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
@@ -555,7 +549,7 @@ msgstr "Колір шрифту"
 #: code:addons/web_editor/static/src/js/editor/rte.summernote.js:997
 #, python-format
 msgid "Font Family"
-msgstr "Набір шрифтів"
+msgstr "Сімейство шрифтів"
 
 #. module: web_editor
 #. openerp-web
@@ -730,8 +724,6 @@ msgid ""
 "If you want to crop it, please first download it from the original source "
 "and upload it in Odoo."
 msgstr ""
-"Якщо ви бажаєте обрізати зображення, спочатку завантажте його з "
-"оригінального джерела та завантажте в Odoo."
 
 #. module: web_editor
 #. openerp-web
@@ -763,14 +755,14 @@ msgstr ""
 #: code:addons/web_editor/static/src/xml/ace.xml:31
 #, python-format
 msgid "Include All SCSS Files"
-msgstr "Включити всі файли SCSS"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
 #: code:addons/web_editor/static/src/xml/ace.xml:22
 #, python-format
 msgid "Include Asset Bundles"
-msgstr "Включити пакети активів"
+msgstr "Включити комплекти ресурсів"
 
 #. module: web_editor
 #. openerp-web
@@ -992,14 +984,14 @@ msgstr "Виступ"
 #: code:addons/web_editor/static/src/xml/editor.xml:270
 #, python-format
 msgid "Outline"
-msgstr "Контур"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
 #: code:addons/web_editor/static/src/xml/editor.xml:272
 #, python-format
 msgid "Outline-Rounded"
-msgstr "Закруглений контур"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
@@ -1055,32 +1047,32 @@ msgstr "Цитата"
 #. module: web_editor
 #: model:ir.model,name:web_editor.model_ir_qweb
 msgid "Qweb"
-msgstr "Qweb"
+msgstr ""
 
 #. module: web_editor
 #: model:ir.model,name:web_editor.model_ir_qweb_field
 msgid "Qweb Field"
-msgstr "Поле Qweb"
+msgstr ""
 
 #. module: web_editor
 #: model:ir.model,name:web_editor.model_ir_qweb_field_contact
 msgid "Qweb Field Contact"
-msgstr "Контакт Qweb поля"
+msgstr ""
 
 #. module: web_editor
 #: model:ir.model,name:web_editor.model_ir_qweb_field_date
 msgid "Qweb Field Date"
-msgstr "Дата поля Qweb"
+msgstr ""
 
 #. module: web_editor
 #: model:ir.model,name:web_editor.model_ir_qweb_field_datetime
 msgid "Qweb Field Datetime"
-msgstr "Дата час поля Qweb "
+msgstr ""
 
 #. module: web_editor
 #: model:ir.model,name:web_editor.model_ir_qweb_field_duration
 msgid "Qweb Field Duration"
-msgstr "Тривалість поля Qweb"
+msgstr ""
 
 #. module: web_editor
 #: model:ir.model,name:web_editor.model_ir_qweb_field_float
@@ -1090,47 +1082,47 @@ msgstr "Число з комою поля Qweb"
 #. module: web_editor
 #: model:ir.model,name:web_editor.model_ir_qweb_field_html
 msgid "Qweb Field HTML"
-msgstr "HTML поля Qweb"
+msgstr ""
 
 #. module: web_editor
 #: model:ir.model,name:web_editor.model_ir_qweb_field_image
 msgid "Qweb Field Image"
-msgstr "Зображення поля Qweb "
+msgstr ""
 
 #. module: web_editor
 #: model:ir.model,name:web_editor.model_ir_qweb_field_integer
 msgid "Qweb Field Integer"
-msgstr "Ціле поле Qweb"
+msgstr ""
 
 #. module: web_editor
 #: model:ir.model,name:web_editor.model_ir_qweb_field_many2one
 msgid "Qweb Field Many to One"
-msgstr "Поле Qweb Many to One"
+msgstr ""
 
 #. module: web_editor
 #: model:ir.model,name:web_editor.model_ir_qweb_field_monetary
 msgid "Qweb Field Monerary"
-msgstr "Поле Qweb Monerary"
+msgstr ""
 
 #. module: web_editor
 #: model:ir.model,name:web_editor.model_ir_qweb_field_relative
 msgid "Qweb Field Relative"
-msgstr "Поле-посилання Qweb"
+msgstr ""
 
 #. module: web_editor
 #: model:ir.model,name:web_editor.model_ir_qweb_field_selection
 msgid "Qweb Field Selection"
-msgstr "Вибір поля Qweb"
+msgstr ""
 
 #. module: web_editor
 #: model:ir.model,name:web_editor.model_ir_qweb_field_text
 msgid "Qweb Field Text"
-msgstr "Текст поля Qweb"
+msgstr ""
 
 #. module: web_editor
 #: model:ir.model,name:web_editor.model_ir_qweb_field_qweb
 msgid "Qweb Field qweb"
-msgstr "Qweb поле qweb"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
@@ -1144,7 +1136,7 @@ msgstr "Поле тільки для читання"
 #: code:addons/web_editor/static/src/js/editor/rte.summernote.js:1084
 #, python-format
 msgid "Redo"
-msgstr "Повернути дію"
+msgstr "Повенути дію"
 
 #. module: web_editor
 #. openerp-web
@@ -1179,7 +1171,7 @@ msgstr "Вилучити зображення"
 #: code:addons/web_editor/static/src/xml/editor.xml:384
 #, python-format
 msgid "Repeat"
-msgstr "Повторити"
+msgstr "Повторювати"
 
 #. module: web_editor
 #. openerp-web
@@ -1228,7 +1220,7 @@ msgstr "Скидання переглядів ще не підтримуєтьс
 #: code:addons/web_editor/static/src/js/editor/rte.summernote.js:1003
 #, python-format
 msgid "Resize Full"
-msgstr "Змінити розмір на повний"
+msgstr "Змінити розмір на повну"
 
 #. module: web_editor
 #. openerp-web
@@ -1249,35 +1241,35 @@ msgstr "Змінити розмір на чверть"
 #: code:addons/web_editor/static/src/xml/editor.xml:344
 #, python-format
 msgid "Rotate Left"
-msgstr "Повернути ліворуч"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
 #: code:addons/web_editor/static/src/xml/editor.xml:345
 #, python-format
 msgid "Rotate Right"
-msgstr "Повернути праворуч"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
 #: code:addons/web_editor/static/src/xml/editor.xml:271
 #, python-format
 msgid "Rounded"
-msgstr "Заокруглений"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
 #: code:addons/web_editor/static/src/xml/ace.xml:11
 #, python-format
 msgid "SCSS (CSS)"
-msgstr "SCSS (CSS)"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
 #: code:addons/web_editor/static/src/js/widgets/ace.js:364
 #, python-format
 msgid "SCSS file: %s"
-msgstr "Файл SCSS: %s"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
@@ -1316,7 +1308,7 @@ msgstr "Оберіть батьківський контейнер"
 #: code:addons/web_editor/static/src/js/widgets/widgets.js:1123
 #, python-format
 msgid "Select a Media"
-msgstr "Вибрати медіа"
+msgstr "Виберіть джерело"
 
 #. module: web_editor
 #. openerp-web
@@ -1385,7 +1377,7 @@ msgstr "Малий"
 #: code:addons/web_editor/static/src/js/editor/rte.summernote.js:169
 #, python-format
 msgid "Spin"
-msgstr "Обернути"
+msgstr "Обертати"
 
 #. module: web_editor
 #. openerp-web
@@ -1452,7 +1444,7 @@ msgid ""
 "The image could not be deleted because it is used in the\n"
 "               following pages or views:"
 msgstr ""
-"Не можливо видалити зображення, тому що воно використовується\n"
+"Неможливо видалити зображення, тому що воно використовується\n"
 " в наступних сторінках або переглядах:"
 
 #. module: web_editor
@@ -1504,14 +1496,14 @@ msgstr "Цей файл додається до поточного запису"
 #: code:addons/web_editor/static/src/xml/editor.xml:320
 #, python-format
 msgid "This image is an external image"
-msgstr "Це зображення є зовнішнім зображенням"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
 #: code:addons/web_editor/static/src/xml/editor.xml:321
 #, python-format
 msgid "This type of image is not supported for cropping."
-msgstr "Цей тип зображення не підтримується для обрізання."
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
@@ -1681,12 +1673,12 @@ msgstr "Vine.co"
 #. module: web_editor
 #: model:ir.model,name:web_editor.model_web_editor_converter_test_sub
 msgid "Web Editor Converter Subtest"
-msgstr "Підтест конвертера веб-редактора"
+msgstr ""
 
 #. module: web_editor
 #: model:ir.model,name:web_editor.model_web_editor_converter_test
 msgid "Web Editor Converter Test"
-msgstr "Тест конвертера веб-редактора"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
@@ -1708,7 +1700,7 @@ msgstr "Xl"
 #: code:addons/web_editor/static/src/xml/translator.xml:4
 #, python-format
 msgid "You are about to enter the translation mode."
-msgstr "Ви майже увійшли в модуль перекладу."
+msgstr "Ви майже ввійшли в модуль перекладу."
 
 #. module: web_editor
 #. openerp-web
@@ -1729,14 +1721,14 @@ msgstr "Youtube"
 #: code:addons/web_editor/static/src/xml/editor.xml:340
 #, python-format
 msgid "Zoom In"
-msgstr "Приблизити"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web
 #: code:addons/web_editor/static/src/xml/editor.xml:341
 #, python-format
 msgid "Zoom Out"
-msgstr "Зменшити"
+msgstr ""
 
 #. module: web_editor
 #. openerp-web

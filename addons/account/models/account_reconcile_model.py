@@ -22,6 +22,7 @@ class AccountReconcileModel(models.Model):
     ], string='Type', default='writeoff_button', required=True)
     auto_reconcile = fields.Boolean(string='Auto-validate',
         help='Validate the statement line automatically (reconciliation based on your rule).')
+    to_check = fields.Boolean(string='To Check', default=False, help='This matching rule is used when the user is not certain of all the informations of the counterpart.')
 
     # ===== Conditions =====
     match_journal_ids = fields.Many2many('account.journal', string='Journals',
@@ -84,7 +85,8 @@ class AccountReconcileModel(models.Model):
     amount = fields.Float(string='Write-off Amount', digits=0, required=True, default=100.0, help="Fixed amount will count as a debit if it is negative, as a credit if it is positive.")
     tax_id = fields.Many2one('account.tax', string='Tax', ondelete='restrict')
     analytic_account_id = fields.Many2one('account.analytic.account', string='Analytic Account', ondelete='set null')
-    analytic_tag_ids = fields.Many2many('account.analytic.tag', string='Analytic Tags')
+    analytic_tag_ids = fields.Many2many('account.analytic.tag', string='Analytic Tags',
+                                        relation='account_reconcile_model_analytic_tag_rel')
 
     # Second part fields.
     has_second_line = fields.Boolean(string='Add a second line', default=False)
@@ -104,7 +106,26 @@ class AccountReconcileModel(models.Model):
     second_amount = fields.Float(string='Second Write-off Amount', digits=0, required=True, default=100.0, help="Fixed amount will count as a debit if it is negative, as a credit if it is positive.")
     second_tax_id = fields.Many2one('account.tax', string='Second Tax', ondelete='restrict', domain=[('type_tax_use', '=', 'purchase')])
     second_analytic_account_id = fields.Many2one('account.analytic.account', string='Second Analytic Account', ondelete='set null')
-    second_analytic_tag_ids = fields.Many2many('account.analytic.tag', string='Second Analytic Tags')
+    second_analytic_tag_ids = fields.Many2many('account.analytic.tag', string='Second Analytic Tags',
+                                               relation='account_reconcile_model_second_analytic_tag_rel')
+    
+    number_entries = fields.Integer(string='Number of entries related to this model', compute='_compute_number_entries')
+
+    @api.multi
+    def action_reconcile_stat(self):
+        action = self.env.ref('account.action_move_journal_line').read()[0]
+        action.update({
+            'context': {'search_default_reconcile_model_id': self.name},
+            'help': """<p class="o_view_nocontent_empty_folder">{}</p>""".format(_('No move from this reconciliation model')),
+        })
+        return action
+        
+    @api.multi
+    def _compute_number_entries(self):
+        data = self.env['account.move.line'].read_group([('reconcile_model_id', 'in', self.ids)], ['reconcile_model_ids'], 'reconcile_model_id')
+        mapped_data = dict([(d['reconcile_model_id'][0], d['reconcile_model_id_count']) for d in data])
+        for model in self:
+            model.number_entries = mapped_data.get(model.id, 0)
 
     @api.onchange('name')
     def onchange_name(self):

@@ -1446,7 +1446,6 @@ var AbstractFieldBinary = AbstractField.extend({
                     self.on_file_uploaded(file.size, file.name, file.type, data);
                 };
             } else {
-                this.$('form.o_form_binary_form input[name=session_id]').val(this.getSession().session_id);
                 this.$('form.o_form_binary_form').submit();
             }
             this.$('.o_form_binary_progress').show();
@@ -1501,9 +1500,13 @@ var AbstractFieldBinary = AbstractField.extend({
      * @private
      */
     _clearFile: function (){
+        var self = this;
         this.set_filename('');
-        this._setValue(false);
-        this._render();
+        if (!this.isDestroyed()) {
+            this._setValue(false).then(function() {
+                self._render();
+            });
+        }
     },
 
     //--------------------------------------------------------------------------
@@ -1573,7 +1576,7 @@ var FieldBinaryImage = AbstractFieldBinary.extend({
         }
         this.$('> img').remove();
         this.$el.prepend($img);
-        $img.on('error', function () {
+        $img.one('error', function () {
             self._clearFile();
             $img.attr('src', self.placeholder);
             self.do_warn(_t("Image"), _t("Could not display the selected image."));
@@ -1960,11 +1963,10 @@ var StateSelectionWidget = AbstractField.extend({
      * @override
      */
     _render: function () {
-        var self = this;
         var states = this._prepareDropdownValues();
         // Adapt "FormSelection"
         // Like priority, default on the first possible value if no value is given.
-        var currentState = _.findWhere(states, {name: self.value}) || states[0];
+        var currentState = _.findWhere(states, {name: this.value}) || states[0];
         this.$('.o_status')
             .removeClass('o_status_red o_status_green')
             .addClass(currentState.state_class)
@@ -1979,6 +1981,10 @@ var StateSelectionWidget = AbstractField.extend({
         var $dropdown = this.$('.dropdown-menu');
         $dropdown.children().remove(); // remove old items
         $items.appendTo($dropdown);
+
+        // Disable edition if the field is readonly
+        var isReadonly = this.record.evalModifiers(this.attrs.modifiers).readonly;
+        this.$('a[data-toggle=dropdown]').toggleClass('disabled', isReadonly || false);
     },
 
     //--------------------------------------------------------------------------
@@ -3000,6 +3006,7 @@ return {
     FieldEmail: FieldEmail,
     FieldBinaryFile: FieldBinaryFile,
     FieldPdfViewer: FieldPdfViewer,
+    AbstractFieldBinary: AbstractFieldBinary,
     FieldBinaryImage: FieldBinaryImage,
     FieldBoolean: FieldBoolean,
     FieldBooleanButton: FieldBooleanButton,

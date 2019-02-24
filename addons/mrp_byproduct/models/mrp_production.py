@@ -38,11 +38,11 @@ class MrpProduction(models.Model):
             move._action_confirm()
 
     @api.multi
-    def _generate_moves(self):
+    def _generate_finished_moves(self):
         """ Generates moves and work orders
         @return: Newly generated picking Id.
         """
-        res = super(MrpProduction, self)._generate_moves()
+        res = super(MrpProduction, self)._generate_finished_moves()
         for production in self.filtered(lambda production: production.bom_id):
             for sub_product in production.bom_id.sub_products:
                 production._create_byproduct_move(sub_product)
@@ -55,12 +55,12 @@ class MrpProductProduce(models.TransientModel):
     _inherit = "mrp.product.produce"
 
     @api.multi
-    def check_finished_move_lots(self):
+    def _update_finished_move(self):
         """ Handle by product tracked """
-        by_product_moves = self.production_id.move_finished_ids.filtered(lambda m: m.product_id != self.product_id and m.product_id.tracking != 'none' and m.state not in ('done', 'cancel'))
+        by_product_moves = self.production_id.move_finished_ids.filtered(lambda m: m.product_id != self.product_id and m.state not in ('done', 'cancel'))
         for by_product_move in by_product_moves:
             rounding = by_product_move.product_uom.rounding
-            quantity = float_round(self.product_qty * by_product_move.unit_factor, precision_rounding=rounding)
+            quantity = float_round(self.qty_producing * by_product_move.unit_factor, precision_rounding=rounding)
             values = {
                 'move_id': by_product_move.id,
                 'product_id': by_product_move.product_id.id,
@@ -82,4 +82,4 @@ class MrpProductProduce(models.TransientModel):
                 })
                 for i in range(0, int(quantity)):
                     self.env['stock.move.line'].create(values)
-        return super(MrpProductProduce, self).check_finished_move_lots()
+        return super(MrpProductProduce, self)._update_finished_move()

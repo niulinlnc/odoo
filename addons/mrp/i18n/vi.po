@@ -3,23 +3,22 @@
 # * mrp
 # 
 # Translators:
-# Thang Duong Bao <nothingctrl@gmail.com>, 2018
-# son dang <son.dang@doda100.com>, 2018
-# Martin Trigaux, 2018
-# Minh Nguyen <ndminh210994@gmail.com>, 2018
+# thanh nguyen <thanhnguyen.icsc@gmail.com>, 2018
+# Duy BQ <duybq86@gmail.com>, 2018
 # fanha99 <fanha99@hotmail.com>, 2018
+# Martin Trigaux, 2018
+# son dang <son.dang@doda100.com>, 2018
+# Thang Duong Bao <nothingctrl@gmail.com>, 2018
+# Minh Nguyen <ndminh210994@gmail.com>, 2018
 # Tien Nguyen <tienkt05@gmail.com>, 2018
 # khoibv Mr <kendev2009@gmail.com>, 2018
-# Duy BQ <duybq86@gmail.com>, 2018
-# Nancy Momoland <thanhnguyen.icsc@gmail.com>, 2019
-# 
 msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-01-09 10:31+0000\n"
-"PO-Revision-Date: 2018-08-24 09:21+0000\n"
-"Last-Translator: Nancy Momoland <thanhnguyen.icsc@gmail.com>, 2019\n"
+"POT-Creation-Date: 2018-10-24 09:34+0000\n"
+"PO-Revision-Date: 2018-10-24 09:34+0000\n"
+"Last-Translator: khoibv Mr <kendev2009@gmail.com>, 2018\n"
 "Language-Team: Vietnamese (https://www.transifex.com/odoo/teams/41243/vi/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -77,8 +76,6 @@ msgid ""
 ".\n"
 "            Manual actions may be needed."
 msgstr ""
-".\n"
-"            Cần xử lý bằng tay."
 
 #. module: mrp
 #: model:product.product,description:mrp.product_product_computer_desk_leg
@@ -87,28 +84,7 @@ msgid "18″ x 2½″ Square Leg"
 msgstr "Chân bàn 18″ x 2½″"
 
 #. module: mrp
-#: model_terms:ir.ui.view,arch_db:mrp.mrp_workcenter_kanban
-#: model_terms:ir.ui.view,arch_db:mrp.stock_production_type_kanban
-msgid "<i class=\"fa fa-ellipsis-v\" role=\"img\" aria-label=\"Manage\" title=\"Manage\"/>"
-msgstr ""
-
-#. module: mrp
-#: model_terms:ir.ui.view,arch_db:mrp.workcenter_line_kanban
-msgid "<i class=\"fa fa-pause\" role=\"img\" aria-label=\"Pause\" title=\"Pause\"/>"
-msgstr ""
-
-#. module: mrp
-#: model_terms:ir.ui.view,arch_db:mrp.workcenter_line_kanban
-msgid "<i class=\"fa fa-play\" role=\"img\" aria-label=\"Run\" title=\"Run\"/>"
-msgstr ""
-
-#. module: mrp
-#: model_terms:ir.ui.view,arch_db:mrp.workcenter_line_kanban
-msgid "<i class=\"fa fa-stop\" role=\"img\" aria-label=\"Stop\" title=\"Stop\"/>"
-msgstr ""
-
-#. module: mrp
-#: code:addons/mrp/models/mrp_bom.py:332
+#: code:addons/mrp/models/mrp_bom.py:339
 #, python-format
 msgid ""
 "<p class=\"o_view_nocontent_smiling_face\">\n"
@@ -124,21 +100,6 @@ msgid ""
 "<span class=\"badge badge-danger\" attrs=\"{'invisible': "
 "['|',('availability', 'in', ('assigned', 'none')), ('state', 'not in', "
 "('confirmed','progress'))]}\">Raw materials not available!</span>"
-msgstr ""
-
-#. module: mrp
-#: model_terms:ir.ui.view,arch_db:mrp.report_mrp_bom_line
-msgid ""
-"<span class=\"fa fa-dropbox\" title=\"This is a BoM of type Kit!\" "
-"role=\"img\" aria-label=\"This is a BoM of type Kit!\"/>"
-msgstr ""
-
-#. module: mrp
-#: model_terms:ir.ui.view,arch_db:mrp.res_config_settings_view_form
-msgid ""
-"<span class=\"fa fa-lg fa-building-o\" title=\"Values set here are company-"
-"specific.\" role=\"img\" aria-label=\"Values set here are company-"
-"specific.\" groups=\"base.group_multi_company\"/>"
 msgstr ""
 
 #. module: mrp
@@ -1422,7 +1383,7 @@ msgstr "Nếu đánh dấu kiểm, các thông điệp mới yêu cầu sự có
 #: model:ir.model.fields,help:mrp.field_mrp_unbuild__message_has_error
 #: model:ir.model.fields,help:mrp.field_mrp_workorder__message_has_error
 msgid "If checked, some messages have a delivery error."
-msgstr "Nếu chọn, sẽ hiển thị thông báo lỗi."
+msgstr ""
 
 #. module: mrp
 #: model:ir.model.fields,help:mrp.field_mrp_production__propagate
@@ -1984,7 +1945,7 @@ msgstr "Tính khả dụng của Vật liệu"
 #: model:ir.model.fields,field_description:mrp.field_mrp_unbuild__message_has_error
 #: model:ir.model.fields,field_description:mrp.field_mrp_workorder__message_has_error
 msgid "Message Delivery error"
-msgstr "Thông báo gửi đi gặp lỗi"
+msgstr ""
 
 #. module: mrp
 #: model:ir.model.fields,field_description:mrp.field_mrp_bom__message_ids
@@ -2205,7 +2166,7 @@ msgstr "Số thông điệp cần có hành động"
 #: model:ir.model.fields,help:mrp.field_mrp_unbuild__message_has_error_counter
 #: model:ir.model.fields,help:mrp.field_mrp_workorder__message_has_error_counter
 msgid "Number of messages with delivery error"
-msgstr "Số tin gửi đi bị lỗi"
+msgstr ""
 
 #. module: mrp
 #: model:ir.model.fields,help:mrp.field_mrp_workcenter__capacity
@@ -2609,7 +2570,7 @@ msgstr "Truy vết"
 #. module: mrp
 #: model:ir.model,name:mrp.model_stock_move_line
 msgid "Product Moves (Stock Move Line)"
-msgstr "Chuyển sản phẩm (Chi tiết phiếu kho)"
+msgstr ""
 
 #. module: mrp
 #: model:ir.model.fields,field_description:mrp.field_mrp_product_produce_line__product_produce_id
@@ -2647,7 +2608,6 @@ msgid "Product to Track"
 msgstr "Sản phẩm để Theo dõi"
 
 #. module: mrp
-#: model:ir.model,name:mrp.model_mrp_production
 #: model:ir.model.fields,field_description:mrp.field_mrp_product_produce__production_id
 #: model_terms:ir.ui.view,arch_db:mrp.view_mrp_production_filter
 #: model_terms:ir.ui.view,arch_db:mrp.view_mrp_production_workorder_form_view_filter
@@ -2673,6 +2633,7 @@ msgstr "Địa điểm sản xuất"
 
 #. module: mrp
 #: model:ir.actions.report,name:mrp.action_report_production_order
+#: model:ir.model,name:mrp.model_mrp_production
 #: model:ir.model.fields,field_description:mrp.field_stock_move_line__production_id
 #: model_terms:ir.ui.view,arch_db:mrp.stock_production_type_kanban
 msgid "Production Order"
@@ -3308,7 +3269,7 @@ msgstr "Dịch chuyển kho"
 #. module: mrp
 #: model:ir.model,name:mrp.model_stock_rule
 msgid "Stock Rule"
-msgstr "Quy tắc tồn kho"
+msgstr ""
 
 #. module: mrp
 #: model:ir.model.fields,field_description:mrp.field_stock_warehouse__sam_loc_id
@@ -3558,6 +3519,14 @@ msgid "There's no product move yet"
 msgstr ""
 
 #. module: mrp
+#: code:addons/mrp/models/mrp_bom.py:78
+#, python-format
+msgid ""
+"This BoM is used in some Manufacturing Orders that are still open. You "
+"should rather archive this BoM and create a new one."
+msgstr ""
+
+#. module: mrp
 #: model:ir.model.fields,help:mrp.field_mrp_workcenter__tz
 msgid ""
 "This field is used in order to define in which timezone the resources will "
@@ -3602,7 +3571,7 @@ msgstr ""
 #. module: mrp
 #: model:ir.model.fields,field_description:mrp.field_mrp_document__thumbnail
 msgid "Thumbnail"
-msgstr "Hình nhỏ"
+msgstr ""
 
 #. module: mrp
 #: model:ir.model.fields,field_description:mrp.field_mrp_workorder__time_ids
@@ -3690,7 +3659,7 @@ msgstr "Chờ Bắt đầu"
 #. module: mrp
 #: model_terms:ir.ui.view,arch_db:mrp.stock_production_type_kanban
 msgid "To Process"
-msgstr "Để xử lý"
+msgstr ""
 
 #. module: mrp
 #: model_terms:ir.ui.view,arch_db:mrp.mrp_production_workorder_form_view_inherit
@@ -3774,11 +3743,6 @@ msgstr "Báo cáo Truy vết"
 #: model:ir.model.fields,field_description:mrp.field_stock_move__needs_lots
 msgid "Tracking"
 msgstr "Theo vết"
-
-#. module: mrp
-#: model:ir.model,name:mrp.model_stock_picking
-msgid "Transfer"
-msgstr "Dịch chuyển"
 
 #. module: mrp
 #: model:ir.model.fields,field_description:mrp.field_mrp_document__type
@@ -4541,8 +4505,8 @@ msgid "minute(s)"
 msgstr "phút"
 
 #. module: mrp
+#: code:addons/mrp/report/mrp_report_bom_structure.py:224
 #: code:addons/mrp/report/mrp_report_bom_structure.py:234
-#: code:addons/mrp/report/mrp_report_bom_structure.py:244
 #: model_terms:ir.ui.view,arch_db:mrp.mrp_production_workorder_form_view_inherit
 #: model_terms:ir.ui.view,arch_db:mrp.mrp_routing_workcenter_form_view
 #: model_terms:ir.ui.view,arch_db:mrp.mrp_workcenter_view

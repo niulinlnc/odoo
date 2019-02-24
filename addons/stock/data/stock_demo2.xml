@@ -27,6 +27,7 @@
             <field name="default_code">FURN_5555</field>
             <field name="name">Cable Management Box</field>
             <field name="type">product</field>
+            <field name="weight">0.01</field>
             <field name="categ_id" ref="product.product_category_5"/>
             <field name="lst_price">100.0</field>
             <field name="standard_price">70.0</field>
@@ -34,7 +35,6 @@
             <field name="tracking">lot</field>
             <field name="uom_id" ref="uom.product_uom_kgm"/>
             <field name="uom_po_id" ref="uom.product_uom_kgm"/>
-            <field name="property_stock_inventory" ref="stock.location_inventory"/>
             <field name="image" type="base64" file="stock/static/img/cable_management.png"/>
         </record>
 

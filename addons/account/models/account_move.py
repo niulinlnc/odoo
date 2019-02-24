@@ -20,6 +20,7 @@ class AccountMove(models.Model):
     _name = "account.move"
     _description = "Journal Entries"
     _order = 'date desc, id desc'
+    _inherit = ['mail.thread', 'mail.activity.mixin']
 
     @api.multi
     @api.depends('name', 'state')
@@ -61,6 +62,23 @@ class AccountMove(models.Model):
                 move.matched_percentage = 1.0
             else:
                 move.matched_percentage = total_reconciled / total_amount
+                
+    @api.multi
+    @api.depends('line_ids.reconcile_model_id')
+    def _compute_reconcile_model(self):
+        for move in self:
+            move.reconcile_model_id = move.line_ids.mapped('reconcile_model_id')
+    
+    @api.model
+    @api.depends('reconcile_model_id')
+    def _search_reconcile_model(self, operator, operand):
+        if operand:
+            rmi = self.search([('line_ids.reconcile_model_id', operator, operand)])
+        else:
+            rmi = self.search([('line_ids', operator, operand)])
+        if rmi:
+            return [('id', 'in', rmi.ids)]
+        return [('id', '=', False)]
 
     @api.one
     @api.depends('company_id')
@@ -106,6 +124,7 @@ class AccountMove(models.Model):
     narration = fields.Text(string='Internal Note')
     company_id = fields.Many2one('res.company', related='journal_id.company_id', string='Company', store=True, readonly=True)
     matched_percentage = fields.Float('Percentage Matched', compute='_compute_matched_percentage', digits=0, store=True, readonly=True, help="Technical field used in cash basis method")
+    reconcile_model_id = fields.Many2many('account.reconcile.model', compute='_compute_reconcile_model', search='_search_reconcile_model', string="Reconciliation Model", readonly=True)
     # Dummy Account field to search on account.move by account_id
     dummy_account_id = fields.Many2one('account.account', related='line_ids.account_id', string='Account', store=False, readonly=True)
     tax_cash_basis_rec_id = fields.Many2one(
@@ -116,6 +135,7 @@ class AccountMove(models.Model):
     auto_reverse = fields.Boolean(string='Reverse Automatically', default=False, help='If this checkbox is ticked, this entry will be automatically reversed at the reversal date you defined.')
     reverse_date = fields.Date(string='Reversal Date', help='Date of the reverse accounting entry.')
     reverse_entry_id = fields.Many2one('account.move', String="Reverse entry", store=True, readonly=True)
+    to_check = fields.Boolean(string='To Check', default=False, help='If this checkbox is ticked, it means that the user was not sure of all the related informations at the time of the creation of the move and that the move needs to be checked again.')
     tax_type_domain = fields.Char(store=False, help='Technical field used to have a dynamic taxes domain on the form view.')
 
     @api.constrains('line_ids', 'journal_id', 'auto_reverse', 'reverse_date')
@@ -268,7 +288,7 @@ class AccountMove(models.Model):
 
     @api.model
     def create(self, vals):
-        move = super(AccountMove, self.with_context(check_move_validity=False, partner_id=vals.get('partner_id'))).create(vals)
+        move = super(AccountMove, self.with_context(mail_create_nolog=True, check_move_validity=False, partner_id=vals.get('partner_id'))).create(vals)
         move.assert_balanced()
         return move
 
@@ -282,7 +302,7 @@ class AccountMove(models.Model):
         return res
 
     @api.multi
-    def post(self, invoice=False):
+    def post(self):
         self._post_validate()
         for move in self:
             move.line_ids.create_analytic_lines()
@@ -290,20 +310,11 @@ class AccountMove(models.Model):
                 new_name = False
                 journal = move.journal_id
 
-                if invoice and invoice.move_name and invoice.move_name != '/':
-                    new_name = invoice.move_name
+                if journal.sequence_id:
+                    sequence = journal.sequence_id
+                    new_name = sequence.with_context(ir_sequence_date=move.date).next_by_id()
                 else:
-                    if journal.sequence_id:
-                        # If invoice is actually refund and journal has a refund_sequence then use that one or use the regular one
-                        sequence = journal.sequence_id
-                        if invoice and invoice.type in ['out_refund', 'in_refund'] and journal.refund_sequence:
-                            if not journal.refund_sequence_id:
-                                raise UserError(_('Please define a sequence for the credit notes'))
-                            sequence = journal.refund_sequence_id
-
-                        new_name = sequence.with_context(ir_sequence_date=move.date).next_by_id()
-                    else:
-                        raise UserError(_('Please define a sequence on the journal.'))
+                    raise UserError(_('Please define a sequence on the journal.'))
 
                 if new_name:
                     move.name = new_name
@@ -326,8 +337,14 @@ class AccountMove(models.Model):
 
     @api.multi
     def button_cancel(self):
+        AccountMoveLine = self.env['account.move.line']
+        excluded_move_ids = []
+
+        if self._context.get('edition_mode'):
+            excluded_move_ids = AccountMoveLine.search(AccountMoveLine._get_domain_for_edition_mode() + [('move_id', 'in', self.ids)]).mapped('move_id').ids
+
         for move in self:
-            if not move.journal_id.update_posted:
+            if not move.journal_id.update_posted and move.id not in excluded_move_ids:
                 raise UserError(_('You cannot modify a posted entry of this journal.\nFirst you should set the journal to allow cancelling entries.'))
             # We remove all the analytics entries for this journal
             move.mapped('line_ids.analytic_line_ids').unlink()
@@ -629,7 +646,8 @@ class AccountMoveLine(models.Model):
     statement_id = fields.Many2one('account.bank.statement', related='statement_line_id.statement_id', string='Statement', store=True,
         help="The bank statement used for bank reconciliation", index=True, copy=False)
     reconciled = fields.Boolean(compute='_amount_residual', store=True)
-    full_reconcile_id = fields.Many2one('account.full.reconcile', string="Matching Number", copy=False)
+    reconcile_model_id = fields.Many2one('account.reconcile.model', string="Reconciliation Model", copy=False)
+    full_reconcile_id = fields.Many2one('account.full.reconcile', string="Matching Number", copy=False, index=True)
     matched_debit_ids = fields.One2many('account.partial.reconcile', 'credit_move_id', String='Matched Debits',
         help='Debit journal items that are matched with this journal item.')
     matched_credit_ids = fields.One2many('account.partial.reconcile', 'debit_move_id', String='Matched Credits',
@@ -1051,6 +1069,7 @@ class AccountMoveLine(models.Model):
             return True
         rec_move_ids = self.env['account.partial.reconcile']
         for account_move_line in self:
+            account_move_line.reconcile_model_id = False
             for invoice in account_move_line.payment_id.invoice_ids:
                 if invoice.id == self.env.context.get('invoice_id') and account_move_line in invoice.payment_move_line_ids:
                     account_move_line.payment_id.write({'invoice_ids': [(3, invoice.id, None)]})
@@ -1437,6 +1456,14 @@ class AccountMoveLine(models.Model):
                 ids.append(aml.id)
         action['domain'] = [('id', 'in', ids)]
         return action
+
+    @api.model
+    def _get_domain_for_edition_mode(self):
+        return [
+            ('move_id.to_check', '=', True),
+            ('full_reconcile_id', '=', False),
+            ('statement_line_id', '!=', False),
+        ]
 
 
 class AccountPartialReconcile(models.Model):

@@ -19,15 +19,11 @@ class PosSession(models.Model):
 
     def _confirm_orders(self):
         for session in self:
-            company_id = session.config_id.journal_id.company_id.id
-            orders = session.order_ids.filtered(lambda order: order.state == 'paid')
-            journal_id = self.env['ir.config_parameter'].sudo().get_param(
-                'pos.closing.journal_id_%s' % company_id, default=session.config_id.journal_id.id)
-            if not journal_id:
+            journal = session.config_id.journal_id
+            if not journal:
                 raise UserError(_("You have to set a Sale Journal for the POS:%s") % (session.config_id.name,))
-
-            move = self.env['pos.order'].with_context(force_company=company_id)._create_account_move(session.start_at, session.name, int(journal_id), company_id)
-            orders.with_context(force_company=company_id)._create_account_move_line(session, move)
+            orders = session.order_ids.filtered(lambda order: order.state == 'paid')
+            orders.with_context(force_company=journal.company_id.id)._create_account_move_line(session)
             for order in session.order_ids.filtered(lambda o: o.state not in ['done', 'invoiced']):
                 if order.state not in ('paid'):
                     raise UserError(
@@ -183,11 +179,11 @@ class PosSession(models.Model):
         # define some cash journal if no payment method exists
         if not pos_config.journal_ids:
             Journal = self.env['account.journal']
-            journals = Journal.with_context(ctx).search([('journal_user', '=', True), ('type', '=', 'cash')])
+            journals = Journal.with_context(ctx).search([('journal_user', '=', True), ('type', '=', 'cash'), ('company_id', '=', pos_config.company_id.id)])
             if not journals:
-                journals = Journal.with_context(ctx).search([('type', '=', 'cash')])
+                journals = Journal.with_context(ctx).search([('type', '=', 'cash'), ('company_id', '=', pos_config.company_id.id)])
                 if not journals:
-                    journals = Journal.with_context(ctx).search([('journal_user', '=', True)])
+                    journals = Journal.with_context(ctx).search([('journal_user', '=', True), ('company_id', '=', pos_config.company_id.id)])
             if not journals:
                 raise ValidationError(_("No payment method configured! \nEither no Chart of Account is installed or no payment method is configured for this POS."))
             journals.sudo().write({'journal_user': True})

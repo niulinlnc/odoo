@@ -60,7 +60,7 @@ QUnit.module('Views', {
     function createParent(params) {
         var widget = new Widget();
 
-        testUtils.addMockEnvironment(widget, params);
+        testUtils.mock.addMockEnvironment(widget, params);
         return widget;
     }
 
@@ -79,11 +79,6 @@ QUnit.module('Views', {
                     '</form>',
             },
         });
-
-        testUtils.intercept(parent, 'env_updated', function () {
-            throw new Error("The environment should not be propagated to the action manager");
-        });
-
 
         new dialogs.FormViewDialog(parent, {
             res_model: 'partner',
@@ -121,7 +116,7 @@ QUnit.module('Views', {
         assert.strictEqual($('.modal button.btn-primary').length, 1,
             "should have 1 buttons in modal");
 
-        $('.o_field_x2many_list_row_add a').click();
+        testUtils.dom.click($('.o_field_x2many_list_row_add a'));
         $('input.o_input').trigger($.Event('keydown', {
             which: $.ui.keyCode.ESCAPE,
             keyCode: $.ui.keyCode.ESCAPE,
@@ -155,10 +150,10 @@ QUnit.module('Views', {
             mockRPC: function (route, args) {
                 if (args.method === 'read_group') {
                     assert.deepEqual(args.kwargs, {
-                        context: {group_by: "bar"},
-                        domain: [["display_name","like","a"], ["display_name","ilike","piou"], ["foo","ilike","piou"]],
-                        fields:["display_name","foo","bar"],
-                        groupby:["bar"],
+                        context: {},
+                        domain: [["display_name","like","a"], "&", ["display_name","ilike","piou"], ["foo","ilike","piou"]],
+                        fields: ["display_name","foo","bar"],
+                        groupby: ["bar"],
                         orderby: '',
                         lazy: true
                     }, "should search with the complete domain (domain + search), and group by 'bar'");
@@ -167,8 +162,8 @@ QUnit.module('Views', {
                     search++;
                     assert.deepEqual(args, {
                         context: {},
-                        domain: [["display_name","like","a"], ["display_name","ilike","piou"], ["foo","ilike","piou"]],
-                        fields:["display_name","foo"],
+                        domain: [["display_name","like","a"], "&", ["display_name","ilike","piou"], ["foo","ilike","piou"]],
+                        fields: ["display_name","foo"],
                         model: "partner",
                         limit: 80,
                         sort: ""
@@ -177,7 +172,7 @@ QUnit.module('Views', {
                     assert.deepEqual(args, {
                         context: {},
                         domain: [["display_name","like","a"]],
-                        fields:["display_name","foo"],
+                        fields: ["display_name","foo"],
                         model: "partner",
                         limit: 80,
                         sort: ""
@@ -199,8 +194,8 @@ QUnit.module('Views', {
             },
         }).open();
 
-        dialog.$('.o_searchview_facet:contains(groupby_bar) .o_facet_remove').click();
-        dialog.$('.o_searchview_facet .o_facet_remove').click();
+        testUtils.dom.click(dialog.$('.o_searchview_facet:contains(groupby_bar) .o_facet_remove'));
+        testUtils.dom.click(dialog.$('.o_searchview_facet .o_facet_remove'));
 
         parent.destroy();
     });
@@ -264,7 +259,7 @@ QUnit.module('Views', {
         }).open();
 
         // click on the first row to see if the list is editable
-        dialog.$('.o_list_view tbody tr:first td:not(.o_list_record_selector):first').click();
+        testUtils.dom.click(dialog.$('.o_list_view tbody tr:first td:not(.o_list_record_selector):first'));
 
         assert.equal(dialog.$('.o_list_view tbody tr:first td:not(.o_list_record_selector):first input').length, 0,
             "list view should not be editable in a SelectCreateDialog");
@@ -329,17 +324,17 @@ QUnit.module('Views', {
             },
         });
 
-        form.$buttons.find('.o_form_button_edit').click();
-        form.$('.o_field_x2many_list_row_add a').click();
-        form.$('.o_field_widget .o_field_many2one[name=instrument] input').click();
-        $('ul.ui-autocomplete.ui-front.ui-menu.ui-widget.ui-widget-content li.o_m2o_dropdown_option').first().click();
+        testUtils.form.clickEdit(form);
+        testUtils.dom.click(form.$('.o_field_x2many_list_row_add a'));
+        testUtils.dom.click(form.$('.o_field_widget .o_field_many2one[name=instrument] input'));
+        testUtils.dom.click($('ul.ui-autocomplete.ui-front.ui-menu.ui-widget.ui-widget-content li.o_m2o_dropdown_option').first());
 
         var $modal = $('.modal-lg');
 
         assert.equal($modal.length, 1,
             'There should be one modal');
 
-        $modal.find('.o_field_x2many_list_row_add a').click();
+        testUtils.dom.click($modal.find('.o_field_x2many_list_row_add a'));
 
         var $modals = $('.modal-lg');
 
@@ -347,9 +342,9 @@ QUnit.module('Views', {
             'There should be two modals');
 
         var $second_modal = $modals.not($modal);
-        $second_modal.find('.o_list_view.table.table-sm.table-striped.o_list_view_ungrouped .o_data_row input[type=checkbox]').click();
+        testUtils.dom.click($second_modal.find('.o_list_view.table.table-sm.table-striped.o_list_view_ungrouped .o_data_row input[type=checkbox]'));
 
-        $second_modal.find('.o_select_button').click();
+        testUtils.dom.click($second_modal.find('.o_select_button'));
 
         $modal = $('.modal-lg');
 
@@ -359,7 +354,7 @@ QUnit.module('Views', {
         assert.equal($modal.find('.o_data_cell').text(), 'Awsome',
             'There should be one item in the list of the modal');
 
-        $modal.find('.btn.btn-primary').click();
+        testUtils.dom.click($modal.find('.btn.btn-primary'));
 
         form.destroy();
     });
@@ -422,10 +417,12 @@ QUnit.module('Views', {
     QUnit.test('SelectCreateDialog: save current search', function (assert) {
         assert.expect(4);
 
-        testUtils.patch(ListController, {
-            getContext: function () {
+        testUtils.mock.patch(ListController, {
+            getOwnedQueryParams: function () {
                 return {
-                    shouldBeInFilterContext: true,
+                    context: {
+                        shouldBeInFilterContext: true,
+                    },
                 };
             },
         });
@@ -459,21 +456,23 @@ QUnit.module('Views', {
             res_model: 'partner',
         }).open();
 
-        assert.strictEqual(dialog.$('.o_data_row').length, 3,
+        assert.containsN(dialog, '.o_data_row', 3,
             "should contain 3 records");
 
         // filter on bar
-        dialog.$('.o_filters_menu a:contains(Bar)').click();
+        testUtils.dom.click(dialog.$('.o_dropdown_toggler_btn:contains(Filters)'));
+        testUtils.dom.click(dialog.$('.o_filters_menu a:contains(Bar)'));
 
-        assert.strictEqual(dialog.$('.o_data_row').length, 2,
+        assert.containsN(dialog, '.o_data_row', 2,
             "should contain 2 records");
 
         // save filter
-        dialog.$('.o_save_search a').click(); // toggle 'Save current search'
-        dialog.$('.o_save_name input[type=text]').val('some name'); // name the filter
-        dialog.$('.o_save_name button').click(); // click on 'Save'
+        testUtils.dom.click(dialog.$('.o_dropdown_toggler_btn:contains(Favorites)'));
+        testUtils.dom.click(dialog.$('.o_add_favorite'));
+        dialog.$('.o_favorite_name input[type=text]').val('some name'); // name the filter
+        testUtils.dom.click(dialog.$('.o_save_favorite button'));
 
-        testUtils.unpatch(ListController);
+        testUtils.mock.unpatch(ListController);
         parent.destroy();
     });
 

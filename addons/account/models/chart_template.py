@@ -4,7 +4,6 @@ from odoo.exceptions import AccessError
 from odoo import api, fields, models, _
 from odoo import SUPERUSER_ID
 from odoo.exceptions import UserError
-from odoo.tools import pycompat
 from odoo.http import request
 
 import logging
@@ -422,7 +421,7 @@ class AccountChartTemplate(models.Model):
                     {'name': _('Vendor Bills'), 'type': 'purchase', 'code': _('BILL'), 'favorite': True, 'color': 11, 'sequence': 6},
                     {'name': _('Miscellaneous Operations'), 'type': 'general', 'code': _('MISC'), 'favorite': False, 'sequence': 7},
                     {'name': _('Exchange Difference'), 'type': 'general', 'code': _('EXCH'), 'favorite': False, 'sequence': 9},
-                    {'name': _('Cash Basis Tax Journal'), 'type': 'general', 'code': _('CABA'), 'favorite': False, 'sequence': 10}]
+                    {'name': _('Cash Basis Taxes'), 'type': 'general', 'code': _('CABA'), 'favorite': False, 'sequence': 10}]
         if journals_dict != None:
             journals.extend(journals_dict)
 
@@ -607,7 +606,7 @@ class AccountChartTemplate(models.Model):
         #    regular accounts created and that liquidity transfer account
         records = super(AccountChartTemplate, self)._load_records(data_list, update)
         account_data_list = []
-        for data, record in pycompat.izip(data_list, records):
+        for data, record in zip(data_list, records):
             # Create the transfer account only for leaf chart template in the hierarchy.
             if record.parent_id:
                 continue
@@ -667,7 +666,7 @@ class AccountChartTemplate(models.Model):
             vals = self._get_account_vals(company, account_template, code_acc, tax_template_ref)
             template_vals.append((account_template, vals))
         accounts = self._create_records_with_xmlid('account.account', template_vals, company)
-        for template, account in pycompat.izip(acc_template, accounts):
+        for template, account in zip(acc_template, accounts):
             acc_template_ref[template.id] = account.id
         return acc_template_ref
 
@@ -767,7 +766,7 @@ class AccountChartTemplate(models.Model):
         # then create fiscal position taxes and accounts
         tax_template_vals = []
         account_template_vals = []
-        for position, fp in pycompat.izip(positions, fps):
+        for position, fp in zip(positions, fps):
             for tax in position.tax_ids:
                 tax_template_vals.append((tax, {
                     'tax_src_id': tax_template_ref[tax.tax_src_id.id],
@@ -908,7 +907,7 @@ class AccountTaxTemplate(models.Model):
             taxes = ChartTemplate._create_records_with_xmlid('account.tax', template_vals, company)
 
             # fill in tax_template_to_tax and todo_dict
-            for tax, (template, vals) in pycompat.izip(taxes, template_vals):
+            for tax, (template, vals) in zip(taxes, template_vals):
                 tax_template_to_tax[template.id] = tax.id
                 # Since the accounts have not been created yet, we have to wait before filling these fields
                 todo_dict[tax.id] = {
@@ -987,6 +986,7 @@ class AccountReconcileModelTemplate(models.Model):
     ], string='Type', default='writeoff_button', required=True)
     auto_reconcile = fields.Boolean(string='Auto-validate',
         help='Validate the statement line automatically (reconciliation based on your rule).')
+    to_check = fields.Boolean(string='To Check', default=False, help='This matching rule is used when the user is not certain of all the informations of the counterpart.')
 
     # ===== Conditions =====
     match_journal_ids = fields.Many2many('account.journal', string='Journals',
@@ -1055,3 +1055,5 @@ class AccountReconcileModelTemplate(models.Model):
     force_second_tax_included = fields.Boolean(string='Second Tax Included in Price',
         help='Force the second tax to be managed as a price included tax.')
     second_tax_id = fields.Many2one('account.tax.template', string='Second Tax', ondelete='restrict', domain=[('type_tax_use', '=', 'purchase')])
+
+    number_entries = fields.Integer(string='Number of entries related to this model', compute='_compute_number_entries')

@@ -75,7 +75,8 @@ class ResConfigSettings(models.TransientModel):
     module_product_margin = fields.Boolean(string="Allow Product Margin")
     module_l10n_eu_service = fields.Boolean(string="EU Digital Goods VAT")
     module_account_taxcloud = fields.Boolean(string="Account TaxCloud")
-    module_account_invoice_extract = fields.Boolean(string="Automate Bill Processing")
+    module_account_invoice_extract = fields.Boolean(string="Bill Digitalization")
+    module_snailmail_account = fields.Boolean(string="Snailmail")
     tax_exigibility = fields.Boolean(string='Cash Basis', related='company_id.tax_exigibility', readonly=False)
     tax_cash_basis_journal_id = fields.Many2one('account.journal', related='company_id.tax_cash_basis_journal_id', string="Tax Cash Basis Journal", readonly=False)
     invoice_reference_type = fields.Selection(string='Communication',
@@ -89,6 +90,12 @@ class ResConfigSettings(models.TransientModel):
     qr_code = fields.Boolean(string='Display SEPA QR code', related='company_id.qr_code', readonly=False)
     invoice_is_print = fields.Boolean(string='Print', related='company_id.invoice_is_print', readonly=False)
     invoice_is_email = fields.Boolean(string='Send Email', related='company_id.invoice_is_email', readonly=False)
+    incoterm_id = fields.Many2one('account.incoterms', string='Default incoterm', related='company_id.incoterm_id', help='International Commercial Terms are a series of predefined commercial terms used in international transactions.', readonly=False)
+    invoice_terms = fields.Text(related='company_id.invoice_terms', string="Terms & Conditions", readonly=False)
+    use_invoice_terms = fields.Boolean(
+        string='Default Terms & Conditions',
+        oldname='default_use_sale_note',
+        config_parameter='account.use_invoice_terms')
 
     @api.multi
     def set_values(self):

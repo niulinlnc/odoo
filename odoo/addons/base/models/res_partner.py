@@ -18,7 +18,6 @@ from odoo import api, fields, models, tools, SUPERUSER_ID, _
 from odoo.modules import get_module_resource
 from odoo.osv.expression import get_unaccent_wrapper
 from odoo.exceptions import UserError, ValidationError
-from odoo.tools import pycompat
 
 # Global variables used for the warning fields declared on the res.partner
 # in the following modules : sale, purchase, account, stock
@@ -150,8 +149,8 @@ class Partner(models.Model):
     title = fields.Many2one('res.partner.title')
     parent_id = fields.Many2one('res.partner', string='Related Company', index=True)
     parent_name = fields.Char(related='parent_id.name', readonly=True, string='Parent name')
-    child_ids = fields.One2many('res.partner', 'parent_id', string='Contacts', domain=[('active', '=', True)])  # force "active_test" domain to bypass _search() override
-    ref = fields.Char(string='Internal Reference', index=True)
+    child_ids = fields.One2many('res.partner', 'parent_id', string='Contact', domain=[('active', '=', True)])  # force "active_test" domain to bypass _search() override
+    ref = fields.Char(string='Reference', index=True)
     lang = fields.Selection(_lang_get, string='Language', default=lambda self: self.env.lang,
                             help="All the emails and documents sent to this contact will be translated in this language.")
     tz = fields.Selection(_tz_get, string='Timezone', default=lambda self: self._context.get('tz'),
@@ -164,13 +163,12 @@ class Partner(models.Model):
       help='The internal user in charge of this contact.')
     vat = fields.Char(string='Tax ID', help="The Tax Identification Number. Complete it if the contact is subjected to government taxes. Used in some legal statements.")
     bank_ids = fields.One2many('res.partner.bank', 'partner_id', string='Banks')
-    website = fields.Char()
+    website = fields.Char('Website Link')
     comment = fields.Text(string='Notes')
 
     category_id = fields.Many2many('res.partner.category', column1='partner_id',
                                     column2='category_id', string='Tags', default=_default_category)
     credit_limit = fields.Float(string='Credit Limit')
-    barcode = fields.Char(oldname='ean13', help="Use a barcode to identify this contact from the Point of Sale.")
     active = fields.Boolean(default=True)
     customer = fields.Boolean(string='Is a Customer', default=True,
                                help="Check this box if this contact is a customer. It can be selected in sales orders.")
@@ -180,13 +178,13 @@ class Partner(models.Model):
     function = fields.Char(string='Job Position')
     type = fields.Selection(
         [('contact', 'Contact'),
-         ('invoice', 'Invoice address'),
-         ('delivery', 'Shipping address'),
-         ('other', 'Other address'),
+         ('invoice', 'Invoice Address'),
+         ('delivery', 'Delivery Address'),
+         ('other', 'Other Address'),
          ("private", "Private Address"),
         ], string='Address Type',
         default='contact',
-        help="Used by Sales and Purchase Apps to select the relevant address depending on the context.")
+        help="Invoice & Delivery addresses are used in sales orders. Private addresses are only visible by authorized users.")
     street = fields.Char()
     street2 = fields.Char()
     zip = fields.Char(change_default=True)
@@ -223,13 +221,13 @@ class Partner(models.Model):
     company_name = fields.Char('Company Name')
 
     # image: all image fields are base64 encoded and PIL-supported
-    image = fields.Binary("Image", attachment=True,
+    image = fields.Binary("Image",
         help="This field holds the image used as avatar for this contact, limited to 1024x1024px",)
-    image_medium = fields.Binary("Medium-sized image", attachment=True,
+    image_medium = fields.Binary("Medium-sized image",
         help="Medium-sized image of this contact. It is automatically "\
              "resized as a 128x128px image, with aspect ratio preserved. "\
              "Use this field in form views or some kanban views.")
-    image_small = fields.Binary("Small-sized image", attachment=True,
+    image_small = fields.Binary("Small-sized image",
         help="Small-sized image of this contact. It is automatically "\
              "resized as a 64x64px image, with aspect ratio preserved. "\
              "Use this field anywhere a small image is required.")
@@ -527,7 +525,9 @@ class Partner(models.Model):
                     if len(companies) > 1 or company not in companies:
                         raise UserError(
                             ("The selected company is not compatible with the companies of the related user(s)"))
-        tools.image_resize_images(vals, sizes={'image': (1024, None)})
+        # no padding on the big image, because it's used as website logo
+        tools.image_resize_images(vals, return_big=False)
+        tools.image_resize_images(vals, return_medium=False, return_small=False, preserve_aspect_ratio=True)
 
         result = True
         # To write in SUPERUSER on field is_company and avoid access rights problems.
@@ -552,9 +552,11 @@ class Partner(models.Model):
             # cannot be easily performed if default images are in the way
             if not vals.get('image'):
                 vals['image'] = self._get_default_image(vals.get('type'), vals.get('is_company'), vals.get('parent_id'))
-            tools.image_resize_images(vals, sizes={'image': (1024, None)})
+            # no padding on the big image, because it's used as website logo
+            tools.image_resize_images(vals, return_big=False)
+            tools.image_resize_images(vals, return_medium=False, return_small=False, preserve_aspect_ratio=True)
         partners = super(Partner, self).create(vals_list)
-        for partner, vals in pycompat.izip(partners, vals_list):
+        for partner, vals in zip(partners, vals_list):
             partner._fields_sync(vals)
             partner._handle_first_contact_creation()
         return partners

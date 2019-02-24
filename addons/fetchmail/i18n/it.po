@@ -28,7 +28,7 @@ msgstr ""
 #. module: fetchmail
 #: model_terms:ir.ui.view,arch_db:fetchmail.view_email_server_form
 msgid "Actions to Perform on Incoming Mails"
-msgstr "Azioni da eseguire sulla posta in ingresso"
+msgstr "Azioni da eseguire sulle email in ingresso"
 
 #. module: fetchmail
 #: model:ir.model.fields,field_description:fetchmail.field_fetchmail_server__active
@@ -110,7 +110,7 @@ msgstr "Preleva ora"
 #. module: fetchmail
 #: model:ir.model.fields,help:fetchmail.field_fetchmail_server__server
 msgid "Hostname or IP of the mail server"
-msgstr "Nome host o IP del server di posta"
+msgstr "Nome host o IP del server email"
 
 #. module: fetchmail
 #: model:ir.model.fields,field_description:fetchmail.field_fetchmail_server__id
@@ -135,24 +135,24 @@ msgstr "Se SSL è richiesta."
 #. module: fetchmail
 #: model:ir.model.fields,field_description:fetchmail.field_mail_mail__fetchmail_server_id
 msgid "Inbound Mail Server"
-msgstr "Server posta in arrivo"
+msgstr "Server email in arrivo"
 
 #. module: fetchmail
 #: model_terms:ir.ui.view,arch_db:fetchmail.res_config_settings_view_form
 msgid "Incoming Email Servers"
-msgstr "Server posta in ingresso"
+msgstr "Server email in ingresso"
 
 #. module: fetchmail
 #: model_terms:ir.ui.view,arch_db:fetchmail.view_email_server_form
 #: model_terms:ir.ui.view,arch_db:fetchmail.view_email_server_search
 msgid "Incoming Mail Server"
-msgstr "Server posta in ingresso"
+msgstr "Server email in ingresso"
 
 #. module: fetchmail
 #: model:ir.actions.act_window,name:fetchmail.action_email_server_tree
 #: model:ir.ui.menu,name:fetchmail.menu_action_fetchmail_server_tree
 msgid "Incoming Mail Servers"
-msgstr "Server posta in ingresso"
+msgstr "Server email in ingresso"
 
 #. module: fetchmail
 #: model:ir.model.fields,field_description:fetchmail.field_fetchmail_server__attach
@@ -220,7 +220,7 @@ msgstr "Non confermato"
 #. module: fetchmail
 #: model_terms:ir.ui.view,arch_db:fetchmail.res_config_settings_view_form
 msgid "Outgoing Email Servers"
-msgstr "Server posta in uscita"
+msgstr "Server email in uscita"
 
 #. module: fetchmail
 #: model:ir.model,name:fetchmail.model_mail_mail
@@ -272,7 +272,7 @@ msgstr ""
 #. module: fetchmail
 #: model_terms:ir.ui.view,arch_db:fetchmail.view_email_server_form
 msgid "Reset Confirmation"
-msgstr "Conferma reimpostazione"
+msgstr "Reset conferma"
 
 #. module: fetchmail
 #: model_terms:ir.ui.view,arch_db:fetchmail.view_email_server_search

@@ -3,21 +3,20 @@
 # * gamification
 # 
 # Translators:
-# son dang <son.dang@doda100.com>, 2018
+# thanh nguyen <thanhnguyen.icsc@gmail.com>, 2018
 # Martin Trigaux, 2018
 # fanha99 <fanha99@hotmail.com>, 2018
+# son dang <son.dang@doda100.com>, 2018
 # Duy BQ <duybq86@gmail.com>, 2018
 # Minh Nguyen <ndminh210994@gmail.com>, 2018
 # khoibv Mr <kendev2009@gmail.com>, 2018
-# Nancy Momoland <thanhnguyen.icsc@gmail.com>, 2019
-# 
 msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-01-09 10:32+0000\n"
-"PO-Revision-Date: 2018-08-24 09:18+0000\n"
-"Last-Translator: Nancy Momoland <thanhnguyen.icsc@gmail.com>, 2019\n"
+"POT-Creation-Date: 2018-10-08 06:49+0000\n"
+"PO-Revision-Date: 2018-10-08 06:49+0000\n"
+"Last-Translator: khoibv Mr <kendev2009@gmail.com>, 2018\n"
 "Language-Team: Vietnamese (https://www.transifex.com/odoo/teams/41243/vi/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -185,27 +184,6 @@ msgid ""
 msgstr ""
 
 #. module: gamification
-#: model_terms:ir.ui.view,arch_db:gamification.goal_kanban_view
-msgid ""
-"<i role=\"img\" class=\"fa fa-clock-o fa-3x\" title=\"Goal in Progress\" "
-"aria-label=\"Goal in Progress\"/>"
-msgstr ""
-
-#. module: gamification
-#: model_terms:ir.ui.view,arch_db:gamification.goal_kanban_view
-msgid ""
-"<i role=\"img\" class=\"o_green fa fa-check fa-3x\" title=\"Goal Reached\" "
-"aria-label=\"Goal Reached\"/>"
-msgstr ""
-
-#. module: gamification
-#: model_terms:ir.ui.view,arch_db:gamification.goal_kanban_view
-msgid ""
-"<i role=\"img\" class=\"o_red fa fa-times fa-3x\" title=\"Goal Failed\" "
-"aria-label=\"Goal Failed\"/>"
-msgstr ""
-
-#. module: gamification
 #: model_terms:ir.ui.view,arch_db:gamification.challenge_form_view
 msgid ""
 "<span class=\"o_stat_text\">Related</span>\n"
@@ -303,7 +281,7 @@ msgid ""
 "                                        <tr><td style=\"padding:0 30px;\">\n"
 "                                            <table cellspacing=\"0\" cellpadding=\"0\" width=\"100%\" style=\"table-layout: fixed;\">\n"
 "                                                <tr>\n"
-"                                                    % set top_goals = line['goals'][:3]\n"
+"                                                    % set top_goals = [line['goals'][1], line['goals'][0], line['goals'][2]]\n"
 "                                                    % for goal in top_goals:\n"
 "                                                        <td align=\"center\" style=\"width:32%;\">\n"
 "                                                            % if loop.index == 1:\n"
@@ -939,7 +917,7 @@ msgstr ""
 #. module: gamification
 #: model:ir.model.fields,field_description:gamification.field_gamification_challenge__reward_id
 msgid "For Every Succeeding User"
-msgstr "Cho mỗi tài khoản người dùng thành công"
+msgstr ""
 
 #. module: gamification
 #: model_terms:ir.ui.view,arch_db:gamification.goal_definition_form_view
@@ -1179,7 +1157,7 @@ msgstr "Nếu đánh dấu kiểm, các thông điệp mới yêu cầu sự có
 #: model:ir.model.fields,help:gamification.field_gamification_badge__message_has_error
 #: model:ir.model.fields,help:gamification.field_gamification_challenge__message_has_error
 msgid "If checked, some messages have a delivery error."
-msgstr "Nếu chọn, sẽ hiển thị thông báo lỗi."
+msgstr ""
 
 #. module: gamification
 #: model:ir.model.fields,help:gamification.field_gamification_badge_user__challenge_id
@@ -1336,7 +1314,7 @@ msgstr "Thành viên"
 #: model:ir.model.fields,field_description:gamification.field_gamification_badge__message_has_error
 #: model:ir.model.fields,field_description:gamification.field_gamification_challenge__message_has_error
 msgid "Message Delivery error"
-msgstr "Thông báo gửi đi gặp lỗi"
+msgstr ""
 
 #. module: gamification
 #: model:ir.model.fields,field_description:gamification.field_gamification_badge__message_ids
@@ -1484,7 +1462,7 @@ msgstr "Số thông điệp cần có hành động"
 #: model:ir.model.fields,help:gamification.field_gamification_badge__message_has_error_counter
 #: model:ir.model.fields,help:gamification.field_gamification_challenge__message_has_error_counter
 msgid "Number of messages with delivery error"
-msgstr "Số tin gửi đi bị lỗi"
+msgstr ""
 
 #. module: gamification
 #: model:ir.model.fields,help:gamification.field_gamification_badge__message_unread_counter

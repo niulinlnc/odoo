@@ -3,13 +3,12 @@
 # * account_check_printing
 # 
 # Translators:
+# Martin Trigaux, 2018
+# Anders Wallenquist <anders.wallenquist@vertel.se>, 2018
+# Haojun Zou <apollo_zhj@msn.com>, 2018
+# Martin Wilderoth <martin.wilderoth@linserv.se>, 2018
+# Patrik Lermon <patrik.lermon@gmail.com>, 2018
 # Kristoffer Grundström <hamnisdude@gmail.com>, 2019
-# Martin Trigaux, 2019
-# Anders Wallenquist <anders.wallenquist@vertel.se>, 2019
-# Haojun Zou <apollo_zhj@msn.com>, 2019
-# Martin Wilderoth <martin.wilderoth@linserv.se>, 2019
-# Patrik Lermon <patrik.lermon@gmail.com>, 2019
-# Chrille Hedberg <hedberg.chrille@gmail.com>, 2019
 # Kim Asplund <kim.asplund@gmail.com>, 2019
 # 
 msgid ""
@@ -17,7 +16,7 @@ msgstr ""
 "Project-Id-Version: Odoo Server saas~11.5\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2018-09-21 13:17+0000\n"
-"PO-Revision-Date: 2018-08-24 09:15+0000\n"
+"PO-Revision-Date: 2016-08-05 12:55+0000\n"
 "Last-Translator: Kim Asplund <kim.asplund@gmail.com>, 2019\n"
 "Language-Team: Swedish (https://www.transifex.com/odoo/teams/41243/sv/)\n"
 "MIME-Version: 1.0\n"
@@ -152,7 +151,7 @@ msgstr ""
 #. module: account_check_printing
 #: model:ir.model,name:account_check_printing.model_res_company
 msgid "Companies"
-msgstr "Företag"
+msgstr "Bolag"
 
 #. module: account_check_printing
 #: model:ir.model.fields,field_description:account_check_printing.field_res_config_settings__country_code

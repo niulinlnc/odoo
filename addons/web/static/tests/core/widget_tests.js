@@ -129,7 +129,7 @@ QUnit.module('core', {}, function () {
         widget.renderElement();
 
         assert.strictEqual(widget.el.attributes.length, 1, "should have one attribute");
-        assert.strictEqual(widget.$el.attr('id'), 'foo', "should have generated the id attribute");
+        assert.hasAttrValue(widget.$el, 'id', 'foo', "should have generated the id attribute");
         assert.strictEqual(widget.el.id, 'foo', "should also be available via property");
         widget.destroy();
     });
@@ -143,7 +143,7 @@ QUnit.module('core', {}, function () {
         widget.renderElement();
 
         assert.strictEqual(widget.el.className, 'oe_some_class', "should have the right property");
-        assert.strictEqual(widget.$el.attr('class'), 'oe_some_class', "should have the right attribute");
+        assert.hasAttrValue(widget.$el, 'class', 'oe_some_class', "should have the right attribute");
         widget.destroy();
     });
 
@@ -165,16 +165,16 @@ QUnit.module('core', {}, function () {
         assert.strictEqual(widget.el.attributes.length, 5, "should have all the specified attributes");
 
         assert.strictEqual(widget.el.id, 'some_id');
-        assert.strictEqual(widget.$el.attr('id'), 'some_id');
+        assert.hasAttrValue(widget.$el, 'id', 'some_id');
 
         assert.strictEqual(widget.el.className, 'some_class');
-        assert.strictEqual(widget.$el.attr('class'), 'some_class');
+        assert.hasAttrValue(widget.$el, 'class', 'some_class');
 
-        assert.strictEqual(widget.$el.attr('data-foo'), 'data attribute');
+        assert.hasAttrValue(widget.$el, 'data-foo', 'data attribute');
         assert.strictEqual(widget.$el.data('foo'), 'data attribute');
 
-        assert.strictEqual(widget.$el.attr('clark'), 'gable');
-        assert.strictEqual(widget.$el.attr('spoiler'), 'snape kills dumbledore');
+        assert.hasAttrValue(widget.$el, 'clark', 'gable');
+        assert.hasAttrValue(widget.$el, 'spoiler', 'snape kills dumbledore');
         widget.destroy();
     });
 
@@ -401,7 +401,7 @@ QUnit.module('core', {}, function () {
 
         var def;
         var parent = new Widget();
-        testUtils.addMockEnvironment(parent, {
+        testUtils.mock.addMockEnvironment(parent, {
             session: {
                 rpc: function () {
                     def = $.Deferred();

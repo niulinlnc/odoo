@@ -202,6 +202,27 @@ var BasicModel = AbstractModel.extend({
         });
     },
     /**
+     * Completes the fields and fieldsInfo of a dataPoint with the given ones.
+     * It is useful for the cases where a record element is shared between
+     * various views, such as a one2many with a tree and a form view.
+     *
+     * @param {string} recordID a valid element ID
+     * @param {Object} viewInfo
+     * @param {Object} viewInfo.fields
+     * @param {Object} viewInfo.fieldsInfo
+     */
+    addFieldsInfo: function (recordID, viewInfo) {
+        var record = this.localData[recordID];
+        record.fields = _.extend({}, record.fields, viewInfo.fields);
+        // complete the given fieldsInfo with the fields of the main view, so
+        // that those field will be reloaded if a reload is triggered by the
+        // secondary view
+        var fieldsInfo = _.mapObject(viewInfo.fieldsInfo, function (fieldsInfo) {
+            return _.defaults({}, fieldsInfo, record.fieldsInfo[record.viewType]);
+        });
+        record.fieldsInfo = _.extend({}, record.fieldsInfo, fieldsInfo);
+    },
+    /**
      * Add and process default values for a given record. Those values are
      * parsed and stored in the '_changes' key of the record. For relational
      * fields, sub-dataPoints are created, and missing relational data is
@@ -309,108 +330,52 @@ var BasicModel = AbstractModel.extend({
         });
     },
     /**
-     * Compute the default value that the handle field should take.
-     * We need to compute this in order for new lines to be added at the correct position.
+     * Returns true if a record can be abandoned.
      *
-     * @private
-     * @param {Object} listID
-     * @param {string} position
-     * @return {Object} empty object if no overrie has to be done, or:
-     *  field: the name of the field to override,
-     *  value: the value to use for that field
+     * Case for not abandoning the record:
+     *
+     * 1. flagged as 'no abandon' (i.e. during a `default_get`, including any
+     *    `onchange` from a `default_get`)
+     * 2. registered in a list on addition
+     *
+     *    2.1. registered as non-new addition
+     *    2.2. registered as new additon on update
+     *
+     * 3. record is not new
+     *
+     * Otherwise, the record can be abandoned.
+     *
+     * This is useful when discarding changes on this record, as it means that
+     * we must keep the record even if some fields are invalids (e.g. required
+     * field is empty).
+     *
+     * @param {string} id id for a local resource
+     * @returns {boolean}
      */
-    _computeOverrideDefaultFields: function (listID, position) {
-        var list = this.localData[listID];
-        var handleField;
-
-        // Here listID is actually just parentID, it's not yet confirmed
-        // to be a list.
-        // If we are not in the case that interests us,
-        // listID will be undefined and this check will work.
-        if (!list) {
-            return {};
+    canBeAbandoned: function (id) {
+        // 1. no drop if flagged
+        if (this.localData[id]._noAbandon) {
+            return false;
         }
-
-        position = position || 'bottom';
-
-        // Let's find if there is a field with handle.
-        if (!list.fieldsInfo) {
-            return {};
-        }
-        for (var field in list.fieldsInfo.list) {
-            if (list.fieldsInfo.list[field].widget === 'handle') {
-                handleField = field;
-                break;
-                // If there are 2 handle fields on the same list,
-                // we take the first one we find.
-                // And that will be alphabetically on the field name...
+        // 2. no drop in a list on "ADD in some cases
+        var record = this.localData[id];
+        var parent = this.localData[record.parentID];
+        if (parent) {
+            var entry = _.findWhere(parent._savePoint, {operation: 'ADD', id: id});
+            if (entry) {
+                // 2.1. no drop on non-new addition in list
+                if (!entry.isNew) {
+                    return false;
+                }
+                // 2.2. no drop on new addition on "UPDATE"
+                var lastEntry = _.last(parent._savePoint);
+                if (lastEntry.operation === 'UPDATE' && lastEntry.id === id) {
+                    return false;
+                }
             }
         }
-
-        if (!handleField) {
-            return {};
-        }
-
-        // We don't want to override the default value
-        // if the list is not ordered by the handle field.
-        var isOrderedByHandle = list.orderedBy
-            && list.orderedBy.length
-            && list.orderedBy[0].asc === true
-            && list.orderedBy[0].name === handleField;
-
-        if (!isOrderedByHandle) {
-            return {};
-        }
-
-        // We compute the list (get) to apply the pending changes before doing our work,
-        // otherwise new lines might not be taken into account.
-        // We use raw: true because we only need to load the first level of relation.
-        var computedList = this.get(list.id, {raw: true});
-
-        // We don't need to worry about the position of a new line if the list is empty.
-        if (!computedList || !computedList.data || !computedList.data.length) {
-            return {};
-        }
-
-        // If there are less elements in the list than the limit of
-        // the page then take the index of the last existing line.
-
-        // If the button is at the top, we want the new element on
-        // the first line of the page.
-
-        // If the button is at the bottom, we want the new element
-        // after the last line of the page
-        // (= theorically it will be the first element of the next page).
-
-        // We ignore list.offset because computedList.data
-        // will only have the current page elements.
-
-        var index = Math.min(
-            computedList.data.length - 1,
-            position !== 'top' ? list.limit - 1 : 0
-        );
-
-        // This positioning will almost be correct. There might just be
-        // an issue if several other lines have the same handleFieldValue.
-
-        // TODO ideally: if there is an element with the same handleFieldValue,
-        // that one and all the following elements must be incremented
-        // by 1 (at least until there is a gap in the numbering).
-
-        // We don't do it now because it's not an important case.
-        // However, we can for sure increment by 1 if we are on the last page.
-
-        var handleFieldValue = computedList.data[index].data[handleField];
-        if (position === 'top') {
-            handleFieldValue--;
-        } else if (list.count <= list.offset + list.limit - (list.tempLimitIncrement || 0)) {
-            handleFieldValue++;
-        }
-
-        return {
-            field: handleField,
-            value: handleFieldValue,
-        };
+        // 3. drop new records
+        return this.isNew(id);
     },
     /**
      * Delete a list of records, then, if the records have a parent, reload it.
@@ -517,6 +482,20 @@ var BasicModel = AbstractModel.extend({
                     context: context,
                 });
             });
+    },
+    /**
+     * For list resources, this freezes the current records order.
+     *
+     * @param {string} listID a valid element ID of type list
+     */
+    freezeOrder: function (listID) {
+        var list = this.localData[listID];
+        if (list.type === 'record') {
+            return;
+        }
+        list = this._applyX2ManyOperations(list);
+        this._sortList(list);
+        this.localData[listID].orderedResIDs = list.res_ids;
     },
     /**
      * The get method first argument is the handle returned by the load method.
@@ -691,54 +670,6 @@ var BasicModel = AbstractModel.extend({
             return record.data.display_name;
         }
         return _t("New");
-    },
-    /**
-     * Returns true if a record can be abandoned.
-     *
-     * Case for not abandoning the record:
-     *
-     * 1. flagged as 'no abandon' (i.e. during a `default_get`, including any
-     *    `onchange` from a `default_get`)
-     * 2. registered in a list on addition
-     *
-     *    2.1. registered as non-new addition
-     *    2.2. registered as new additon on update
-     *
-     * 3. record is not new
-     *
-     * Otherwise, the record can be abandoned.
-     *
-     * This is useful when discarding changes on this record, as it means that
-     * we must keep the record even if some fields are invalids (e.g. required
-     * field is empty).
-     *
-     * @param {string} id id for a local resource
-     * @returns {boolean}
-     */
-    canBeAbandoned: function (id) {
-        // 1. no drop if flagged
-        if (this.localData[id]._noAbandon) {
-            return false;
-        }
-        // 2. no drop in a list on "ADD in some cases
-        var record = this.localData[id];
-        var parent = this.localData[record.parentID];
-        if (parent) {
-            var entry = _.findWhere(parent._savePoint, {operation: 'ADD', id: id});
-            if (entry) {
-                // 2.1. no drop on non-new addition in list
-                if (!entry.isNew) {
-                    return false;
-                }
-                // 2.2. no drop on new addition on "UPDATE"
-                var lastEntry = _.last(parent._savePoint);
-                if (lastEntry.operation === 'UPDATE' && lastEntry.id === id) {
-                    return false;
-                }
-            }
-        }
-        // 3. drop new records
-        return this.isNew(id);
     },
     /**
      * Returns true if a record is dirty. A record is considered dirty if it has
@@ -1175,41 +1106,6 @@ var BasicModel = AbstractModel.extend({
             }
             return def;
         });
-    },
-    /**
-     * Completes the fields and fieldsInfo of a dataPoint with the given ones.
-     * It is useful for the cases where a record element is shared between
-     * various views, such as a one2many with a tree and a form view.
-     *
-     * @param {string} recordID a valid element ID
-     * @param {Object} viewInfo
-     * @param {Object} viewInfo.fields
-     * @param {Object} viewInfo.fieldsInfo
-     */
-    addFieldsInfo: function (recordID, viewInfo) {
-        var record = this.localData[recordID];
-        record.fields = _.extend({}, record.fields, viewInfo.fields);
-        // complete the given fieldsInfo with the fields of the main view, so
-        // that those field will be reloaded if a reload is triggered by the
-        // secondary view
-        var fieldsInfo = _.mapObject(viewInfo.fieldsInfo, function (fieldsInfo) {
-            return _.defaults({}, fieldsInfo, record.fieldsInfo[record.viewType]);
-        });
-        record.fieldsInfo = _.extend({}, record.fieldsInfo, fieldsInfo);
-    },
-    /**
-     * For list resources, this freezes the current records order.
-     *
-     * @param {string} listID a valid element ID of type list
-     */
-    freezeOrder: function (listID) {
-        var list = this.localData[listID];
-        if (list.type === 'record') {
-            return;
-        }
-        list = this._applyX2ManyOperations(list);
-        this._sortList(list);
-        this.localData[listID].orderedResIDs = list.res_ids;
     },
     /**
      * Manually sets a resource as dirty. This is used to notify that a field
@@ -2068,6 +1964,108 @@ var BasicModel = AbstractModel.extend({
         return hasOnchange ? specs : false;
     },
     /**
+     * Compute the default value that the handle field should take.
+     * We need to compute this in order for new lines to be added at the correct position.
+     *
+     * @private
+     * @param {Object} listID
+     * @param {string} position
+     * @return {Object} empty object if no overrie has to be done, or:
+     *  field: the name of the field to override,
+     *  value: the value to use for that field
+     */
+    _computeOverrideDefaultFields: function (listID, position) {
+        var list = this.localData[listID];
+        var handleField;
+
+        // Here listID is actually just parentID, it's not yet confirmed
+        // to be a list.
+        // If we are not in the case that interests us,
+        // listID will be undefined and this check will work.
+        if (!list) {
+            return {};
+        }
+
+        position = position || 'bottom';
+
+        // Let's find if there is a field with handle.
+        if (!list.fieldsInfo) {
+            return {};
+        }
+        for (var field in list.fieldsInfo.list) {
+            if (list.fieldsInfo.list[field].widget === 'handle') {
+                handleField = field;
+                break;
+                // If there are 2 handle fields on the same list,
+                // we take the first one we find.
+                // And that will be alphabetically on the field name...
+            }
+        }
+
+        if (!handleField) {
+            return {};
+        }
+
+        // We don't want to override the default value
+        // if the list is not ordered by the handle field.
+        var isOrderedByHandle = list.orderedBy
+            && list.orderedBy.length
+            && list.orderedBy[0].asc === true
+            && list.orderedBy[0].name === handleField;
+
+        if (!isOrderedByHandle) {
+            return {};
+        }
+
+        // We compute the list (get) to apply the pending changes before doing our work,
+        // otherwise new lines might not be taken into account.
+        // We use raw: true because we only need to load the first level of relation.
+        var computedList = this.get(list.id, {raw: true});
+
+        // We don't need to worry about the position of a new line if the list is empty.
+        if (!computedList || !computedList.data || !computedList.data.length) {
+            return {};
+        }
+
+        // If there are less elements in the list than the limit of
+        // the page then take the index of the last existing line.
+
+        // If the button is at the top, we want the new element on
+        // the first line of the page.
+
+        // If the button is at the bottom, we want the new element
+        // after the last line of the page
+        // (= theorically it will be the first element of the next page).
+
+        // We ignore list.offset because computedList.data
+        // will only have the current page elements.
+
+        var index = Math.min(
+            computedList.data.length - 1,
+            position !== 'top' ? list.limit - 1 : 0
+        );
+
+        // This positioning will almost be correct. There might just be
+        // an issue if several other lines have the same handleFieldValue.
+
+        // TODO ideally: if there is an element with the same handleFieldValue,
+        // that one and all the following elements must be incremented
+        // by 1 (at least until there is a gap in the numbering).
+
+        // We don't do it now because it's not an important case.
+        // However, we can for sure increment by 1 if we are on the last page.
+        var handleFieldValue = computedList.data[index].data[handleField];
+        if (position === 'top') {
+            handleFieldValue--;
+        } else if (list.count <= list.offset + list.limit - (list.tempLimitIncrement || 0)) {
+            handleFieldValue++;
+        }
+        return {
+            field: handleField,
+            value: handleFieldValue,
+        };
+    },
+    /**
      * Evaluate modifiers
      *
      * @private
@@ -2264,6 +2262,46 @@ var BasicModel = AbstractModel.extend({
         return $.when(def);
     },
     /**
+     * Fetches data for reference fields and assigns these data to newly
+     * created datapoint.
+     * Then places datapoint reference into parent record.
+     *
+     * @param {Object} datapoints a collection of ids classed by model,
+     *   @see _getDataToFetchByModel
+     * @param {string} model
+     * @param {string} fieldName
+     * @returns {Deferred}
+     */
+    _fetchReferenceData: function (datapoints, model, fieldName) {
+        var self = this;
+        var ids = _.map(Object.keys(datapoints), function (id) { return parseInt(id); });
+        // we need one parent for the context (they all have the same)
+        var parent = datapoints[ids[0]][0];
+        var def = self._rpc({
+            model: model,
+            method: 'name_get',
+            args: [ids],
+            context: self.localData[parent].getContext({fieldName: fieldName}),
+        }).then(function (result) {
+            _.each(result, function (el) {
+                var parentIDs = datapoints[el[0]];
+                _.each(parentIDs, function (parentID) {
+                    var parent = self.localData[parentID];
+                    var referenceDp = self._makeDataPoint({
+                        data: {
+                            id: el[0],
+                            display_name: el[1],
+                        },
+                        modelName: model,
+                        parentID: parent,
+                    });
+                    parent.data[fieldName] = referenceDp.id;
+                });
+            });
+        });
+        return def;
+    },
+    /**
      * Fetch the extra data (`name_get`) for the reference fields of the record
      * model.
      *
@@ -2300,59 +2338,13 @@ var BasicModel = AbstractModel.extend({
     _fetchReferenceBatched: function (list, fieldName) {
         var self = this;
         list = this._applyX2ManyOperations(list);
+        this._sortList(list);
 
-        // collect ids by model
-        var toFetch = {};
-        _.each(list.data, function (dataPoint) {
-            var record = self.localData[dataPoint];
-            var value = record.data[fieldName];
-            // if the reference field has already been fetched, the value is a
-            // datapoint ID, and in this case there's nothing to do
-            if (value && !self.localData[value]) {
-                var model = value.split(',')[0];
-                var resID = value.split(',')[1];
-                if (!(model in toFetch)) {
-                    toFetch[model] = {};
-                }
-                // there could be multiple datapoints with the same model/resID
-                if (toFetch[model][resID]) {
-                    toFetch[model][resID].push(dataPoint);
-                } else {
-                    toFetch[model][resID] = [dataPoint];
-                }
-            }
-        });
-
+        var toFetch = this._getDataToFetchByModel(list, fieldName);
         var defs = [];
-        var def;
         // one name_get by model
         _.each(toFetch, function (datapoints, model) {
-            var ids = _.map(Object.keys(datapoints), function (id) { return parseInt(id); });
-            // we need one parent for the context (they all have the same)
-            var parent = datapoints[ids[0]][0];
-            def = self._rpc({
-                model: model,
-                method: 'name_get',
-                args: [ids],
-                context: self.localData[parent].getContext({fieldName: fieldName}),
-            }).then(function (result) {
-                _.each(result, function (el) {
-                    var parentIDs = datapoints[el[0]];
-                    _.each(parentIDs, function (parentID) {
-                        var parent = self.localData[parentID];
-                        var referenceDp = self._makeDataPoint({
-                            data: {
-                                id: el[0],
-                                display_name: el[1],
-                            },
-                            modelName: model,
-                            parentID: parent,
-                        });
-                        parent.data[fieldName] = referenceDp.id;
-                    });
-                });
-            });
-            defs.push(def);
+            defs.push(self._fetchReferenceData(datapoints, model, fieldName));
         });
 
         return $.when.apply($, defs);
@@ -2373,6 +2365,94 @@ var BasicModel = AbstractModel.extend({
             }
         }
         return $.when.apply($, defs);
+    },
+    /**
+     * Batch reference requests for all records in list.
+     *
+     * @see _fetchReferencesSingleBatch
+     * @param {Object} list a valid resource object
+     * @param {string} fieldName
+     * @returns {Deferred}
+     */
+    _fetchReferenceSingleBatch: function (list, fieldName) {
+        var self = this;
+
+        // collect ids by model
+        var toFetch = {};
+        _.each(list.data, function (groupIndex) {
+            var group = self.localData[groupIndex];
+            _.extend(toFetch, self._getDataToFetchByModel(group, fieldName));
+        });
+
+        var defs = [];
+        // one name_get by model
+        _.each(toFetch, function (datapoints, model) {
+            defs.push(self._fetchReferenceData(datapoints, model, fieldName));
+        });
+
+        return $.when.apply($, defs);
+    },
+    /**
+     * Batch requests for all reference field in list's children.
+     * Called by _readGroup to make only one 'name_get' rpc by fieldName.
+     *
+     * @param {Object} list a valid resource object
+     * @returns {Deferred}
+     */
+    _fetchReferencesSingleBatch: function (list) {
+        var defs = [];
+        var fieldNames = list.getFieldNames();
+        for (var fIndex in fieldNames) {
+            var field = list.fields[fieldNames[fIndex]];
+            if (field.type === 'reference') {
+                defs.push(this._fetchReferenceSingleBatch(list, fieldNames[fIndex]));
+            }
+        }
+        return $.when.apply($, defs);
+    },
+    /**
+     * Fetch model data from server, relationally to fieldName and resulted
+     * field relation. For example, if fieldName is "tag_ids" and referred to
+     * project.tags, it will fetch project.tags' related fields where its id is
+     * contained in toFetch.ids array.
+     *
+     * @param {Object} list a valid resource object
+     * @param {Object} toFetch a list of records and res_ids,
+     *   @see _getDataToFetch
+     * @param {string} fieldName
+     * @returns {Deferred}
+     */
+    _fetchRelatedData: function (list, toFetch, fieldName) {
+        var self = this;
+        var ids = _.keys(toFetch);
+        for (var i = 0; i < ids.length; i++) {
+            ids[i] = Number(ids[i]);
+        }
+        var fieldInfo = list.fieldsInfo[list.viewType][fieldName];
+
+        if (!ids.length || fieldInfo.__no_fetch) {
+            return $.when();
+        }
+
+        var def;
+        var fieldNames = _.keys(fieldInfo.relatedFields);
+        if (fieldNames.length) {
+            var field = list.fields[fieldName];
+            def = this._rpc({
+                model: field.relation,
+                method: 'read',
+                args: [ids, fieldNames],
+                context: list.getContext() || {},
+            });
+        } else {
+            def = $.when(_.map(ids, function (id) {
+                return {id:id};
+            }));
+        }
+        return def.then(function (result) {
+            var records = _.uniq(_.flatten(_.values(toFetch)));
+            self._updateRecordsData(records, fieldName, result);
+        });
     },
     /**
      * This method is incorrectly named.  It should be named something like
@@ -2664,9 +2744,14 @@ var BasicModel = AbstractModel.extend({
      * Fetch all data in a ungrouped list
      *
      * @param {Object} list a valid resource object
-     * @returns {Deferred<Object>} resolves to the fecthed list
+     * @param {Object} [options]
+     * @param {boolean} [options.enableRelationalFetch=true] if false, will not
+     *   fetch x2m and relational data (that will be done by _readGroup in this
+     *   case).
+     * @returns {Deferred<Object>} resolves to the fetched list
      */
-    _fetchUngroupedList: function (list) {
+    _fetchUngroupedList: function (list, options) {
+        options = _.defaults(options || {}, {enableRelationalFetch: true});
         var self = this;
         var def;
         if (list.static) {
@@ -2684,12 +2769,30 @@ var BasicModel = AbstractModel.extend({
             def = this._searchReadUngroupedList(list);
         }
         return def.then(function () {
-            return $.when(
-                self._fetchX2ManysBatched(list),
-                self._fetchReferencesBatched(list));
+            if (options.enableRelationalFetch) {
+                return $.when(
+                    self._fetchX2ManysBatched(list, options),
+                    self._fetchReferencesBatched(list, options)
+                );
+            }
         }).then(function () {
             return list;
         });
+    },
+    /**
+     * batch requests for 1 x2m in list
+     *
+     * @see _fetchX2ManysBatched
+     * @param {Object} list
+     * @param {string} fieldName
+     * @returns {Deferred}
+     */
+    _fetchX2ManyBatched: function (list, fieldName) {
+        list = this._applyX2ManyOperations(list);
+        this._sortList(list);
+
+        var toFetch = this._getDataToFetch(list, fieldName);
+        return this._fetchRelatedData(list, toFetch, fieldName);
     },
     /**
      * X2Manys have to be fetched by separate rpcs (their data are stored on
@@ -2754,93 +2857,6 @@ var BasicModel = AbstractModel.extend({
         return $.when.apply($, defs);
     },
     /**
-     * batch requests for 1 x2m in list
-     *
-     * @see _fetchX2ManysBatched
-     * @param {Object} list
-     * @param {string} fieldName
-     * @returns {Deferred}
-     */
-    _fetchX2ManyBatched: function (list, fieldName) {
-        var self = this;
-        var field = list.fields[fieldName];
-        var fieldInfo = list.fieldsInfo[list.viewType][fieldName];
-        var view = fieldInfo.views && fieldInfo.views[fieldInfo.mode];
-        var fieldsInfo = view ? view.fieldsInfo : fieldInfo.fieldsInfo;
-        var fields = view ? view.fields : fieldInfo.relatedFields;
-        var viewType = view ? view.type : fieldInfo.viewType;
-        list = this._applyX2ManyOperations(list);
-        this._sortList(list);
-        var x2mRecords = [];
-
-        // step 1: collect ids
-        var ids = [];
-        _.each(list.data, function (dataPoint) {
-            var record = self.localData[dataPoint];
-            if (typeof record.data[fieldName] === 'string') {
-                // in this case, the value is a local ID, which means that the
-                // record has already been processed. It can happen for example
-                // when a user adds a record in a m2m relation, or loads more
-                // records in a kanban column
-                return;
-            }
-            x2mRecords.push(record);
-            ids = _.unique(ids.concat(record.data[fieldName] || []));
-            var m2mList = self._makeDataPoint({
-                fieldsInfo: fieldsInfo,
-                fields: fields,
-                modelName: field.relation,
-                parentID: record.id,
-                res_ids: record.data[fieldName],
-                static: true,
-                type: 'list',
-                viewType: viewType,
-            });
-            record.data[fieldName] = m2mList.id;
-        });
-
-        if (!ids.length || fieldInfo.__no_fetch) {
-            return $.when();
-        }
-        var def;
-        var fieldNames = _.keys(fieldInfo.relatedFields);
-        // step 2: fetch data from server
-        // if we want specific fields
-        // if not we return an array of objects with the id
-        // to avoid fetching all the relation fields and an useless rpc
-        if (fieldNames.length) {
-            def = this._rpc({
-                model: field.relation,
-                method: 'read',
-                args: [ids, fieldNames],
-                context: list.getContext() || {},
-            });
-        } else {
-            def = $.when(_.map(ids, function (id) {
-                return {id:id};
-            }));
-        }
-        return def.then(function (results) {
-            // step 3: assign values to correct datapoints
-            _.each(x2mRecords, function (record) {
-                var m2mList = self.localData[record.data[fieldName]];
-                m2mList.data = [];
-                _.each(m2mList.res_ids, function (res_id) {
-                    var dataPoint = self._makeDataPoint({
-                        modelName: field.relation,
-                        data: _.findWhere(results, {id: res_id}),
-                        fields: fields,
-                        fieldsInfo: fieldsInfo,
-                        parentID: m2mList.id,
-                        viewType: viewType,
-                    });
-                    m2mList.data.push(dataPoint.id);
-                    m2mList._cache[res_id] = dataPoint.id;
-                });
-            });
-        });
-    },
-    /**
      * batch request for x2ms for datapoint of type list
      *
      * @param {Object} list
@@ -2853,6 +2869,50 @@ var BasicModel = AbstractModel.extend({
             var field = list.fields[fieldNames[i]];
             if (field.type === 'many2many' || field.type === 'one2many') {
                 defs.push(this._fetchX2ManyBatched(list, fieldNames[i]));
+            }
+        }
+        return $.when.apply($, defs);
+    },
+    /**
+     * For a non-static list, batches requests for all its sublists' records.
+     * Make only one rpc for all records on the concerned field.
+     *
+     * @see _fetchX2ManysSingleBatch
+     * @param {Object} list a valid resource object, its data must be another
+     *   list containing records
+     * @param {string} fieldName
+     * @returns {Deferred}
+     */
+    _fetchX2ManySingleBatch: function (list, fieldName) {
+        var self = this;
+        var toFetch = {};
+        _.each(list.data, function (groupIndex) {
+            var group = self.localData[groupIndex];
+            var nextDataToFetch = self._getDataToFetch(group, fieldName);
+            _.each(_.keys(nextDataToFetch), function (id) {
+                if (toFetch[id]) {
+                    toFetch[id] = toFetch[id].concat(nextDataToFetch[id]);
+                } else {
+                    toFetch[id] = nextDataToFetch[id];
+                }
+            });
+        });
+        return self._fetchRelatedData(list, toFetch, fieldName);
+    },
+    /**
+     * Batch requests for all x2m in list's children.
+     * Called by _readGroup to make only one 'read' rpc by fieldName.
+     *
+     * @param {Object} list a valid resource object
+     * @returns {Deferred}
+     */
+    _fetchX2ManysSingleBatch: function (list) {
+        var defs = [];
+        var fieldNames = list.getFieldNames();
+        for (var i = 0; i < fieldNames.length; i++) {
+            var field = list.fields[fieldNames[i]];
+            if (field.type === 'many2many' || field.type === 'one2many'){
+                defs.push(this._fetchX2ManySingleBatch(list, fieldNames[i]));
             }
         }
         return $.when.apply($, defs);
@@ -3156,6 +3216,90 @@ var BasicModel = AbstractModel.extend({
         return context.eval();
     },
     /**
+     * Collects from a record a list of ids to fetch, according to fieldName,
+     * and a list of records where to set the result of the fetch.
+     *
+     * @param {Object} list a list containing records we want to get the ids,
+     *   it assumes _applyX2ManyOperations and _sort have been already called on
+     *   this list
+     * @param {string} fieldName
+     * @return {Object} a list of records and res_ids
+     */
+    _getDataToFetch: function (list, fieldName) {
+        var self = this;
+        var field = list.fields[fieldName];
+        var fieldInfo = list.fieldsInfo[list.viewType][fieldName];
+        var view = fieldInfo.views && fieldInfo.views[fieldInfo.mode];
+        var fieldsInfo = view ? view.fieldsInfo : fieldInfo.fieldsInfo;
+        var fields = view ? view.fields : fieldInfo.relatedFields;
+        var viewType = view ? view.type : fieldInfo.viewType;
+
+        var toFetch = {};
+        _.each(list.data, function (dataPoint) {
+            var record = self.localData[dataPoint];
+            if (typeof record.data[fieldName] === 'string'){
+                // in this case, the value is a local ID, which means that the
+                // record has already been processed. It can happen for example
+                // when a user adds a record in a m2m relation, or loads more
+                // records in a kanban column
+                return;
+            }
+
+            _.each(record.data[fieldName], function (id) {
+                toFetch[id] = toFetch[id] || [];
+                toFetch[id].push(record);
+            });
+
+            var m2mList = self._makeDataPoint({
+                fieldsInfo: fieldsInfo,
+                fields: fields,
+                modelName: field.relation,
+                parentID: record.id,
+                res_ids: record.data[fieldName],
+                static: true,
+                type: 'list',
+                viewType: viewType,
+            });
+            record.data[fieldName] = m2mList.id;
+        });
+
+        return toFetch;
+    },
+    /**
+     * Determines and returns from a list a collection of ids classed by
+     * their model.
+     *
+     * @param {Object} list a valid resource object
+     * @param {string} fieldName
+     * @returns {Object} each key represent a model and contain a sub-object
+     * where each key represent an id (res_id) containing an array of
+     * webclient id (referred to a datapoint, so not a res_id).
+     */
+    _getDataToFetchByModel: function (list, fieldName) {
+        var self = this;
+        var toFetch = {};
+        _.each(list.data, function (dataPoint) {
+            var record = self.localData[dataPoint];
+            var value = record.data[fieldName];
+            // if the reference field has already been fetched, the value is a
+            // datapoint ID, and in this case there's nothing to do
+            if (value && !self.localData[value]) {
+                var model = value.split(',')[0];
+                var resID = value.split(',')[1];
+                if (!(model in toFetch)) {
+                    toFetch[model] = {};
+                }
+                // there could be multiple datapoints with the same model/resID
+                if (toFetch[model][resID]) {
+                    toFetch[model][resID].push(dataPoint);
+                } else {
+                    toFetch[model][resID] = [dataPoint];
+                }
+            }
+        });
+        return toFetch;
+    },
+    /**
      * Some records are associated to a/some domain(s). This method allows to
      * retrieve them, evaluated.
      *
@@ -3333,12 +3477,17 @@ var BasicModel = AbstractModel.extend({
      * Invalidates the DataManager's cache if the main model (i.e. the model of
      * its root parent) of the given dataPoint is a model in 'noCacheModels'.
      *
+     * Reloads the currencies if the main model is 'res.currency'.
+     *
      * @private
      * @param {Object} dataPoint
      */
     _invalidateCache: function (dataPoint) {
         while (dataPoint.parentID) {
             dataPoint = this.localData[dataPoint.parentID];
+        }
+        if (dataPoint.model === 'res.currency') {
+            session.reloadCurrencies();
         }
         if (_.contains(this.noCacheModels, dataPoint.model)) {
             core.bus.trigger('clear_cache');
@@ -3362,7 +3511,7 @@ var BasicModel = AbstractModel.extend({
                         (record.fieldsInfo[viewType || record.viewType][fieldName]);
         if (fieldInfo) {
             var rawModifiers = fieldInfo.modifiers || {};
-            var modifiers = this._evalModifiers(record, rawModifiers);
+            var modifiers = this._evalModifiers(record, _.pick(rawModifiers, 'readonly'));
             return modifiers.readonly && !fieldInfo.force_save;
         } else {
             return false;
@@ -3415,7 +3564,7 @@ var BasicModel = AbstractModel.extend({
                 var field = element.fields[fieldName];
                 var fieldInfo = element.fieldsInfo[element.viewType][fieldName];
                 var rawModifiers = fieldInfo.modifiers || {};
-                var modifiers = self._evalModifiers(record, rawModifiers);
+                var modifiers = self._evalModifiers(record, _.pick(rawModifiers, 'required'));
                 if (modifiers.required && !self._isFieldSet(recordData[fieldName], field.type)) {
                     isValid = false;
                 }
@@ -3450,7 +3599,7 @@ var BasicModel = AbstractModel.extend({
             return this._readGroup(dataPoint, options);
         }
         if (dataPoint.type === 'list' && !dataPoint.groupedBy.length) {
-            return this._fetchUngroupedList(dataPoint);
+            return this._fetchUngroupedList(dataPoint, options);
         }
     },
     /**
@@ -3995,7 +4144,7 @@ var BasicModel = AbstractModel.extend({
                     }
                 } else {
                     dataPoint = self._makeDataPoint({
-                        context: list.context,
+                        context: list.getContext(),
                         data: data,
                         fieldsInfo: list.fieldsInfo,
                         fields: list.fields,
@@ -4117,6 +4266,7 @@ var BasicModel = AbstractModel.extend({
                     list.count += newGroup.count;
                     if (newGroup.isOpen && newGroup.count > 0) {
                         openGroupCount++;
+                        options = _.defaults({enableRelationalFetch: false}, options);
                         defs.push(self._load(newGroup, options));
                     }
                 });
@@ -4134,6 +4284,7 @@ var BasicModel = AbstractModel.extend({
                         emptyGroup.aggregateValues = {};
                     });
                 }
+
                 return $.when.apply($, defs).then(function () {
                     if (!options || !options.onlyGroups) {
                         // generate the res_ids of the main list, being the concatenation
@@ -4143,6 +4294,13 @@ var BasicModel = AbstractModel.extend({
                         }));
                     }
                     return list;
+                }).then(function () {
+                    var fetchingDefs = [];
+                    fetchingDefs.push(self._fetchX2ManysSingleBatch(list));
+                    fetchingDefs.push(self._fetchReferencesSingleBatch(list));
+                    return $.when.apply($, fetchingDefs).then(function () {
+                        return list;
+                    });
                 });
             });
     },
@@ -4245,7 +4403,9 @@ var BasicModel = AbstractModel.extend({
 
         if (options.context !== undefined) {
             element.context = options.context;
-            element.orderedBy =  options.context.orderedBy || element.orderedBy;
+        }
+        if (options.orderedBy !== undefined) {
+            element.orderedBy = options.orderedBy || element.orderedBy;
         }
         if (options.domain !== undefined) {
             element.domain = options.domain;
@@ -4496,6 +4656,45 @@ var BasicModel = AbstractModel.extend({
             }));
             this._updateParentResIDs(parent);
         }
+    },
+    /**
+     * Helper method to create datapoints and assign them values, then link
+     * those datapoints into records' data.
+     *
+     * @param {Object[]} records a list of record where datapoints will be
+     *   assigned, it assumes _applyX2ManyOperations and _sort have been
+     *   already called on this list
+     * @param {string} fieldName concerned field in records
+     * @param {Object[]} values typically a list of values got from a rpc
+     */
+    _updateRecordsData: function (records, fieldName, values) {
+        if (!records.length || !values) {
+            return;
+        }
+        var self = this;
+        var field = records[0].fields[fieldName];
+        var fieldInfo = records[0].fieldsInfo[records[0].viewType][fieldName];
+        var view = fieldInfo.views && fieldInfo.views[fieldInfo.mode];
+        var fieldsInfo = view ? view.fieldsInfo : fieldInfo.fieldsInfo;
+        var fields = view ? view.fields : fieldInfo.relatedFields;
+        var viewType = view ? view.type : fieldInfo.viewType;
+
+        _.each(records, function (record) {
+            var x2mList = self.localData[record.data[fieldName]];
+            x2mList.data = [];
+            _.each(x2mList.res_ids, function (res_id) {
+                var dataPoint = self._makeDataPoint({
+                    modelName: field.relation,
+                    data: _.findWhere(values, {id: res_id}),
+                    fields: fields,
+                    fieldsInfo: fieldsInfo,
+                    parentID: x2mList.id,
+                    viewType: viewType,
+                });
+                x2mList.data.push(dataPoint.id);
+                x2mList._cache[res_id] = dataPoint.id;
+            });
+        });
     },
     /**
      * Helper method.  Recursively traverses the data, starting from the element

@@ -20,7 +20,6 @@ from datetime import datetime
 
 from odoo import api, fields, models, tools, _
 from odoo.exceptions import ValidationError
-from odoo.tools import pycompat
 
 
 _logger = logging.getLogger(__name__)
@@ -74,7 +73,7 @@ class FetchmailServer(models.Model):
                     # See details in message_process() in mail_thread.py
                     if isinstance(message, xmlrpclib.Binary):
                         message = bytes(message.data)
-                    if isinstance(message, pycompat.text_type):
+                    if isinstance(message, str):
                         message = message.encode('utf-8')
                     msg_txt = email.message_from_bytes(message)
 

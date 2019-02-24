@@ -1,19 +1,277 @@
 // FIXME may be useless (check initial code here: https://github.com/odoo/odoo/blob/51be5bbfb38db784cb3406877cc0e8806b1bf55a/addons/website_slides/static/src/less/website_slides.less#L1)
 $nav-tabs-border-color: #dddddd !default;
-$info: #dddddd !default;
 $body-bg: #FFFFFF !default;
-$primary: #428bca !default;
 $link-color: theme-color('primary') !default;
-$panel-footer-bg: #f5f5f5 !default;
-$nav-link-hover-bg: #FFFFFF !default;
-$navbar-default-link-hover-color: #333 !default;
-$light: #f8f8f8 !default;
 $MAX-Z-INDEX : 2147483647 !default;
 
 @mixin top-covered-image {
     object-fit: cover;
     object-position: top;
 }
+
+
+// Common to new slides pages
+// **************************************************
+
+.o_wslides_container {
+    margin: auto;
+    width: 100%;
+    max-width: 1140px;
+    padding: 0px 32px 0px 32px;
+}
+
+div .o_wslides_home_nav {
+    top: -40px;
+
+    @include media-breakpoint-up(md) {
+        font-size: 1rem;
+
+        .o_wslides_nav_navbar_right {
+            margin-left: auto;
+            padding-left: $spacer;
+            border-left: 1px solid $border-color;
+        }
+    }
+}
+
+.o_wslides_wrap {
+    background-color: desaturate(map-get($grays, "200"), 80%);
+
+    .o_wslides_course_card {
+        border-width: 0 0 3px 0;
+    }
+
+    .o_wslides_lesson_card {
+        border-width: 0 0 3px 0;
+    }
+
+    // responsive card-deck like
+    // .row.o_wslides_row > div[class*='col-'] {
+        // display: flex;
+        // flex:1 0 auto;
+        // .card {
+            // width:100%;
+        // }
+    // }
+
+    // tools
+    // ****************************************
+
+    .text_small_caps {
+        font-variant: small-caps;
+    }
+
+    .o_wslides_entry_muted {
+        opacity: 0.5;
+    }
+    img.o_wslides_img_center_crop {
+        object-fit: cover;
+        object-position: center;
+    }
+
+    .o_wslides_home_circled {
+        border-radius: 50%;
+        width: 1.2em;
+        height: 1.2em;
+        padding: 0.25em 0.5em 0.25em 0.5em;
+        border: 0.2em solid #666;
+        text-align: center;
+        box-sizing: initial;
+    }
+
+    .progress {
+        overflow: visible;
+        margin-bottom: 0em;
+        height: 4px;
+        .progress-bar {
+            background-color: #00A09D;
+            position: relative;
+            border-radius: 4px;
+            span {
+                background-color: #00A09D;
+                position: absolute;
+                bottom: -20px;
+                font-size: 10px;
+                line-height: 10px;
+                padding: 2px 3px 2px 4px;
+                right: -1.4em;
+                border-radius: 2px;
+            }
+            span:after {
+                bottom: 100%;
+                left: 50%;
+                border: solid transparent;
+                content: " ";
+                height: 0;
+                width: 0;
+                position: absolute;
+                pointer-events: none;
+                border-color: rgba(255, 255, 255, 0);
+                border-bottom-color: #00A09D;
+                border-width: 5px;
+                margin-left: -5px;
+            }
+        }
+    }
+}
+
+
+// New home page
+// **************************************************
+
+div .o_wslides_home_nav {
+    top: -40px;
+
+    @include media-breakpoint-up(md) {
+        font-size: 1rem;
+
+         .o_wslides_nav_navbar_right {
+            margin-left: auto;
+            padding-left: $spacer;
+            border-left: 1px solid $border-color;
+        }
+    }
+}
+
+div .o_wslides_home_main {
+    .o_wslides_home_aside {
+        .fa-check {
+            color: #00A09D;
+            font-size: 1.2em;
+        }
+    }
+    .o_wprofile_next_rank_card {
+        background-color: transparent !important;
+    }
+}
+
+// New course page
+// **************************************************
+
+.o_wslides_course_nav {
+    margin: auto;
+    background: linear-gradient(150deg, #875A7B 20%, #62495B 80%) !important;
+    opacity: 0.95;
+
+    a {
+        color: #FFFFFF;
+    }
+
+    small a {
+        color: #000000;
+    }
+
+    nav {
+        .breadcrumb-item::before {
+            font-weight: bold;
+            color: #FFFFFF;
+            opacity: 0.8;
+        }
+        .breadcrumb-item {
+            a {
+                font-weight: bold;
+                color: #FFFFFF;
+                opacity: 0.8;
+                transition: opacity linear .3s;
+            }
+            &.active {
+                a {
+                    opacity: 1.0;
+                }
+            }
+        }
+        ol {
+            background-color: transparent;
+        }
+    }
+}
+
+.o_wslides_course_header {
+    margin: auto;
+    background: linear-gradient(150deg, #875A7B 20%, #62495B 80%) !important;
+    border-bottom: 48px solid #66445e;
+
+    .o_wslides_course_header_container {
+        top: 48px;
+        padding-top: 0px;
+
+        .o_wslides_course_header_aside {
+            max-width: 286px;
+            img {
+                width: 100%;
+                max-width: 256px;
+            }
+        }
+
+        .o_wslides_course_header_content {
+            font-size: 16px;
+            color: #FFFFFF;
+
+            .o_wslides_course_header_nav {
+                ul.o_wslides_nav_tabs {
+                    border-bottom: 0px;
+                    li.nav-item {
+                        margin-bottom: 0px;
+                    }
+                    a.nav-link {
+                        color: white;
+                        border-radius: 0px;
+                        height: 48px;
+                        font-weight: bold;
+                        padding-top: 12px;
+                        border-left: 2px solid #875A7B;
+                        text-align: center;
+                        width: 120px;
+                        &:hover {
+                            border: 0px;
+                            border-radius: 0px;
+                            background-color: #875A7B;
+                        }
+                        &.active {
+                            color: #212529;
+                            background-color: #f2f2f2;
+                            border: 0px;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+.o_wslides_course_main {
+    margin: auto;
+    background-color: #f2f2f2;
+
+    .o_wslides_course_content_main {
+        h3 {
+            font-size: 1.4em;
+        }
+
+        h4 {
+            font-size: 1.3em;
+        }
+
+        .o_wslides_course_content_aside {
+            max-width: 286px;
+            .bg-white {
+                max-width: 256px;
+                background-color: white;
+                padding-bottom: 8px;
+                 > div.row {
+                    padding-left: 15px;
+                    padding-right: 15px;
+                 }
+            }
+
+            .o_wslides_course_aside_line {
+            }
+        }
+    }
+}
+
+// Old brol to clean someday
+// **************************************************
 
 .oe_slides_panel_footer .fa, .oe_slide_js_embed_option_link{
     color : theme-color('primary');
@@ -33,38 +291,6 @@ $MAX-Z-INDEX : 2147483647 !default;
     overflow-y: auto !important;
 }
 
-.oe_slide_embed_wrapper {
-  position: relative;
-}
-
-section.oe_slides_promote_box {
-    background-color: $panel-footer-bg;
-    border-bottom: 1px solid $nav-tabs-border-color;
-    border-top: 1px solid $nav-tabs-border-color;
-}
-
-img.oe_slides_channel_thumbnail {
-    @include top-covered-image;
-    height: 250px;
-    width: 100%
-}
-
-img.oe_slides_opacity {
-    opacity: .5;
-}
-
-img.oe_slides_promote_image {
-    @include top-covered-image;
-    max-height: 300px;
-    width: 100%;
-    overflow: hidden;
-    display: block;
-}
-
-.oe_slides_box_shadow {
-    box-shadow: 0 0 5px #CCC;
-}
-
 .oe_slides_apart_small {
     @include top-covered-image;
     height: 60px;
@@ -80,26 +306,12 @@ img.oe_slides_promote_image {
     max-height: 500px;
 }
 
-.oe_slides_bottom_border {
-   border-bottom: 1px solid $nav-tabs-border-color;
-}
-
-.oe_slide_js_like, .oe_slide_js_unlike{
+.o_wslides_like_up, .o_wslides_like_down {
     cursor: pointer;
     color: $link-color;
 }
 
-textarea.o_slides_comment {
-    resize: vertical;
-}
-
 // Thumbnails
-.oe_slides_grid_thumbnail {
-    @include top-covered-image;
-    height: 200px;
-    width: 100%;
-    overflow: hidden;
-}
 .oe_slides_ellipsis {
     white-space: nowrap;
     width: 100%;
@@ -153,6 +365,13 @@ textarea.o_slides_comment {
     padding: 10px;
 }
 
+// Slide display
+div.embed-responsive {
+    iframe.o_wslides_iframe_viewer {
+        position: relative;
+    }
+}
+
 // PDF Viewer Share bar
 .oe_slides_share_bar{
     padding: 10px 0;
@@ -164,4 +383,10 @@ textarea.o_slides_comment {
 
 .oe_show_footer {
     z-index: $MAX-Z-INDEX; // Looks terrible but seems necessary due to fullscreen & canvas in PDFSlidesViewer
+}
+
+
+// Upload Modal
+.o_wslides_select_type {
+    cursor: pointer;
 }

@@ -8,8 +8,6 @@ from odoo.exceptions import UserError, ValidationError
 
 from odoo.addons import decimal_precision as dp
 
-from odoo.tools import pycompat
-
 
 class Pricelist(models.Model):
     _name = "product.pricelist"
@@ -36,6 +34,11 @@ class Pricelist(models.Model):
     sequence = fields.Integer(default=16)
     country_group_ids = fields.Many2many('res.country.group', 'res_country_group_pricelist_rel',
                                          'pricelist_id', 'res_country_group_id', string='Country Groups')
+
+    discount_policy = fields.Selection([
+        ('with_discount', 'Discount included in the price'),
+        ('without_discount', 'Show public price & discount to the customer')],
+        default='with_discount')
 
     @api.multi
     def name_get(self):
@@ -257,7 +260,7 @@ class Pricelist(models.Model):
         return {
             product_id: res_tuple[0]
             for product_id, res_tuple in self._compute_price_rule(
-                list(pycompat.izip(products, quantities, partners)),
+                list(zip(products, quantities, partners)),
                 date=date,
                 uom_id=uom_id
             ).items()
@@ -299,7 +302,7 @@ class Pricelist(models.Model):
     def _price_get_multi(self, pricelist, products_by_qty_by_partner):
         """ Mono pricelist, multi product - return price per product """
         return pricelist.get_products_price(
-            list(pycompat.izip(**products_by_qty_by_partner)))
+            list(zip(**products_by_qty_by_partner)))
 
     def _get_partner_pricelist(self, partner_id, company_id=None):
         """ Retrieve the applicable pricelist for a given partner in a given company.

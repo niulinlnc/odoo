@@ -33,6 +33,7 @@ var MailFailure = require('mail.model.MailFailure');
 var Message = require('mail.model.Message');
 var MultiUserChannel = require('mail.model.MultiUserChannel');
 var mailUtils = require('mail.utils');
+var utils = require('web.utils');
 
 var Bus = require('web.Bus');
 var config = require('web.config');
@@ -52,6 +53,12 @@ var MailManager =  AbstractService.extend({
      */
     start: function () {
         this._super.apply(this, arguments);
+
+        this._throttleNotifyChannelFetched = _.throttle(this._notifyChannelFetched.bind(this), 3000);
+        // List of channel that have requested the service to notify when
+        // it has been fetched, so that throttled RPCs batch the ids.
+        this._toNotifyChannelFetchedIDs = [];
+
         this._initializeInternalState();
         this._listenOnBuses();
         this._fetchMailStateFromServer();
@@ -338,6 +345,14 @@ var MailManager =  AbstractService.extend({
         }
     },
     /**
+     * @param {Object} data
+     * @param {integer} data.channelID
+     */
+    notifyChannelFetched: function (data) {
+        this._toNotifyChannelFetchedIDs = _.uniq(this._toNotifyChannelFetchedIDs.concat(data.channelID));
+        this._throttleNotifyChannelFetched();
+    },
+    /**
      * @param {integer|string} threadID
      */
     openThread: function (threadID) {
@@ -442,10 +457,6 @@ var MailManager =  AbstractService.extend({
             channel = this._makeChannel(data, options);
             if (channel.getType() === 'dm_chat') {
                 this._pinnedDmPartners.push(channel.getDirectPartnerID());
-                this.call('bus_service', 'updateOption',
-                    'bus_presence_partner_ids',
-                    this._pinnedDmPartners
-                );
             }
             this._threads.push(channel);
             if (data.last_message) {
@@ -676,8 +687,8 @@ var MailManager =  AbstractService.extend({
     },
     /**
      * Get the previews of the mail failures
-     * Mail failures of a same model are grouped together, so that there are few
-     * preview items on the messaging menu in the systray.
+     * Mail failures of a same model with the same type are grouped together, so
+     * that there are few preview items on the messaging menu in the systray.
      *
      * To determine whether this is a model preview or a document preview review
      * the documentID is omitted for a model preview, whereas it is set for a
@@ -696,10 +707,11 @@ var MailManager =  AbstractService.extend({
         _.each(this._mailFailures, function (failure) {
             var unreadCounter = 1;
             var isSameDocument = true;
-            var sameModelItem = _.find(items, function (item) {
+            var sameModelAndTypeItem = _.find(items, function (item) {
                 if (
                     item.failure.isLinkedToDocument() &&
-                    (item.failure.getDocumentModel() === failure.getDocumentModel())
+                    (item.failure.getDocumentModel() === failure.getDocumentModel()) &&
+                    (item.failure.getFailureType() === failure.getFailureType())
                 ) {
                     isSameDocument = item.failure.getDocumentID() === failure.getDocumentID();
                     return true;
@@ -707,10 +719,10 @@ var MailManager =  AbstractService.extend({
                 return false;
             });
 
-            if (failure.isLinkedToDocument() && sameModelItem) {
-                unreadCounter = sameModelItem.unreadCounter + 1;
-                isSameDocument = sameModelItem.isSameDocument && isSameDocument;
-                var index = _.findIndex(items, sameModelItem);
+            if (failure.isLinkedToDocument() && sameModelAndTypeItem) {
+                unreadCounter = sameModelAndTypeItem.unreadCounter + 1;
+                isSameDocument = sameModelAndTypeItem.isSameDocument && isSameDocument;
+                var index = _.findIndex(items, sameModelAndTypeItem);
                 items[index] = {
                     unreadCounter: unreadCounter,
                     failure: failure,
@@ -921,6 +933,23 @@ var MailManager =  AbstractService.extend({
         return new Message(this, data);
     },
     /**
+     * @private
+     * @returns {$.Promise}
+     */
+    _notifyChannelFetched: function () {
+        var channelIDs = this._toNotifyChannelFetchedIDs;
+        this._toNotifyChannelFetchedIDs = [];
+        if (_.isEmpty(channelIDs)) {
+            // no channel to notify fetched
+            return $.when();
+        }
+        return this._rpc({
+            model: 'mail.channel',
+            method: 'channel_fetched',
+            args: [channelIDs],
+        }, { shadow: true });
+    },
+    /**
      * shows a popup to notify a new received message.
      * This will also rename the browser tab if this is not the active tab.
      *
@@ -1039,10 +1068,6 @@ var MailManager =  AbstractService.extend({
             var index = this._pinnedDmPartners.indexOf(channel.getDirectPartnerID());
             if (index > -1) {
                 this._pinnedDmPartners.splice(index, 1);
-                this.call('bus_service', 'updateOption',
-                    'bus_presence_partner_ids',
-                    this._pinnedDmPartners
-                );
             }
         }
         this._threads = _.without(this._threads, channel);
@@ -1093,7 +1118,7 @@ var MailManager =  AbstractService.extend({
      */
     _searchPartnerPrefetch: function (searchVal, limit) {
         var values = [];
-        var searchRegexp = new RegExp(_.str.escapeRegExp(mailUtils.unaccent(searchVal)), 'i');
+        var searchRegexp = new RegExp(_.str.escapeRegExp(utils.unaccent(searchVal)), 'i');
         _.each(this._mentionPartnerSuggestions, function (partners) {
             if (values.length < limit) {
                 values = values.concat(_.filter(partners, function (partner) {

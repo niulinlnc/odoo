@@ -71,6 +71,8 @@
                 <field name="product_variant_count"/>
                 <field name="product_variant_ids"/>
                 <field name="currency_id"/>
+                <field name="activity_state"/>
+                <progressbar field="activity_state" colors='{"planned": "success", "today": "warning", "overdue": "danger"}'/>
                 <templates>
                     <t t-name="kanban-box">
                         <div class="oe_kanban_global_click">
@@ -113,8 +115,8 @@
             <p class="o_view_nocontent_smiling_face">
                 Create a new product
             </p><p>
-                You must define a product for everything you purchase,
-                whether it's a physical product, a consumable or services.
+                You must define a product for everything you sell or purchase,
+                whether it's a storable product, a consumable or a service.
             </p>
         </field>
     </record>

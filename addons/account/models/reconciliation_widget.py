@@ -3,7 +3,6 @@
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 from odoo.osv import expression
-from odoo.tools import pycompat
 from odoo.tools.misc import formatLang
 
 
@@ -25,12 +24,14 @@ class AccountReconciliation(models.AbstractModel):
                 'counterpart_aml_dicts', 'payment_aml_ids' and 'new_aml_dicts',
                 whose value is the same as described in process_reconciliation
                 except that ids are used instead of recordsets.
+            :returns dict: used as a hook to add additional keys.
         """
         st_lines = self.env['account.bank.statement.line'].browse(st_line_ids)
         AccountMoveLine = self.env['account.move.line']
         ctx = dict(self._context, force_price_include=False)
 
-        for st_line, datum in pycompat.izip(st_lines, data):
+        processed_moves = self.env['account.move']
+        for st_line, datum in zip(st_lines, data):
             payment_aml_rec = AccountMoveLine.browse(datum.get('payment_aml_ids', []))
 
             for aml_dict in datum.get('counterpart_aml_dicts', []):
@@ -40,10 +41,13 @@ class AccountReconciliation(models.AbstractModel):
             if datum.get('partner_id') is not None:
                 st_line.write({'partner_id': datum['partner_id']})
 
-            st_line.with_context(ctx).process_reconciliation(
+            ctx['default_to_check'] = datum.get('to_check')
+            moves = st_line.with_context(ctx).process_reconciliation(
                 datum.get('counterpart_aml_dicts', []),
                 payment_aml_rec,
                 datum.get('new_aml_dicts', []))
+            processed_moves = (processed_moves | moves)
+        return {'moves': processed_moves}
 
     @api.model
     def get_move_lines_for_bank_statement_line(self, st_line_id, partner_id=None, excluded_ids=None, search_str=False, offset=0, limit=None):
@@ -107,23 +111,27 @@ class AccountReconciliation(models.AbstractModel):
             :param excluded_ids: optional move lines ids excluded from the
                 result
         """
+        results = {
+            'lines': [],
+            'value_min': 0,
+            'value_max': 0,
+            'reconciled_aml_ids': [],
+        }
+
+        if not st_line_ids:
+            return results
+
         excluded_ids = excluded_ids or []
 
         # Make a search to preserve the table's order.
         bank_statement_lines = self.env['account.bank.statement.line'].search([('id', 'in', st_line_ids)])
+        results['value_max'] = len(bank_statement_lines)
         reconcile_model = self.env['account.reconcile.model'].search([('rule_type', '!=', 'writeoff_button')])
 
         # Search for missing partners when opening the reconciliation widget.
         partner_map = self._get_bank_statement_line_partners(bank_statement_lines)
 
         matching_amls = reconcile_model._apply_rules(bank_statement_lines, excluded_ids=excluded_ids, partner_map=partner_map)
-
-        results = {
-            'lines': [],
-            'value_min': 0,
-            'value_max': len(bank_statement_lines),
-            'reconciled_aml_ids': [],
-        }
 
         # Iterate on st_lines to keep the same order in the results list.
         bank_statements_left = self.env['account.bank.statement']
@@ -154,26 +162,41 @@ class AccountReconciliation(models.AbstractModel):
         return results
 
     @api.model
-    def get_bank_statement_data(self, bank_statement_ids):
+    def get_bank_statement_data(self, bank_statement_line_ids, search_str=False):
         """ Get statement lines of the specified statements or all unreconciled
             statement lines and try to automatically reconcile them / find them
             a partner.
             Return ids of statement lines left to reconcile and other data for
             the reconciliation widget.
 
-            :param st_line_id: ids of the bank statement
+            :param bank_statement_line_ids: ids of the bank statement lines
         """
-        bank_statements = self.env['account.bank.statement'].browse(bank_statement_ids)
+        if not bank_statement_line_ids:
+            return {}
+        edition_mode = self._context.get('edition_mode')
+        bank_statements = self.env['account.bank.statement.line'].browse(bank_statement_line_ids).mapped('statement_id')
 
+        search_sql = '''
+            AND (p.name ILIKE CONCAT('%%',%(search_str)s,'%%')
+            OR line.ref ILIKE CONCAT('%%',%(search_str)s,'%%')
+            OR line.name ILIKE CONCAT('%%',%(search_str)s,'%%')
+            OR CAST(line.amount AS TEXT) ILIKE CONCAT('%%',%(search_str)s,'%%'))
+        '''
         query = '''
              SELECT line.id
              FROM account_bank_statement_line line
-             WHERE account_id IS NULL
+             LEFT JOIN res_partner p on p.id = line.partner_id
+             WHERE line.account_id IS NULL
              AND line.amount != 0.0
-             AND line.statement_id IN %s
-             AND NOT EXISTS (SELECT 1 from account_move_line aml WHERE aml.statement_line_id = line.id)
-        '''
-        self.env.cr.execute(query, [tuple(bank_statements.ids)])
+             AND line.id IN %(ids)s
+             {cond}
+             {srch}
+             GROUP BY line.id
+        '''.format(
+            cond=not edition_mode and "AND NOT EXISTS (SELECT 1 from account_move_line aml WHERE aml.statement_line_id = line.id)" or "",
+            srch=search_str and search_sql or "",
+        )
+        self.env.cr.execute(query, {'ids':tuple(bank_statement_line_ids), 'search_str':search_str})
 
         bank_statement_lines = self.env['account.bank.statement.line'].browse([line.get('id') for line in self.env.cr.dictfetchall()])
 
@@ -394,6 +417,14 @@ class AccountReconciliation(models.AbstractModel):
     # Private
     ####################################################
 
+    def _str_domain_for_mv_line(self, search_str):
+        return [
+            '|', ('move_id.name', 'ilike', search_str),
+            '|', ('move_id.ref', 'ilike', search_str),
+            '|', ('date_maturity', 'like', search_str),
+            '&', ('name', '!=', '/'), ('name', 'ilike', search_str)
+        ]
+
     @api.model
     def _domain_move_lines(self, search_str):
         """ Returns the domain from the search_str search
@@ -401,12 +432,7 @@ class AccountReconciliation(models.AbstractModel):
         """
         if not search_str:
             return []
-        str_domain = [
-            '|', ('move_id.name', 'ilike', search_str),
-            '|', ('move_id.ref', 'ilike', search_str),
-            '|', ('date_maturity', 'like', search_str),
-            '&', ('name', '!=', '/'), ('name', 'ilike', search_str)
-        ]
+        str_domain = self._str_domain_for_mv_line(search_str)
         if search_str[0] in ['-', '+']:
             try:
                 amounts_str = search_str.split('|')
@@ -438,7 +464,7 @@ class AccountReconciliation(models.AbstractModel):
         return str_domain
 
     @api.model
-    def _domain_move_lines_for_reconciliation(self, st_line, aml_accounts, partner_id, excluded_ids=None, search_str=False):
+    def _domain_move_lines_for_reconciliation(self, st_line, aml_accounts, partner_id, excluded_ids=[], search_str=False):
         """ Return the domain for account.move.line records which can be used for bank statement reconciliation.
 
             :param aml_accounts:
@@ -446,6 +472,11 @@ class AccountReconciliation(models.AbstractModel):
             :param excluded_ids:
             :param search_str:
         """
+        AccountMoveLine = self.env['account.move.line']
+
+        #Always exclude the journal items that have been marked as 'to be checked' in a former bank statement reconciliation
+        to_check_excluded = AccountMoveLine.search(AccountMoveLine._get_domain_for_edition_mode()).ids
+        excluded_ids.extend(to_check_excluded)
 
         domain_reconciliation = [
             '&', '&',

@@ -4,6 +4,7 @@ odoo.define('web.PivotRenderer', function (require) {
 var AbstractRenderer = require('web.AbstractRenderer');
 var core = require('web.core');
 var field_utils = require('web.field_utils');
+var config = require('web.config');
 
 var QWeb = core.qweb;
 var _t = core._t;
@@ -28,6 +29,7 @@ var PivotRenderer = AbstractRenderer.extend({
         this.fieldWidgets = params.widgets || {};
         this.timeRangeDescription = params.timeRangeDescription;
         this.comparisonTimeRangeDescription = params.comparisonTimeRangeDescription;
+        this.paddingLeftHeaderTabWidth = config.device.isMobile ? 5 : 30;
     },
 
     //--------------------------------------------------------------------------
@@ -226,7 +228,7 @@ var PivotRenderer = AbstractRenderer.extend({
             $header = $('<td>')
                 .text(rows[i].title)
                 .data('id', rows[i].id)
-                .css('padding-left', (5 + rows[i].indent * 30) + 'px')
+                .css('padding-left', (5 + rows[i].indent * self.paddingLeftHeaderTabWidth) + 'px')
                 .addClass(rows[i].expanded ? 'o_pivot_header_cell_opened' : 'o_pivot_header_cell_closed');
             if (rows[i].indent > 0) $header.attr('title', groupbyLabels[rows[i].indent - 1]);
             $header.appendTo($row);
@@ -304,13 +306,12 @@ var PivotRenderer = AbstractRenderer.extend({
 
     /**
      * @private
-     * @param {MouseEvent} event
+     * @param {MouseEvent} ev
      */
-    _onTdHover: function (event) {
+    _onTdHover: function (ev) {
         var $td = $(event.target);
         $td.closest('table').find('col:eq(' + $td.index()+')').toggleClass('hover');
-    }
-
+    },
 });
 
 return PivotRenderer;

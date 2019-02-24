@@ -7,6 +7,26 @@ var core = require('web.core');
 var qweb = core.qweb;
 
 /**
+ * Allows to load anchors from a page.
+ *
+ * @param {string} url
+ * @returns {Deferred<string[]>}
+ */
+function loadAnchors(url) {
+    var def;
+    if (url !== window.location.pathname && url[0] !== '#') {
+        def = $.get(window.location.origin + url);
+    } else {
+        def = $.when(document.body.outerHTML);
+    }
+    return def.then(function (response) {
+        return _.map($(response).find('[id][data-anchor=true]'), function (el) {
+            return '#' + el.id;
+        });
+    });
+}
+
+/**
  * Allows the given input to propose existing website URLs.
  *
  * @param {ServicesMixin|Widget} self - an element capable to trigger an RPC
@@ -15,22 +35,49 @@ var qweb = core.qweb;
 function autocompleteWithPages(self, $input) {
     $input.autocomplete({
         source: function (request, response) {
-            return self._rpc({
-                model: 'website',
-                method: 'search_pages',
-                args: [null, request.term],
-                kwargs: {
-                    limit: 15,
-                },
-            }).then(function (exists) {
-                var rs = _.map(exists, function (r) {
-                    return r.loc;
+            if (request.term[0] === '#') {
+                loadAnchors(request.term).then(function (anchors) {
+                    response(anchors);
                 });
-                response(rs);
-            });
+            } else {
+                return self._rpc({
+                    model: 'website',
+                    method: 'search_pages',
+                    args: [null, request.term],
+                    kwargs: {
+                        limit: 15,
+                    },
+                }).then(function (exists) {
+                    var rs = _.map(exists, function (r) {
+                        return r.loc;
+                    });
+                    response(rs.sort());
+                });
+            }
+        },
+        close: function () {
+            self.trigger_up('website_url_chosen');
         },
     });
 }
+
+/**
+ * @param {jQuery} $element
+ */
+function onceAllImagesLoaded($element) {
+    var defs = _.map($element.find('img').addBack('img'), function (img) {
+        if (img.complete) {
+            return; // Already loaded
+        }
+        var def = $.Deferred();
+        $(img).one('load', function () {
+            def.resolve();
+        });
+        return def;
+    });
+    return $.when.apply($, defs);
+}
+
 /**
  * @deprecated
  * @todo create Dialog.prompt instead of this
@@ -137,7 +184,9 @@ function prompt(options, _qweb) {
 }
 
 return {
+    loadAnchors: loadAnchors,
     autocompleteWithPages: autocompleteWithPages,
+    onceAllImagesLoaded: onceAllImagesLoaded,
     prompt: prompt,
 };
 });

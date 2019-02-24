@@ -16,15 +16,15 @@
 # Takuya Sawada <takuya@tuntunkun.com>, 2018
 # Martin Trigaux, 2018
 # Norimichi Sugimoto <norimichi.sugimoto@tls-ltd.co.jp>, 2018
-# Yoshi Tashiro <tashiro@roomsfor.hk>, 2019
+# Yoshi Tashiro <tashiro@roomsfor.hk>, 2018
 # 
 msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-01-09 10:31+0000\n"
+"POT-Creation-Date: 2018-10-24 09:34+0000\n"
 "PO-Revision-Date: 2018-08-24 09:25+0000\n"
-"Last-Translator: Yoshi Tashiro <tashiro@roomsfor.hk>, 2019\n"
+"Last-Translator: Yoshi Tashiro <tashiro@roomsfor.hk>, 2018\n"
 "Language-Team: Japanese (https://www.transifex.com/odoo/teams/41243/ja/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -139,36 +139,11 @@ msgid ""
 msgstr ""
 
 #. module: stock
-#: code:addons/stock/models/stock_rule.py:112
+#: code:addons/stock/models/stock_rule.py:111
 #, python-format
 msgid ""
 "<br>A need is created in <b>%s</b> and a rule will be triggered to fulfill "
 "it."
-msgstr ""
-
-#. module: stock
-#: model_terms:ir.ui.view,arch_db:stock.stock_move_view_kanban
-#: model_terms:ir.ui.view,arch_db:stock.view_stock_inventory_kanban
-msgid "<i class=\"fa fa-clock-o\" role=\"img\" aria-label=\"Date\" title=\"Date\"/>"
-msgstr ""
-
-#. module: stock
-#: model_terms:ir.ui.view,arch_db:stock.stock_scrap_view_kanban
-msgid ""
-"<i class=\"fa fa-clock-o\" role=\"img\" aria-label=\"Expected date\" "
-"title=\"Expected date\"/>"
-msgstr ""
-
-#. module: stock
-#: model_terms:ir.ui.view,arch_db:stock.stock_picking_type_kanban
-msgid "<i class=\"fa fa-ellipsis-v\" role=\"img\" aria-label=\"Manage\" title=\"Manage\"/>"
-msgstr ""
-
-#. module: stock
-#: model_terms:ir.ui.view,arch_db:stock.report_mrp_line
-msgid ""
-"<i class=\"fa fa-fw fa-caret-right\" role=\"img\" aria-label=\"Unfold\" "
-"title=\"Unfold\"/>"
 msgstr ""
 
 #. module: stock
@@ -204,14 +179,6 @@ msgstr ""
 #: model_terms:ir.ui.view,arch_db:stock.product_form_view_procurement_button
 #: model_terms:ir.ui.view,arch_db:stock.product_template_form_view_procurement_button
 msgid "<span class=\"o_stat_text\">On Hand</span>"
-msgstr ""
-
-#. module: stock
-#: model_terms:ir.ui.view,arch_db:stock.report_mrp_line
-msgid ""
-"<span role=\"img\" class=\"o_stock_reports_stream\" title=\"Traceability "
-"Report\" aria-label=\"Traceability Report\"><i class=\"fa fa-fw fa-level-up "
-"fa-rotate-270\"/></span>"
 msgstr ""
 
 #. module: stock
@@ -326,7 +293,7 @@ msgstr "<strong>製造ロット</strong>"
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.view_stock_move_kanban
 msgid "<strong>Qty: </strong>"
-msgstr "<strong>数量: </strong>"
+msgstr ""
 
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.report_delivery_document
@@ -625,13 +592,13 @@ msgstr "割当済移動"
 #. module: stock
 #: selection:stock.quantity.history,compute_at_date:0
 msgid "At a Specific Date"
-msgstr "指定の日時で"
+msgstr "指定日時"
 
 #. module: stock
 #: model:ir.model.fields,field_description:stock.field_stock_picking__message_attachment_count
 #: model:ir.model.fields,field_description:stock.field_stock_production_lot__message_attachment_count
 msgid "Attachment Count"
-msgstr "添付数"
+msgstr ""
 
 #. module: stock
 #: model:ir.ui.menu,name:stock.menu_variants_action
@@ -887,7 +854,7 @@ msgstr ""
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.view_picking_form
 msgid "Check Availability"
-msgstr "利用可能確認"
+msgstr ""
 
 #. module: stock
 #: model:ir.model.fields,help:stock.field_stock_picking__has_packages
@@ -984,7 +951,7 @@ msgstr "DHLで配送費用計算し出荷"
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.res_config_settings_view_form
 msgid "Compute shipping costs and ship with Easypost"
-msgstr "Easypostで配送費用計算し出荷"
+msgstr ""
 
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.res_config_settings_view_form
@@ -1068,7 +1035,6 @@ msgstr "内容"
 
 #. module: stock
 #: model:ir.model.fields,help:stock.field_product_replenish__product_uom_category_id
-#: model:ir.model.fields,help:stock.field_stock_inventory_line__product_uom_category_id
 msgid ""
 "Conversion between Units of Measure can only occur if they belong to the "
 "same category. The conversion will be made based on the ratios."
@@ -1177,7 +1143,7 @@ msgstr ""
 #. module: stock
 #: model_terms:ir.actions.act_window,help:stock.product_template_action_product
 msgid "Create a new product"
-msgstr "プロダクト新規作成"
+msgstr ""
 
 #. module: stock
 #: model_terms:ir.actions.act_window,help:stock.stock_move_action
@@ -1365,8 +1331,8 @@ msgstr "顧客"
 
 #. module: stock
 #: model:ir.model.fields,field_description:stock.field_res_config_settings__module_delivery_dhl
-msgid "DHL Connector"
-msgstr "DHLコネクタ"
+msgid "DHL USA"
+msgstr ""
 
 #. module: stock
 #: model:ir.model.fields,field_description:stock.field_report_stock_forecast__date
@@ -1765,7 +1731,7 @@ msgstr "表示名"
 #. module: stock
 #: model:res.groups,name:stock.group_lot_on_delivery_slip
 msgid "Display Serial & Lot Number in Delivery Slips"
-msgstr "配送伝票にシリアル/ロット番号表示"
+msgstr ""
 
 #. module: stock
 #: model:ir.model.fields,field_description:stock.field_stock_move_line__qty_done
@@ -1810,8 +1776,8 @@ msgstr "移動草案"
 
 #. module: stock
 #: model:ir.model.fields,field_description:stock.field_res_config_settings__module_delivery_easypost
-msgid "Easypost Connector"
-msgstr "Easypostコネクタ"
+msgid "Easypost"
+msgstr ""
 
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.view_picking_form
@@ -1880,8 +1846,8 @@ msgstr "先入先出、後入先出..."
 
 #. module: stock
 #: model:ir.model.fields,field_description:stock.field_res_config_settings__module_delivery_fedex
-msgid "FedEx Connector"
-msgstr "FedExコネクタ"
+msgid "FedEx"
+msgstr ""
 
 #. module: stock
 #: model:ir.model.fields,field_description:stock.field_stock_package_destination__filtered_location
@@ -2161,13 +2127,13 @@ msgstr "ID"
 #: code:addons/stock/models/stock_inventory.py:431
 #, python-format
 msgid "INV:"
-msgstr "INV:"
+msgstr "請求書："
 
 #. module: stock
 #: code:addons/stock/wizard/stock_change_product_qty.py:88
 #, python-format
 msgid "INV: %s"
-msgstr "INV: %s"
+msgstr "請求書：%s"
 
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.view_inventory_form
@@ -2566,7 +2532,7 @@ msgstr "棚卸参照"
 #: model:ir.actions.act_window,name:stock.action_stock_quantity_history
 #: model:ir.ui.menu,name:stock.menu_valuation
 msgid "Inventory Report"
-msgstr "在庫レポート"
+msgstr ""
 
 #. module: stock
 #: model:ir.model,name:stock.model_stock_location_route
@@ -3015,7 +2981,7 @@ msgstr "MTO規則"
 #: model:ir.model.fields,field_description:stock.field_stock_picking__message_main_attachment_id
 #: model:ir.model.fields,field_description:stock.field_stock_production_lot__message_main_attachment_id
 msgid "Main Attachment"
-msgstr "主な添付"
+msgstr ""
 
 #. module: stock
 #: code:addons/stock/models/stock_warehouse.py:288
@@ -3058,7 +3024,7 @@ msgstr "プッシュ/プル在庫フローを管理"
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.res_config_settings_view_form
 msgid "Manage product packagings (e.g. pack of 6 bottles, box of 10 pieces)"
-msgstr "プロダクト梱包を管理(1パック6本入、1箱10個入等)"
+msgstr ""
 
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.res_config_settings_view_form
@@ -3114,7 +3080,7 @@ msgstr "最大数量"
 #: model:ir.model.fields,field_description:stock.field_stock_picking__message_has_error
 #: model:ir.model.fields,field_description:stock.field_stock_production_lot__message_has_error
 msgid "Message Delivery error"
-msgstr "メッセージ配信エラー"
+msgstr ""
 
 #. module: stock
 #: model:ir.model.fields,field_description:stock.field_res_partner__picking_warn_msg
@@ -3431,7 +3397,7 @@ msgstr "注文ポイントが製品を受け取るか、またはベンダーに
 #: model:ir.model.fields,field_description:stock.field_stock_picking__message_has_error_counter
 #: model:ir.model.fields,field_description:stock.field_stock_production_lot__message_has_error_counter
 msgid "Number of error"
-msgstr "エラー数"
+msgstr ""
 
 #. module: stock
 #: model:ir.model.fields,help:stock.field_stock_picking__message_needaction_counter
@@ -3443,7 +3409,7 @@ msgstr "アクションを必要とするメッセージの数"
 #: model:ir.model.fields,help:stock.field_stock_picking__message_has_error_counter
 #: model:ir.model.fields,help:stock.field_stock_production_lot__message_has_error_counter
 msgid "Number of messages with delivery error"
-msgstr "配信エラーのメッセージ数"
+msgstr ""
 
 #. module: stock
 #: model:ir.model.fields,help:stock.field_stock_picking__message_unread_counter
@@ -3465,7 +3431,7 @@ msgstr "手持在庫"
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.product_template_kanban_stock_view
 msgid "On hand:"
-msgstr "手元:"
+msgstr "手元："
 
 #. module: stock
 #: model_terms:ir.actions.act_window,help:stock.action_receipt_picking_move
@@ -3853,7 +3819,7 @@ msgstr "親ロケーション"
 #. module: stock
 #: model:ir.model.fields,field_description:stock.field_stock_location__parent_path
 msgid "Parent Path"
-msgstr "親パス"
+msgstr ""
 
 #. module: stock
 #: selection:procurement.group,move_type:0
@@ -4161,12 +4127,12 @@ msgstr ""
 #: model:ir.ui.menu,name:stock.menu_product_packagings
 #: model_terms:ir.ui.view,arch_db:stock.res_config_settings_view_form
 msgid "Product Packagings"
-msgstr "プロダクト梱包"
+msgstr ""
 
 #. module: stock
 #: model:ir.model,name:stock.model_product_replenish
 msgid "Product Replenish"
-msgstr "プロダクト補充"
+msgstr ""
 
 #. module: stock
 #: model:ir.actions.report,name:stock.action_report_stock_rule
@@ -4311,7 +4277,7 @@ msgstr "置き場方針"
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.view_picking_form
 msgid "Put in Pack"
-msgstr "梱包する"
+msgstr ""
 
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.res_config_settings_view_form
@@ -4664,12 +4630,12 @@ msgstr "再オーダ規則検索"
 #: model_terms:ir.ui.view,arch_db:stock.product_product_view_form_easy_inherit_stock
 #: model_terms:ir.ui.view,arch_db:stock.product_template_form_view_procurement_button
 msgid "Replenish"
-msgstr "補充"
+msgstr ""
 
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.view_product_replenish
 msgid "Replenish wizard"
-msgstr "補充ウィザード"
+msgstr ""
 
 #. module: stock
 #: model:ir.ui.menu,name:stock.menu_warehouse_report
@@ -5411,7 +5377,7 @@ msgstr ""
 #: model:ir.model,name:stock.model_stock_rule
 #: model:ir.model.fields,field_description:stock.field_stock_move__rule_id
 msgid "Stock Rule"
-msgstr "在庫規則"
+msgstr ""
 
 #. module: stock
 #: model:ir.actions.act_window,name:stock.action_stock_rules_report
@@ -5456,7 +5422,7 @@ msgstr "処理された在庫移動"
 #. module: stock
 #: model:ir.model,name:stock.model_report_stock_report_stock_rule
 msgid "Stock rule report"
-msgstr "在庫規則レポート"
+msgstr ""
 
 #. module: stock
 #: selection:product.template,type:0
@@ -5920,7 +5886,7 @@ msgstr "未処理"
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.stock_picking_type_kanban
 msgid "To Process"
-msgstr "未処理"
+msgstr ""
 
 #. module: stock
 #: selection:stock.picking,activity_state:0
@@ -5951,15 +5917,12 @@ msgid "Traceability"
 msgstr "トレーサビリティ"
 
 #. module: stock
-#. openerp-web
-#: code:addons/stock/static/src/js/stock_traceability_report_widgets.js:55
 #: model:ir.actions.client,name:stock.action_stock_report
 #: model:ir.model,name:stock.model_stock_traceability_report
 #: model_terms:ir.ui.view,arch_db:stock.report_stock_body_print
 #: model_terms:ir.ui.view,arch_db:stock.report_stock_inventory
 #: model_terms:ir.ui.view,arch_db:stock.view_picking_form
 #: model_terms:ir.ui.view,arch_db:stock.view_production_lot_form
-#, python-format
 msgid "Traceability Report"
 msgstr ""
 
@@ -6072,13 +6035,13 @@ msgstr "処理タイプ"
 
 #. module: stock
 #: model:ir.model.fields,field_description:stock.field_res_config_settings__module_delivery_ups
-msgid "UPS Connector"
-msgstr "UPSコネクタ"
+msgid "UPS"
+msgstr ""
 
 #. module: stock
 #: model:ir.model.fields,field_description:stock.field_res_config_settings__module_delivery_usps
-msgid "USPS Connector"
-msgstr "USPSコネクタ"
+msgid "USPS"
+msgstr ""
 
 #. module: stock
 #. openerp-web
@@ -6086,7 +6049,7 @@ msgstr "USPSコネクタ"
 #: code:addons/stock/static/src/xml/stock_traceability_report_line.xml:36
 #, python-format
 msgid "Unfold"
-msgstr "展開"
+msgstr ""
 
 #. module: stock
 #: model:ir.model.fields,help:stock.field_stock_production_lot__name
@@ -6208,11 +6171,6 @@ msgid "UoM Categories"
 msgstr "単位カテゴリ"
 
 #. module: stock
-#: model:ir.model.fields,field_description:stock.field_stock_inventory_line__product_uom_category_id
-msgid "Uom category"
-msgstr ""
-
-#. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.view_change_product_quantity
 msgid "Update Product Quantity"
 msgstr "プロダクト数変更"
@@ -6247,7 +6205,7 @@ msgid ""
 "Use this assistant to replenish your stock. \n"
 "                Depending on your product configuration, launching a replenishment may trigger a request for quotation,\n"
 "                a manufacturing order or a transfer."
-msgstr "このアシスタントを使用して在庫補充を行います。プロダクト設定に基づき、見積依頼、製造オーダ、または運送が生成されます。"
+msgstr ""
 
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.res_config_settings_view_form
@@ -6778,7 +6736,7 @@ msgstr ""
 msgid ""
 "You have not recorded <i>done</i> quantities yet, by clicking on <i>apply</i>\n"
 "                        Odoo will process all the <i>reserved</i> quantities."
-msgstr "<i>完了</i> 数量が記録されていません。<i>適用</i> を押すと、Odooは <i>引当済</i> 数量を処理します。"
+msgstr ""
 
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.view_backorder_confirmation
@@ -6843,7 +6801,7 @@ msgstr "会社に倉庫を設定してください: %s."
 #: code:addons/stock/models/stock_picking.py:1045
 #, python-format
 msgid "You must first set the quantity you will put in the pack."
-msgstr "先に梱包に入れる数量を指定してください。"
+msgstr ""
 
 #. module: stock
 #: code:addons/stock/models/stock_move_line.py:406
@@ -6880,8 +6838,8 @@ msgstr "_Cancel"
 
 #. module: stock
 #: model:ir.model.fields,field_description:stock.field_res_config_settings__module_delivery_bpost
-msgid "bpost Connector"
-msgstr "bpostコネクタ"
+msgid "bpost"
+msgstr ""
 
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.view_template_property_form

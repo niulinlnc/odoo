@@ -129,9 +129,8 @@ Here is what happens when a template is rendered by the server with these direct
       be replaced by a list of script tags pointing to the js files
 
 - if we are not in *debug=assets* mode,
-    - the css files will be concatenated and minified, then splits into files
-      with no more than 4096 rules (to get around an old limitation of IE9). Then,
-      we generate as many stylesheet tags as necessary
+    - the css files will be concatenated and minified, then a stylesheet tag is
+      generated
     - the js files are concatenated and minified, then a script tag is generated
 
 Note that the assets files are cached, so in theory, a browser should only load
@@ -2003,6 +2002,17 @@ Relational fields
     Specialization of many2one field for list views.  The main reason is that we
     need to render many2one fields (in readonly mode) as a text, which does not
     allow opening the related records.
+
+    - Supported field types: *many2one*
+
+- many2one_barcode (FieldMany2OneBarcode)
+    Widget for many2one fields allows to open the camera from a mobile device (Android/iOS) to scan a barcode.
+
+    Specialization of many2one field where the user is allowed to use the native camera to scan a barcode.
+    Then it uses name_search to search this value.
+
+    If this widget is set and user is not using the mobile application,
+    it will fallback to regular many2one (FieldMany2One)
 
     - Supported field types: *many2one*
 

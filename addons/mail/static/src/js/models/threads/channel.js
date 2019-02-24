@@ -29,9 +29,17 @@ var Channel = SearchableThread.extend(ThreadTypingMixin, {
      * @param  {boolean} params.data.is_moderator whether the current user is
      *   moderator of this channel.
      * @param {string} [params.data.last_message_date] date in server-format
+     * @param {Object[]} [params.data.members=[]]
+     * @param {integer} [params.data.members[i].id]
+     * @param {string} [params.data.members[i].name]
+     * @param {string} [params.data.members[i].email]
      * @param {integer} [params.data.message_unread_counter]
      * @param {boolean} [params.data.moderation=false] whether the channel is
      *   moderated or not
+     * @param {Object[]} [params.data.partners_info=[]]
+     * @param {integer} [params.data.partners_info[i].partner_id]
+     * @param {integer} [params.data.partners_info[i].fetched_message_id]
+     * @param {integer} [params.data.partners_info[i].seen_message_id]
      * @param {string} params.data.state
      * @param {string} [params.data.uuid]
      * @param {Object} params.options
@@ -41,7 +49,7 @@ var Channel = SearchableThread.extend(ThreadTypingMixin, {
     init: function (params) {
         var self = this;
         this._super.apply(this, arguments);
-        ThreadTypingMixin.init.call(this, arguments);
+        ThreadTypingMixin.init.apply(this, arguments);
 
         var data = params.data;
         var options = params.options;
@@ -61,14 +69,13 @@ var Channel = SearchableThread.extend(ThreadTypingMixin, {
         this._isModerated = data.moderation;
         this._isMyselfModerator = data.is_moderator;
         this._lastMessageDate = undefined;
-        this._members = [];
+        this._members = data.members || [];
         // Deferred that is resolved on fetched members of this channel.
         this._membersDef = undefined;
         // number of messages that are 'needaction', which is equivalent to the
         // number of messages in this channel that are in inbox.
         this._needactionCounter = data.message_needaction_counter || 0;
         this._serverType = data.channel_type;
-        this._throttleFetchSeen = _.throttle(this._fetchSeen.bind(this), 3000);
         // unique identifier for this channel, which is required for some rpc
         this._uuid = data.uuid;
 
@@ -332,23 +339,6 @@ var Channel = SearchableThread.extend(ThreadTypingMixin, {
     //--------------------------------------------------------------------------
 
     /**
-     * @private
-     * @returns {$.Promise<integer>} resolved with ID of last seen message
-     */
-    _fetchSeen: function () {
-        var self = this;
-        return this._rpc({
-            model: 'mail.channel',
-            method: 'channel_seen',
-            args: [[this._id]],
-        }, {
-            shadow: true
-        }).then(function (lastSeenMessageID) {
-            self._lastSeenMessageID = lastSeenMessageID;
-            return lastSeenMessageID;
-        });
-    },
-    /**
      * Override so that it tells whether the channel is moderated or not. This
      * is useful in order to display pending moderation messages when the
      * current user is either moderator of the channel or has posted some
@@ -395,7 +385,7 @@ var Channel = SearchableThread.extend(ThreadTypingMixin, {
      */
     _markAsRead: function () {
         var superDef = this._super.apply(this, arguments);
-        var seenDef = this._throttleFetchSeen();
+        var seenDef = this._notifySeen();
         return $.when(superDef, seenDef);
     },
     /**
@@ -412,6 +402,21 @@ var Channel = SearchableThread.extend(ThreadTypingMixin, {
             args: [this.getID()],
             kwargs: { is_typing: params.typing },
         }, { shadow: true });
+    },
+    /**
+     * @private
+     * @returns {$.Promise<integer>} resolved with ID of last seen message
+     */
+    _notifySeen: function () {
+        var self = this;
+        return this._rpc({
+            model: 'mail.channel',
+            method: 'channel_seen',
+            args: [[this._id]],
+        }, { shadow: true }).then(function (lastSeenMessageID) {
+            self._lastSeenMessageID = lastSeenMessageID;
+            return lastSeenMessageID;
+        });
     },
     /**
      * Prepare and send a message to the server on this channel.

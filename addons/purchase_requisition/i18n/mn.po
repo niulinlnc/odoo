@@ -4,15 +4,13 @@
 # 
 # Translators:
 # Martin Trigaux, 2018
-# Baskhuu Lodoikhuu <baskhuujacara@gmail.com>, 2019
-# 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 12.0\n"
+"Project-Id-Version: Odoo Server saas~11.5\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2018-12-19 08:21+0000\n"
-"PO-Revision-Date: 2018-08-24 09:24+0000\n"
-"Last-Translator: Baskhuu Lodoikhuu <baskhuujacara@gmail.com>, 2019\n"
+"POT-Creation-Date: 2018-09-21 13:17+0000\n"
+"PO-Revision-Date: 2018-09-21 13:17+0000\n"
+"Last-Translator: Martin Trigaux, 2018\n"
 "Language-Team: Mongolian (https://www.transifex.com/odoo/teams/41243/mn/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -201,6 +199,7 @@ msgid "Create a draft purchase order"
 msgstr "Худалдан авалтын ноорог захиалга үүсгэх"
 
 #. module: purchase_requisition
+#: model:ir.model.fields,help:purchase_requisition.field_product_product__purchase_requisition
 #: model:ir.model.fields,help:purchase_requisition.field_product_template__purchase_requisition
 msgid ""
 "Create a draft purchase order: Based on your product configuration, the "
@@ -337,7 +336,7 @@ msgstr "Хэрэв сонгосон бол, шинэ зурвасуудад ан
 #. module: purchase_requisition
 #: model:ir.model.fields,help:purchase_requisition.field_purchase_requisition__message_has_error
 msgid "If checked, some messages have a delivery error."
-msgstr "Үүнийг сонговол алдаа үүсэх үед зурвасууд ирнэ."
+msgstr ""
 
 #. module: purchase_requisition
 #: model_terms:ir.actions.act_window,help:purchase_requisition.action_purchase_requisition
@@ -391,7 +390,7 @@ msgstr "Мөрүүд"
 #. module: purchase_requisition
 #: model:ir.model.fields,field_description:purchase_requisition.field_purchase_requisition__message_main_attachment_id
 msgid "Main Attachment"
-msgstr "Үндсэн хавсралт"
+msgstr ""
 
 #. module: purchase_requisition
 #: model:ir.model.fields,field_description:purchase_requisition.field_purchase_requisition__message_has_error
@@ -402,11 +401,6 @@ msgstr ""
 #: model:ir.model.fields,field_description:purchase_requisition.field_purchase_requisition__message_ids
 msgid "Messages"
 msgstr "Зурвасууд"
-
-#. module: purchase_requisition
-#: model:ir.model,name:purchase_requisition.model_stock_warehouse_orderpoint
-msgid "Minimum Inventory Rule"
-msgstr "Зохистой Нөөцийн Дүрэм"
 
 #. module: purchase_requisition
 #: model_terms:ir.ui.view,arch_db:purchase_requisition.report_purchaserequisitions
@@ -441,7 +435,7 @@ msgstr "Захиалгын Тоо"
 #. module: purchase_requisition
 #: model:ir.model.fields,field_description:purchase_requisition.field_purchase_requisition__message_has_error_counter
 msgid "Number of error"
-msgstr "Алдааны тоо"
+msgstr ""
 
 #. module: purchase_requisition
 #: model:ir.model.fields,help:purchase_requisition.field_purchase_requisition__message_needaction_counter
@@ -451,7 +445,7 @@ msgstr "Үйлдэл шаардлагатай зурвасын тоо"
 #. module: purchase_requisition
 #: model:ir.model.fields,help:purchase_requisition.field_purchase_requisition__message_has_error_counter
 msgid "Number of messages with delivery error"
-msgstr "Алдааны мэдэгдэл бүхий зурвасын тоо"
+msgstr ""
 
 #. module: purchase_requisition
 #: model:ir.model.fields,help:purchase_requisition.field_purchase_requisition__message_unread_counter
@@ -481,6 +475,7 @@ msgid "Ordering Date"
 msgstr "Захиалгын огноо"
 
 #. module: purchase_requisition
+#: model:ir.model.fields,field_description:purchase_requisition.field_product_product__purchase_requisition
 #: model:ir.model.fields,field_description:purchase_requisition.field_product_template__purchase_requisition
 msgid "Procurement"
 msgstr "Татан авалт"

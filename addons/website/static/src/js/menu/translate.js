@@ -2,16 +2,12 @@ odoo.define('website.translateMenu', function (require) {
 'use strict';
 
 var utils = require('web.utils');
-var weContext = require('web_editor.context');
-var translate = require('web_editor.translate');
+var TranslatorMenu = require('website.editor.menu.translate');
 var websiteNavbarData = require('website.navbar');
 
-var ctx = weContext.getExtra();
-if (!ctx.translatable) {
-    return;
-}
-
 var TranslatePageMenu = websiteNavbarData.WebsiteNavbarActionWidget.extend({
+    assetLibs: ['web_editor.compiled_assets_wysiwyg', 'website.compiled_assets_wysiwyg'],
+
     actions: _.extend({}, websiteNavbarData.WebsiteNavbar.prototype.actions || {}, {
         edit_master: '_goToMasterPage',
         translate: '_startTranslateMode',
@@ -21,7 +17,18 @@ var TranslatePageMenu = websiteNavbarData.WebsiteNavbarActionWidget.extend({
      * @override
      */
     start: function () {
-        if (ctx.edit_translations) {
+        var context;
+        this.trigger_up('context_get', {
+            extra: true,
+            callback: function (ctx) {
+                context = ctx;
+            },
+        });
+        this._mustEditTranslations = context.edit_translations;
+        if (this._mustEditTranslations) {
+            var url = window.location.href.replace(/([?&])&*edit_translations[^&#]*&?/, '\$1');
+            window.history.replaceState({}, null, url);
+
             this._startTranslateMode();
         }
         return this._super.apply(this, arguments);
@@ -63,14 +70,15 @@ var TranslatePageMenu = websiteNavbarData.WebsiteNavbarActionWidget.extend({
      * @returns {Deferred}
      */
     _startTranslateMode: function () {
-        if (!ctx.edit_translations) {
+        if (!this._mustEditTranslations) {
             window.location.search += '&edit_translations';
             return $.Deferred();
         }
-        var translator = new (translate.Class)(this, $('#wrapwrap'));
+
+        var translator = new TranslatorMenu(this);
         return translator.prependTo(document.body);
     },
 });
 
-websiteNavbarData.websiteNavbarRegistry.add(TranslatePageMenu, '.o_menu_systray');
+websiteNavbarData.websiteNavbarRegistry.add(TranslatePageMenu, '.o_menu_systray:has([data-action="translate"])');
 });

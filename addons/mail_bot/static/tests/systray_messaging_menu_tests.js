@@ -6,6 +6,7 @@ var mailTestUtils = require('mail.testUtils');
 
 var MailBotService = require('mail_bot.MailBotService');
 
+var FormView = require('web.FormView');
 var testUtils = require('web.test_utils');
 
 QUnit.module('mail_bot', {}, function () {
@@ -40,8 +41,8 @@ QUnit.module('MessagingMenu', {
         };
 
         // Patch mailbot_service so that it does do not do any RPC
-        this.hasMailbotRequest = true;
-        testUtils.patch(MailBotService, {
+        this.isMailbotRequesting = true;
+        testUtils.mock.patch(MailBotService, {
             /**
              * @override
              */
@@ -59,8 +60,8 @@ QUnit.module('MessagingMenu', {
     },
     afterEach: function () {
         // unpatch MailBotService and BusService
-        testUtils.unpatch(MailBotService);
-        testUtils.unpatch(this.services.bus_service);
+        testUtils.mock.unpatch(MailBotService);
+        testUtils.mock.unpatch(this.services.bus_service);
         window.Notification = this.ORIGINAL_WINDOW_NOTIFICATION;
     }
 });
@@ -69,7 +70,7 @@ QUnit.test('messaging menu widget: rendering with OdooBot has a request', functi
     assert.expect(5);
 
     var messagingMenu = new MessagingMenu();
-    testUtils.addMockEnvironment(messagingMenu, {
+    testUtils.mock.addMockEnvironment(messagingMenu, {
         data: this.data,
         services: this.services,
     });
@@ -98,7 +99,7 @@ QUnit.test('messaging menu widget: rendering without OdooBot has a request (deni
     window.Notification.permission = 'denied';
 
     var messagingMenu = new MessagingMenu();
-    testUtils.addMockEnvironment(messagingMenu, {
+    testUtils.mock.addMockEnvironment(messagingMenu, {
         data: this.data,
         services: this.services,
     });
@@ -169,6 +170,27 @@ QUnit.test('messaging menu widget: respond to notification prompt', function (as
     messagingMenu.destroy();
 });
 
+QUnit.test('notification_alert widget: display blocked notification alert', function (assert) {
+    assert.expect(2);
+
+    window.Notification.permission = 'denied';
+
+    var form = testUtils.createView({
+        View: FormView,
+        model: 'mail.message',
+        data: this.data,
+        arch: '<form>' +
+                '<widget name="notification_alert"/>' +
+            '</form>',
+    });
+    assert.containsOnce(form, '.o_notification_alert', "Blocked notification alert should be displayed");
+
+    window.Notification.permission = 'granted';
+    form.reload();
+    assert.containsNone(form, '.o_notification_alert', "Blocked notification alert should not be displayed");
+
+    form.destroy();
+});
 
 });
 });

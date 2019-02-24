@@ -55,7 +55,7 @@ from weakref import WeakSet
 from decorator import decorate, decorator
 from werkzeug.local import Local, release_local
 
-from odoo.tools import frozendict, classproperty, StackMap, pycompat
+from odoo.tools import frozendict, classproperty, StackMap
 from odoo.exceptions import CacheMiss
 
 _logger = logging.getLogger(__name__)
@@ -1050,7 +1050,7 @@ class Cache(object):
     def update(self, records, field, values):
         """ Set the values of ``field`` for several ``records``. """
         key = records.env.cache_key(field)
-        self._data[key][field].update(pycompat.izip(records._ids, values))
+        self._data[key][field].update(zip(records._ids, values))
 
     def remove(self, record, field):
         """ Remove the value of ``field`` for ``record``. """

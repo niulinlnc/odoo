@@ -9,7 +9,7 @@ var WebsiteAceEditor = require('website.ace');
 var qweb = core.qweb;
 
 var CustomizeMenu = Widget.extend({
-    xmlDependencies: ['/web_editor/static/src/xml/editor.xml'],
+    xmlDependencies: ['/website/static/src/xml/website.editor.xml'],
     events: {
         'show.bs.dropdown': '_onDropdownShow',
         'click .dropdown-item[data-view-id]': '_onCustomizeOptionClick',
@@ -81,13 +81,19 @@ var CustomizeMenu = Widget.extend({
             },
         }).then(function (result) {
             var currentGroup = '';
+            if (result.length) {
+                $menu.append($('<div/>', {
+                    class: 'dropdown-divider',
+                    role: 'separator',
+                }));
+            }
             _.each(result, function (item) {
                 if (currentGroup !== item.inherit_id[1]) {
                     currentGroup = item.inherit_id[1];
                     $menu.append('<li class="dropdown-header">' + currentGroup + '</li>');
                 }
                 var $a = $('<a/>', {href: '#', class: 'dropdown-item', 'data-view-id': item.id, role: 'menuitem'})
-                            .append(qweb.render('web_editor.components.switch', {id: 'switch-' + item.id, label: item.name}));
+                            .append(qweb.render('website.components.switch', {id: 'switch-' + item.id, label: item.name}));
                 $a.find('input').prop('checked', !!item.active);
                 $menu.append($a);
             });
