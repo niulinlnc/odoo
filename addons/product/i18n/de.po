@@ -12,6 +12,7 @@
 # Martin Trigaux, 2018
 # Andreas Stauder <andreas.stauder@brain-tec.ch>, 2019
 # Felix Hoßfeld <felix.hossfeld@thoughtgang.de>, 2019
+# Leon Grill <leg@odoo.com>, 2019
 # Chris Egal <sodaswed@web.de>, 2019
 # 
 msgid ""
@@ -1047,7 +1048,7 @@ msgstr ""
 #: code:addons/product/models/product_template.py:573
 #, python-format
 msgid "Import Template for Products"
-msgstr ""
+msgstr "Importier-Vorlage für Produkte "
 
 #. module: product
 #: code:addons/product/models/product.py:665
@@ -1097,7 +1098,7 @@ msgstr "Ist ein Abonnent"
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_product__is_product_variant
 msgid "Is Product Variant"
-msgstr ""
+msgstr "Ist Produktvariante"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_template__is_product_variant
@@ -1438,7 +1439,7 @@ msgstr "Oberkategorie"
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_category__parent_path
 msgid "Parent Path"
-msgstr ""
+msgstr "Übergeordneter Pfad"
 
 #. module: product
 #: model:product.product,name:product.product_product_9
@@ -2296,7 +2297,7 @@ msgstr "Dies ist die Summe der Preisaufschläge aller Attribute"
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_form_view
 msgid "This note is only for internal purposes."
-msgstr ""
+msgstr "Dieser Hinweis dient nur internen Zwecken."
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_form_view
@@ -2745,6 +2746,8 @@ msgid ""
 "You must define a product for everything you purchase,\n"
 "                whether it's a physical product, a consumable or services."
 msgstr ""
+"Sie müssen für alles, was Sie kaufen, ein Produkt definieren.\n"
+"                ob es sich um ein physisches Produkt, ein Verbrauchsmaterial oder eine Dienstleistung handelt."
 
 #. module: product
 #: model_terms:ir.actions.act_window,help:product.product_normal_action_sell
