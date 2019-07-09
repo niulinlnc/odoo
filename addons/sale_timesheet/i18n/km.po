@@ -434,12 +434,12 @@ msgstr "ជា​ក្រុម​តាម"
 #: model:product.template,uom_name:sale_timesheet.product_service_deliver_timesheet_2_product_template
 #: model:product.template,uom_name:sale_timesheet.product_service_order_timesheet_product_template
 msgid "Hour(s)"
-msgstr ""
+msgstr "ម៉ោង(s)"
 
 #. module: sale_timesheet
 #: model_terms:ir.ui.view,arch_db:sale_timesheet.timesheet_plan
 msgid "Hours"
-msgstr ""
+msgstr "ម៉ោង"
 
 #. module: sale_timesheet
 #: model:ir.model.fields,field_description:sale_timesheet.field_project_create_invoice__id
@@ -455,7 +455,7 @@ msgstr "ID"
 #: model:project.task,legend_normal:sale_timesheet.project_task_internal
 #: model:project.task.type,legend_normal:sale_timesheet.project_stage_fixed
 msgid "In Progress"
-msgstr ""
+msgstr "ក្នុងការប្រតិបត្តិការ"
 
 #. module: sale_timesheet
 #: model:ir.model,name:sale_timesheet.model_account_invoice
@@ -704,7 +704,7 @@ msgstr ""
 #: model:ir.actions.act_window,name:sale_timesheet.product_template_action_milestone
 #: model:ir.actions.act_window,name:sale_timesheet.product_template_action_time_based
 msgid "Products"
-msgstr ""
+msgstr "ផលិតផល"
 
 #. module: sale_timesheet
 #: model_terms:ir.ui.view,arch_db:sale_timesheet.timesheet_plan
