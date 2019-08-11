@@ -1017,7 +1017,7 @@ msgstr ""
 #: model_terms:ir.ui.view,arch_db:website.bs_debug_page_ir_ui_view
 #: model_terms:website.page,arch_db:website.bs_debug_page
 msgid "Badge"
-msgstr ""
+msgstr "ផ្លាកសញ្ញា។"
 
 #. module: website
 #: model:ir.model.fields,field_description:website.field_website_page__arch_base
@@ -2081,7 +2081,7 @@ msgstr ""
 #: model:ir.model.fields,field_description:website.field_res_config_settings__has_google_maps
 #: model_terms:ir.ui.view,arch_db:website.company_description
 msgid "Google Maps"
-msgstr ""
+msgstr "ផែនទី​ហ្គូហ្គល"
 
 #. module: website
 #: model:ir.model.fields,field_description:website.field_res_config_settings__google_maps_api_key
@@ -3516,7 +3516,7 @@ msgstr "រក្សាទុក"
 #: model_terms:ir.ui.view,arch_db:website.website_search_box
 #: model_terms:website.page,arch_db:website.bs_debug_page
 msgid "Search"
-msgstr ""
+msgstr "ការស្រាវជ្រាវ"
 
 #. module: website
 #: model_terms:ir.ui.view,arch_db:website.menu_search
