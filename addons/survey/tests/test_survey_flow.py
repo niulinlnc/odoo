@@ -28,13 +28,13 @@ class TestSurveyFlow(common.SurveyCase, HttpCase):
     def test_flow_public(self):
         # Step: survey manager creates the survey
         # --------------------------------------------------
-        with self.sudo(self.survey_manager):
+        with self.with_user(self.survey_manager):
             survey = self.env['survey.survey'].create({
                 'title': 'Public Survey for Tarte Al Djotte',
                 'access_mode': 'public',
                 'users_login_required': False,
                 'questions_layout': 'page_per_section',
-                'stage_id': self.env['survey.stage'].search([('closed', '=', False)]).id
+                'state': 'open'
             })
 
             # First page is about customer data

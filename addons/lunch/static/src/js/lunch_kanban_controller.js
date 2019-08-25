@@ -18,11 +18,9 @@ var LunchKanbanController = KanbanController.extend({
         add_product: '_onAddProduct',
         change_location: '_onLocationChanged',
         change_user: '_onUserChanged',
-        edit_order: '_onEditOrder',
         open_wizard: '_onOpenWizard',
         order_now: '_onOrderNow',
         remove_product: '_onRemoveProduct',
-        save_order: '_onSaveOrder',
         unlink_order: '_onUnlinkOrder',
     }),
 
@@ -69,7 +67,36 @@ var LunchKanbanController = KanbanController.extend({
             },
         }).then(function (data) {
             self.widgetData = data;
-            self.model._updateLocation(data.user_location[0]);
+            return self.model._updateLocation(data.user_location[0]);
+        });
+    },
+    /**
+     * Override to add the location domain (coming from the lunchKanbanWidget)
+     * to the searchDomain (coming from the controlPanel).
+     *
+     * @override
+     * @private
+     */
+    _getSearchDomain: function () {
+        var searchDomain = this._super.apply(this, arguments) || [];
+        var locationId = this.model.getCurrentLocationId();
+        return searchDomain.concat([['is_available_at', 'in', [locationId]]]);
+    },
+    /**
+     * Renders and appends the lunch banner widget.
+     *
+     * @private
+     */
+    _renderLunchKanbanWidget: function () {
+        var self = this;
+        var oldWidget = this.widget;
+        this.widgetData.wallet = parseFloat(this.widgetData.wallet).toFixed(2);
+        this.widget = new LunchKanbanWidget(this, _.extend(this.widgetData, {edit: this.editMode}));
+        return this.widget.appendTo(document.createDocumentFragment()).then(function () {
+            self.$('.o_lunch_kanban').prepend(self.widget.$el);
+            if (oldWidget) {
+                oldWidget.destroy();
+            }
         });
     },
     _showPaymentDialog: function (title) {
@@ -91,31 +118,8 @@ var LunchKanbanController = KanbanController.extend({
      * @private
      */
     _update: function () {
-        var self = this;
-
-        var def = this._fetchWidgetData().then(function () {
-            if (self.widget) {
-                self.widget.destroy();
-            }
-            self.widgetData.wallet = parseFloat(self.widgetData.wallet).toFixed(2);
-            self.widget = new LunchKanbanWidget(self, _.extend(self.widgetData, {edit: self.editMode}));
-            return self.widget.appendTo(document.createDocumentFragment()).then(function () {
-                self.$('.o_lunch_kanban').prepend(self.widget.$el);
-            });
-        });
-        return $.when(def, this._super.apply(self, arguments));
-    },
-    /**
-     * Override to add the location domain (coming from the lunchKanbanWidget)
-     * to the searchDomain (coming from the controlPanel).
-     *
-     * @override
-     * @private
-     */
-    _updateSearchPanel: function () {
-        var locationId = this.model.getCurrentLocationId();
-        var domain = this.controlPanelDomain.concat([['is_available_at', 'in', [locationId]]]);
-        return this._searchPanel.update({searchDomain: domain});
+        var def = this._fetchWidgetData().then(this._renderLunchKanbanWidget.bind(this));
+        return Promise.all([def, this._super.apply(this, arguments)]);
     },
 
     //--------------------------------------------------------------------------
@@ -133,12 +137,6 @@ var LunchKanbanController = KanbanController.extend({
         }).then(function () {
             self.reload();
         });
-    },
-    _onEditOrder: function (ev) {
-        ev.stopPropagation();
-
-        this.editMode = true;
-        this.reload();
     },
     _onLocationChanged: function (ev) {
         var self = this;
@@ -171,6 +169,7 @@ var LunchKanbanController = KanbanController.extend({
 
         this.do_action({
             res_model: 'lunch.order.temp',
+            name: 'Configure Your Order',
             type: 'ir.actions.act_window',
             views: [[false, 'form']],
             target: 'new',
@@ -207,12 +206,6 @@ var LunchKanbanController = KanbanController.extend({
         }).then(function () {
             self.reload();
         });
-    },
-    _onSaveOrder: function (ev) {
-        ev.stopPropagation();
-
-        this.editMode = false;
-        this.reload();
     },
     _onUserChanged: function (ev) {
         ev.stopPropagation();

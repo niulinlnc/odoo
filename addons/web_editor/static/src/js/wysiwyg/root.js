@@ -8,7 +8,7 @@ var assetsLoaded = false;
 var WysiwygRoot = Widget.extend({
     assetLibs: ['web_editor.compiled_assets_wysiwyg'],
 
-    publicMethods: ['isDirty', 'save', 'getValue', 'setValue', 'getEditable', 'on', 'trigger'],
+    publicMethods: ['isDirty', 'save', 'getValue', 'setValue', 'getEditable', 'on', 'trigger', 'focus'],
 
     /**
      *   @see 'web_editor.wysiwyg' module
@@ -47,7 +47,7 @@ var WysiwygRoot = Widget.extend({
             });
 
             return instance.attachTo($target).then(function () {
-                self.$editor = instance.$el;
+                self.$editor = instance.$editor || instance.$el;
             });
         });
     },

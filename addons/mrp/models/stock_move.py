@@ -4,7 +4,6 @@
 from odoo import api, exceptions, fields, models, _
 from odoo.exceptions import UserError
 from odoo.tools import float_compare, float_round
-from odoo.addons import decimal_precision as dp
 
 
 class StockMoveLine(models.Model):
@@ -12,11 +11,10 @@ class StockMoveLine(models.Model):
 
     workorder_id = fields.Many2one('mrp.workorder', 'Work Order')
     production_id = fields.Many2one('mrp.production', 'Production Order')
-    lot_produced_id = fields.Many2one('stock.production.lot', 'Finished Lot/Serial Number')
+    lot_produced_ids = fields.Many2many('stock.production.lot', string='Finished Lot/Serial Number')
     lot_produced_qty = fields.Float(
-        'Quantity Finished Product', digits=dp.get_precision('Product Unit of Measure'),
+        'Quantity Finished Product', digits='Product Unit of Measure',
         help="Informative, not used in matching")
-    done_wo = fields.Boolean('Done for Work Order', default=True, help="Technical Field which is False when temporarily filled in in work order")  # TDE FIXME: naming
     done_move = fields.Boolean('Move Done', related='move_id.is_done', readonly=False, store=True)  # TDE FIXME: naming
 
     def _get_similar_move_lines(self):
@@ -24,30 +22,28 @@ class StockMoveLine(models.Model):
         if self.move_id.production_id:
             finished_moves = self.move_id.production_id.move_finished_ids
             finished_move_lines = finished_moves.mapped('move_line_ids')
-            lines |= finished_move_lines.filtered(lambda ml: ml.product_id == self.product_id and (ml.lot_id or ml.lot_name) and ml.done_wo == self.done_wo)
+            lines |= finished_move_lines.filtered(lambda ml: ml.product_id == self.product_id and (ml.lot_id or ml.lot_name))
         if self.move_id.raw_material_production_id:
             raw_moves = self.move_id.raw_material_production_id.move_raw_ids
             raw_moves_lines = raw_moves.mapped('move_line_ids')
-            raw_moves_lines |= self.move_id.active_move_line_ids
-            lines |= raw_moves_lines.filtered(lambda ml: ml.product_id == self.product_id and (ml.lot_id or ml.lot_name) and ml.done_wo == self.done_wo)
+            lines |= raw_moves_lines.filtered(lambda ml: ml.product_id == self.product_id and (ml.lot_id or ml.lot_name))
         return lines
 
     def _reservation_is_updatable(self, quantity, reserved_quant):
         self.ensure_one()
-        if self.lot_produced_id:
+        if self.lot_produced_ids:
             ml_remaining_qty = self.qty_done - self.product_uom_qty
             ml_remaining_qty = self.product_uom_id._compute_quantity(ml_remaining_qty, self.product_id.uom_id, rounding_method="HALF-UP")
             if float_compare(ml_remaining_qty, quantity, precision_rounding=self.product_id.uom_id.rounding) < 0:
                 return False
         return super(StockMoveLine, self)._reservation_is_updatable(quantity, reserved_quant)
 
-    @api.multi
     def write(self, vals):
         for move_line in self:
             if move_line.move_id.production_id and 'lot_id' in vals:
                 move_line.production_id.move_raw_ids.mapped('move_line_ids')\
-                    .filtered(lambda r: r.done_wo and not r.done_move and r.lot_produced_id == move_line.lot_id)\
-                    .write({'lot_produced_id': vals['lot_id']})
+                    .filtered(lambda r: not r.done_move and move_line.lot_id in r.lot_produced_ids)\
+                    .write({'lot_produced_ids': [(4, vals['lot_id'])]})
             production = move_line.move_id.production_id or move_line.move_id.raw_material_production_id
             if production and move_line.state == 'done' and any(field in vals for field in ('lot_id', 'location_id', 'qty_done')):
                 move_line._log_message(production, move_line, 'mrp.track_production_move_template', vals)
@@ -61,7 +57,7 @@ class StockMove(models.Model):
     production_id = fields.Many2one(
         'mrp.production', 'Production Order for finished products')
     raw_material_production_id = fields.Many2one(
-        'mrp.production', 'Production Order for raw materials')
+        'mrp.production', 'Production Order for components')
     unbuild_id = fields.Many2one(
         'mrp.unbuild', 'Disassembly Order')
     consume_unbuild_id = fields.Many2one(
@@ -71,9 +67,11 @@ class StockMove(models.Model):
     workorder_id = fields.Many2one(
         'mrp.workorder', 'Work Order To Consume')
     # Quantities to process, in normalized UoMs
-    active_move_line_ids = fields.One2many('stock.move.line', 'move_id', domain=[('done_wo', '=', True)], string='Lots')
     bom_line_id = fields.Many2one('mrp.bom.line', 'BoM Line')
-    unit_factor = fields.Float('Unit Factor')
+    byproduct_id = fields.Many2one(
+        'mrp.bom.byproduct', 'By-products',
+        help="By-product line that generated the move in a manufacturing order")
+    unit_factor = fields.Float('Unit Factor', default=1)
     is_done = fields.Boolean(
         'Done', compute='_compute_is_done',
         store=True,
@@ -89,10 +87,6 @@ class StockMove(models.Model):
         .filtered(lambda ml: ml.qty_done == 0.0)\
         .write({'move_id': new_move, 'product_uom_qty': 0})
 
-    @api.depends('active_move_line_ids.qty_done', 'active_move_line_ids.product_uom_id')
-    def _compute_done_quantity(self):
-        super(StockMove, self)._compute_done_quantity()
-
     @api.depends('raw_material_production_id.move_finished_ids.move_line_ids.lot_id')
     def _compute_order_finished_lot_ids(self):
         for move in self:
@@ -102,7 +96,11 @@ class StockMove(models.Model):
                     move.order_finished_lot_ids = finished_lots_ids
                     move.finished_lots_exist = True
                 else:
+                    move.order_finished_lot_ids = False
                     move.finished_lots_exist = False
+            else:
+                move.order_finished_lot_ids = False
+                move.finished_lots_exist = False
 
     @api.depends('product_id.tracking')
     def _compute_needs_lots(self):
@@ -115,13 +113,6 @@ class StockMove(models.Model):
         for move in self:
             if move.raw_material_production_id:
                 move.is_locked = move.raw_material_production_id.is_locked
-
-    def _get_move_lines(self):
-        self.ensure_one()
-        if self.raw_material_production_id:
-            return self.active_move_line_ids
-        else:
-            return super(StockMove, self)._get_move_lines()
 
     @api.depends('state')
     def _compute_is_done(self):
@@ -146,12 +137,6 @@ class StockMove(models.Model):
                 move.move_line_ids.write({'production_id': move.raw_material_production_id.id,
                                                'workorder_id': move.workorder_id.id,})
         return res
-
-    def _action_cancel(self):
-        if any(move.quantity_done and (move.raw_material_production_id or move.production_id) for move in self):
-            raise exceptions.UserError(_('You cannot cancel a manufacturing order if you have already consumed material.\
-             If you want to cancel this MO, please change the consumed quantities to 0.'))
-        return super(StockMove, self)._action_cancel()
 
     def _action_confirm(self, merge=True, merge_into=False):
         moves = self.env['stock.move']
@@ -235,10 +220,15 @@ class StockMove(models.Model):
         return self.env['stock.move']
 
     def _get_upstream_documents_and_responsibles(self, visited):
-            if self.created_production_id and self.created_production_id.state not in ('done', 'cancel'):
-                return [(self.created_production_id, self.created_production_id.user_id, visited)]
+            if self.production_id and self.production_id.state not in ('done', 'cancel'):
+                return [(self.production_id, self.production_id.user_id, visited)]
             else:
                 return super(StockMove, self)._get_upstream_documents_and_responsibles(visited)
+
+    def _delay_alert_get_documents(self):
+        res = super(StockMove, self)._delay_alert_get_documents()
+        productions = self.mapped('raw_material_production_id')
+        return res + list(productions)
 
     def _should_be_assigned(self):
         res = super(StockMove, self)._should_be_assigned()

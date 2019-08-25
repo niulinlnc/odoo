@@ -3,7 +3,7 @@
 
 from datetime import datetime
 
-from odoo import api, fields, models, tools
+from odoo import api, fields, models
 
 
 class MailTracking(models.Model):
@@ -16,6 +16,7 @@ class MailTracking(models.Model):
     field = fields.Char('Changed Field', required=True, readonly=1)
     field_desc = fields.Char('Field Description', required=True, readonly=1)
     field_type = fields.Char('Field Type')
+    field_groups = fields.Char(compute='_compute_field_groups')
 
     old_value_integer = fields.Integer('Old Value Integer', readonly=1)
     old_value_float = fields.Float('Old Value Float', readonly=1)
@@ -33,14 +34,13 @@ class MailTracking(models.Model):
 
     mail_message_id = fields.Many2one('mail.message', 'Message ID', required=True, index=True, ondelete='cascade')
 
-    tracking_sequence = fields.Integer('Tracking field sequence', readonly=1, default=100, oldname='track_sequence')
+    tracking_sequence = fields.Integer('Tracking field sequence', readonly=1, default=100)
 
-    groups = fields.Char(compute='_compute_groups')
-
-    def _compute_groups(self):
+    def _compute_field_groups(self):
         for tracking in self:
             model = self.env[tracking.mail_message_id.model]
-            tracking.groups = model._fields[tracking.field].groups
+            field = model._fields.get(tracking.field)
+            tracking.field_groups = field.groups
 
     @api.model
     def create_tracking_values(self, initial_value, new_value, col_name, col_info, tracking_sequence):
@@ -81,7 +81,6 @@ class MailTracking(models.Model):
             return values
         return {}
 
-    @api.multi
     def get_display_value(self, type):
         assert type in ('new', 'old')
         result = []
@@ -106,12 +105,10 @@ class MailTracking(models.Model):
                 result.append(record['%s_value_char' % type])
         return result
 
-    @api.multi
     def get_old_display_value(self):
         # grep : # old_value_integer | old_value_datetime | old_value_char
         return self.get_display_value('old')
 
-    @api.multi
     def get_new_display_value(self):
         # grep : # new_value_integer | new_value_datetime | new_value_char
         return self.get_display_value('new')

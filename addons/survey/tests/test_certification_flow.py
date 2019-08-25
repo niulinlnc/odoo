@@ -38,7 +38,7 @@ class TestCertificationFlow(common.SurveyCase, HttpCase):
     def test_flow_certificate(self):
         # Step: survey user creates the certification
         # --------------------------------------------------
-        with self.sudo(self.survey_user):
+        with self.with_user(self.survey_user):
             certification = self.env['survey.survey'].create({
                 'title': 'User Certification for SO lines',
                 'access_mode': 'public',
@@ -51,7 +51,7 @@ class TestCertificationFlow(common.SurveyCase, HttpCase):
                 'certification_mail_template_id': self.env.ref('survey.mail_template_certification').id,
                 'is_time_limited': True,
                 'time_limit': 10,
-                'stage_id': self.env['survey.stage'].search([('closed', '=', False)]).id
+                'state': 'open',
             })
 
             q01 = self._add_question(

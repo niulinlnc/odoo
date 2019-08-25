@@ -158,8 +158,8 @@ class CustomerPortal(CustomerPortal):
         # Log only once a day
         if order_sudo and request.session.get('view_quote_%s' % order_sudo.id) != now and request.env.user.share and access_token:
             request.session['view_quote_%s' % order_sudo.id] = now
-            body = _('Quotation viewed by customer')
-            _message_post_helper('sale.order', order_sudo.id, body, token=order_sudo.access_token, message_type='notification', subtype="mail.mt_note", partner_ids=order_sudo.user_id.sudo().partner_id.ids)
+            body = _('Quotation viewed by customer %s') % order_sudo.partner_id.name
+            _message_post_helper('sale.order', order_sudo.id, body, token=order_sudo.access_token, message_type='notification', subtype="mail.mt_note")
 
         values = {
             'sale_order': order_sudo,
@@ -175,8 +175,8 @@ class CustomerPortal(CustomerPortal):
 
         if order_sudo.has_to_be_paid():
             domain = expression.AND([
-                ['&', ('website_published', '=', True), ('company_id', '=', order_sudo.company_id.id)],
-                ['|', ('specific_countries', '=', False), ('country_ids', 'in', [order_sudo.partner_id.country_id.id])]
+                ['&', ('state', 'in', ['enabled', 'test']), ('company_id', '=', order_sudo.company_id.id)],
+                ['|', ('country_ids', '=', False), ('country_ids', 'in', [order_sudo.partner_id.country_id.id])]
             ])
             acquirers = request.env['payment.acquirer'].sudo().search(domain)
 
@@ -185,6 +185,7 @@ class CustomerPortal(CustomerPortal):
             values['pms'] = request.env['payment.token'].search(
                 [('partner_id', '=', order_sudo.partner_id.id),
                 ('acquirer_id', 'in', acquirers.filtered(lambda acq: acq.payment_flow == 's2s').ids)])
+            values['acq_extra_fees'] = acquirers.get_acquirer_extra_fees(order_sudo.amount_total, order_sudo.currency_id, order_sudo.partner_id.country_id.id)
 
         if order_sudo.state in ('draft', 'sent', 'cancel'):
             history = request.session.get('my_quotations_history', [])
@@ -219,6 +220,7 @@ class CustomerPortal(CustomerPortal):
 
         if not order_sudo.has_to_be_paid():
             order_sudo.action_confirm()
+            order_sudo._send_order_confirmation_mail()
 
         pdf = request.env.ref('sale.action_report_saleorder').sudo().render_qweb_pdf([order_sudo.id])[0]
 

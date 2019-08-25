@@ -13,6 +13,9 @@
     'data': [
         'views/report_stockpicking_operations.xml',
     ],
+    'demo': [
+        'data/product_demo.xml',
+    ],
     'installable': True,
     'application': False,
     'auto_install': True,

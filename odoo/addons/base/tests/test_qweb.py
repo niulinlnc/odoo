@@ -75,6 +75,23 @@ class TestQWebTField(TransactionCase):
         text = etree.fromstring(view1.render()).find('span').text
         self.assertEqual(text, u'5.0000')
 
+    def test_xss_breakout(self):
+        view = self.env['ir.ui.view'].create({
+            'name': 'dummy', 'type': 'qweb',
+            'arch': u"""
+                <t t-name="base.dummy">
+                    <root>
+                        <script type="application/javascript">
+                            var s = <t t-raw="json.dumps({'key': malicious})"/>;
+                        </script>
+                    </root>
+                </t>
+            """
+        })
+        rendered = view.render({'malicious': '1</script><script>alert("pwned")</script><script>'}).decode()
+        self.assertIn('alert', rendered, "%r doesn't seem to be rendered" % rendered)
+        doc = etree.fromstring(rendered)
+        self.assertEqual(len(doc.xpath('//script')), 1)
 
 class TestQWebNS(TransactionCase):
     def test_render_static_xml_with_namespace(self):
@@ -500,6 +517,47 @@ class TestQWebNS(TransactionCase):
 
         with self.assertRaises(QWebException, msg=error_msg):
             view1.render()
+
+    def test_render_t_call_propagates_t_lang(self):
+        current_lang = 'en_US'
+        other_lang = 'fr_FR'
+
+        self.env['res.lang'].load_lang(lang=other_lang)
+
+        self.env['res.lang']._lang_get(other_lang).write({
+            'active': True,
+            'decimal_point': '*',
+            'thousands_sep': '/'
+        })
+
+        view1 = self.env['ir.ui.view'].create({
+            'name': "callee",
+            'type': 'qweb',
+            'arch': u"""
+                <t t-name="base.callee">
+                    <t t-esc="9000000.00" t-options="{'widget': 'float', 'precision': 2}" />
+                </t>
+            """
+        })
+        self.env['ir.model.data'].create({
+            'name': 'callee',
+            'model': 'ir.ui.view',
+            'module': 'base',
+            'res_id': view1.id,
+        })
+
+        view2 = self.env['ir.ui.view'].create({
+            'name': "calling",
+            'type': 'qweb',
+            'arch': u"""
+                <t t-name="base.calling">
+                    <t t-call="base.callee" t-lang="'%s'" />
+                </t>
+            """ % other_lang
+        })
+
+        rendered = view2.with_context(lang=current_lang).render().strip()
+        self.assertEqual(rendered, b'9/000/000*00')
 
 
 from copy import deepcopy

@@ -103,9 +103,9 @@ var MockServer = Class.extend({
      *
      * @param {string} route
      * @param {Object} args
-     * @returns {Deferred<any>}
+     * @returns {Promise<any>}
      *          Resolved with the result of the RPC, stringified then parsed.
-     *          If the RPC should fail, the deferred will be rejected with the
+     *          If the RPC should fail, the promise will be rejected with the
      *          error object, stringified then parsed.
      */
     performRpc: function (route, args) {
@@ -132,17 +132,18 @@ var MockServer = Class.extend({
                 console.log('%c[rpc] response' + route, 'color: blue; font-weight: bold;', JSON.parse(resultString));
             }
             return JSON.parse(resultString);
-        }, function (result, event) {
-            var errorString = JSON.stringify(result || false);
+        }, function (result) {
+            var message = result && result.message;
+            var event = result && result.event;
+            var errorString = JSON.stringify(message || false);
             if (debug) {
                 console.log('%c[rpc] response (error) ' + route, 'color: orange; font-weight: bold;', JSON.parse(errorString));
             }
-            return $.Deferred().reject(errorString, event || $.Event());
+            return Promise.reject({message: errorString, event: event || $.Event()});
         });
 
-        var promise = def.promise();
-        promise.abort = abort;
-        return promise;
+        def.abort = abort;
+        return def;
     },
 
     //--------------------------------------------------------------------------
@@ -202,6 +203,7 @@ var MockServer = Class.extend({
         var modifiersNames = ['invisible', 'readonly', 'required'];
         var onchanges = this.data[model].onchanges || {};
         var fieldNodes = {};
+        var groupbyNodes = {};
 
         var doc;
         if (typeof arch === 'string') {
@@ -219,6 +221,7 @@ var MockServer = Class.extend({
             var modifiers = {};
 
             var isField = (node.tagName === 'field');
+            var isGroupby = (node.tagName === 'groupby');
 
             if (isField) {
                 var fieldName = node.getAttribute('name');
@@ -250,6 +253,10 @@ var MockServer = Class.extend({
                         modifiers[attr] = defaultValue;
                     }
                 });
+            } else if (isGroupby && !node._isProcessed) {
+                var groupbyName = node.getAttribute('name');
+                fieldNodes[groupbyName] = node;
+                groupbyNodes[groupbyName] = node;
             }
 
             // 'transfer_node_to_modifiers' simulation
@@ -289,6 +296,10 @@ var MockServer = Class.extend({
                 node.setAttribute('modifiers', JSON.stringify(modifiers));
             }
 
+            if (isGroupby && !node._isProcessed) {
+                return false;
+            }
+
             return !isField;
         });
 
@@ -315,6 +326,21 @@ var MockServer = Class.extend({
             if (name in onchanges) {
                 node.setAttribute('on_change', "1");
             }
+        });
+        _.each(groupbyNodes, function (node, name) {
+            var field = fields[name];
+            if (field.type !== 'many2one') {
+                throw new Error('groupby can only target many2one');
+            }
+            field.views = {};
+            relModel = field.relation;
+            relFields = $.extend(true, {}, self.data[relModel].fields);
+            node._isProcessed = true;
+            // postprocess simulation
+            field.views.groupby = self._fieldsViewGet(node, relModel, relFields, context);
+            node.childNodes.forEach(function (child) {
+                node.removeChild(child);
+            });
         });
 
         var xmlSerializer = new XMLSerializer();
@@ -356,6 +382,24 @@ var MockServer = Class.extend({
         }
 
         if (domain.length) {
+            // 'child_of' operator isn't supported by domain.js, so we replace
+            // in by the 'in' operator (with the ids of children)
+            domain = domain.map(function (criterion) {
+                if (criterion[1] === 'child_of') {
+                    var oldLength = 0;
+                    var childIDs = [criterion[2]];
+                    while (childIDs.length > oldLength) {
+                        oldLength = childIDs.length;
+                        _.each(records, function (r) {
+                            if (childIDs.indexOf(r.parent_id) >= 0) {
+                                childIDs.push(r.id);
+                            }
+                        });
+                    }
+                    criterion = [criterion[0], 'in', childIDs];
+                }
+                return criterion;
+            });
             records = _.filter(records, function (record) {
                 var fieldValues = _.mapObject(record, function (value) {
                     return value instanceof Array ? value[0] : value;
@@ -618,7 +662,7 @@ var MockServer = Class.extend({
             var viewID = view_descr[0] || false;
             var viewType = view_descr[1];
             if (!viewID) {
-                var contextKey = viewType + '_view_ref';
+                var contextKey = (viewType === 'list' ? 'tree' : viewType) + '_view_ref';
                 if (contextKey in kwargs.context) {
                     viewID = kwargs.context[contextKey];
                 }
@@ -705,8 +749,8 @@ var MockServer = Class.extend({
         var result = _.map(records, function (record) {
             return [record.id, record.display_name];
         });
-        if (args.limit) {
-            return result.slice(0, args.limit);
+        if (_kwargs.limit) {
+            return result.slice(0, _kwargs.limit);
         }
         return result;
     },
@@ -807,7 +851,8 @@ var MockServer = Class.extend({
      * @param {string[]} kwargs.fields fields that we are aggregating
      * @param {Array} kwargs.domain the domain used for the read_group
      * @param {boolean} kwargs.lazy still mostly ignored
-     * @param {integer} kwargs.limit ignored as well
+     * @param {integer} [kwargs.limit]
+     * @param {integer} [kwargs.offset]
      * @returns {Object[]}
      */
     _mockReadGroup: function (model, kwargs) {
@@ -861,7 +906,7 @@ var MockServer = Class.extend({
                     }
                 }
                 if (type === 'many2one') {
-                    var ids = _.pluck(records, aggregatedFields[i]); 
+                    var ids = _.pluck(records, aggregatedFields[i]);
                     group[aggregatedFields[i]] = _.uniq(ids).length || null;
                 }
             }
@@ -876,6 +921,8 @@ var MockServer = Class.extend({
                     return moment(val).format('YYYY-MM-DD');
                 } else if (aggregateFunction === 'week') {
                     return moment(val).format('ww YYYY');
+                } else if (aggregateFunction === 'quarter') {
+                    return 'Q' + moment(val).format('Q YYYY');
                 } else if (aggregateFunction === 'year') {
                     return moment(val).format('Y');
                 } else {
@@ -893,7 +940,7 @@ var MockServer = Class.extend({
                 if (fields[fieldName].type === 'date') {
                     value += formatValue(groupByField, record[fieldName]);
                 } else {
-                    value += record[groupByField];
+                    value += JSON.stringify(record[groupByField]);
                 }
             });
             return value;
@@ -927,7 +974,7 @@ var MockServer = Class.extend({
                     res[groupByField] = val;
                 }
 
-                if (field.type === 'date') {
+                if (field.type === 'date' && val) {
                     var aggregateFunction = groupByField.split(':')[1];
                     var startDate, endDate;
                     if (aggregateFunction === 'day') {
@@ -977,6 +1024,11 @@ var MockServer = Class.extend({
                 }
                 return 0;
             });
+        }
+
+        if (kwargs.limit) {
+            var offset = kwargs.offset || 0;
+            result = result.slice(offset, kwargs.limit + offset);
         }
 
         return result;
@@ -1064,7 +1116,7 @@ var MockServer = Class.extend({
         var result = this._mockSearchReadController({
             model: model,
             domain: kwargs.domain || args[0],
-            fields: kwargs.fields || args[1],
+            fields: kwargs.fields || args[1],
             offset: kwargs.offset || args[2],
             limit: kwargs.limit || args[3],
             order: kwargs.order || args[4],
@@ -1162,6 +1214,51 @@ var MockServer = Class.extend({
         return true;
     },
     /**
+     * Simulate a 'web_read_group' call to the server.
+     *
+     * Note: some keys in kwargs are still ignored
+     *
+     * @private
+     * @param {string} model a string describing an existing model
+     * @param {Object} kwargs various options supported by read_group
+     * @param {string[]} kwargs.groupby fields that we are grouping
+     * @param {string[]} kwargs.fields fields that we are aggregating
+     * @param {Array} kwargs.domain the domain used for the read_group
+     * @param {boolean} kwargs.lazy still mostly ignored
+     * @param {integer} [kwargs.limit]
+     * @param {integer} [kwargs.offset]
+     * @param {boolean} [kwargs.expand=false] if true, read records inside each
+     *   group
+     * @param {integer} [kwargs.expand_limit]
+     * @param {integer} [kwargs.expand_orderby]
+     * @returns {Object[]}
+     */
+    _mockWebReadGroup: function (model, kwargs) {
+        var self = this;
+        var groups = this._mockReadGroup(model, kwargs);
+        if (kwargs.expand && kwargs.groupby.length === 1) {
+            groups.forEach(function (group) {
+                group.__data = self._mockSearchReadController({
+                    domain: group.__domain,
+                    model: model,
+                    fields: kwargs.fields,
+                    limit: kwargs.expand_limit,
+                    order: kwargs.expand_orderby,
+                });
+            });
+        }
+        var allGroups = this._mockReadGroup(model, {
+            domain: kwargs.domain,
+            fields: ['display_name'],
+            groupby: kwargs.groupby,
+            lazy: kwargs.lazy,
+        });
+        return {
+            groups: groups,
+            length: allGroups.length,
+        };
+    },
+    /**
      * Simulate a 'write' operation
      *
      * @private
@@ -1181,83 +1278,86 @@ var MockServer = Class.extend({
      * @private
      * @param {string} route
      * @param {Object} args
-     * @returns {Deferred<any>}
+     * @returns {Promise<any>}
      *          Resolved with the result of the RPC. If the RPC should fail, the
-     *          deferred should either be rejected or the call should throw an
+     *          promise should either be rejected or the call should throw an
      *          exception (@see performRpc for error handling).
      */
     _performRpc: function (route, args) {
         switch (route) {
             case '/web/action/load':
-                return $.when(this._mockLoadAction(args.kwargs));
+                return Promise.resolve(this._mockLoadAction(args.kwargs));
 
             case '/web/dataset/search_read':
-                return $.when(this._mockSearchReadController(args));
+                return Promise.resolve(this._mockSearchReadController(args));
 
             case '/web/dataset/resequence':
-                return $.when(this._mockResequence(args));
+                return Promise.resolve(this._mockResequence(args));
         }
         if (route.indexOf('/web/image') >= 0 || _.contains(['.png', '.jpg'], route.substr(route.length - 4))) {
-            return $.when();
+            return Promise.resolve();
         }
         switch (args.method) {
             case 'copy':
-                return $.when(this._mockCopy(args.model, args.args[0]));
+                return Promise.resolve(this._mockCopy(args.model, args.args[0]));
 
             case 'create':
-                return $.when(this._mockCreate(args.model, args.args[0]));
+                return Promise.resolve(this._mockCreate(args.model, args.args[0]));
 
             case 'default_get':
-                return $.when(this._mockDefaultGet(args.model, args.args, args.kwargs));
+                return Promise.resolve(this._mockDefaultGet(args.model, args.args, args.kwargs));
 
             case 'fields_get':
-                return $.when(this._mockFieldsGet(args.model, args.args));
+                return Promise.resolve(this._mockFieldsGet(args.model, args.args));
 
             case 'search_panel_select_range':
-                return $.when(this._mockSearchPanelSelectRange(args.model, args.args, args.kwargs));
+                return Promise.resolve(this._mockSearchPanelSelectRange(args.model, args.args, args.kwargs));
 
             case 'search_panel_select_multi_range':
-                return $.when(this._mockSearchPanelSelectMultiRange(args.model, args.args, args.kwargs));
+                return Promise.resolve(this._mockSearchPanelSelectMultiRange(args.model, args.args, args.kwargs));
 
             case 'load_views':
-                return $.when(this._mockLoadViews(args.model, args.kwargs));
+                return Promise.resolve(this._mockLoadViews(args.model, args.kwargs));
 
             case 'name_get':
-                return $.when(this._mockNameGet(args.model, args.args));
+                return Promise.resolve(this._mockNameGet(args.model, args.args));
 
             case 'name_create':
-                return $.when(this._mockNameCreate(args.model, args.args));
+                return Promise.resolve(this._mockNameCreate(args.model, args.args));
 
             case 'name_search':
-                return $.when(this._mockNameSearch(args.model, args.args, args.kwargs));
+                return Promise.resolve(this._mockNameSearch(args.model, args.args, args.kwargs));
 
             case 'onchange':
-                return $.when(this._mockOnchange(args.model, args.args));
+                return Promise.resolve(this._mockOnchange(args.model, args.args));
 
             case 'read':
-                return $.when(this._mockRead(args.model, args.args, args.kwargs));
+                return Promise.resolve(this._mockRead(args.model, args.args, args.kwargs));
 
             case 'read_group':
-                return $.when(this._mockReadGroup(args.model, args.kwargs));
+                return Promise.resolve(this._mockReadGroup(args.model, args.kwargs));
+
+            case 'web_read_group':
+                return Promise.resolve(this._mockWebReadGroup(args.model, args.kwargs));
 
             case 'read_progress_bar':
-                return $.when(this._mockReadProgressBar(args.model, args.kwargs));
+                return Promise.resolve(this._mockReadProgressBar(args.model, args.kwargs));
 
             case 'search_count':
-                return $.when(this._mockSearchCount(args.model, args.args));
+                return Promise.resolve(this._mockSearchCount(args.model, args.args));
 
             case 'search_read':
-                return $.when(this._mockSearchRead(args.model, args.args, args.kwargs));
+                return Promise.resolve(this._mockSearchRead(args.model, args.args, args.kwargs));
 
             case 'unlink':
-                return $.when(this._mockUnlink(args.model, args.args));
+                return Promise.resolve(this._mockUnlink(args.model, args.args));
 
             case 'write':
-                return $.when(this._mockWrite(args.model, args.args));
+                return Promise.resolve(this._mockWrite(args.model, args.args));
         }
         var model = this.data[args.model];
         if (model && typeof model[args.method] === 'function') {
-            return $.when(this.data[args.model][args.method](args.args, args.kwargs));
+            return Promise.resolve(this.data[args.model][args.method](args.args, args.kwargs));
         }
 
         throw new Error("Unimplemented route: " + route);

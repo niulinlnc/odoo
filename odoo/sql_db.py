@@ -22,6 +22,8 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT, ISOLATION_LEVEL_READ
 from psycopg2.pool import PoolError
 from werkzeug import urls
 
+from odoo.api import Environment
+
 psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
 
 _logger = logging.getLogger(__name__)
@@ -367,6 +369,10 @@ class Cursor(object):
     def commit(self):
         """ Perform an SQL `COMMIT`
         """
+        for env in Environment.envs:
+            if env.cr is self:
+                env['base'].flush()
+                break
         result = self._cnx.commit()
         for func in self._pop_event_handlers()['commit']:
             func()
@@ -376,6 +382,10 @@ class Cursor(object):
     def rollback(self):
         """ Perform an SQL `ROLLBACK`
         """
+        for env in Environment.envs:
+            if env.cr is self:
+                env.clear()
+                break
         result = self._cnx.rollback()
         for func in self._pop_event_handlers()['rollback']:
             func()
@@ -403,10 +413,17 @@ class Cursor(object):
     def savepoint(self):
         """context manager entering in a new savepoint"""
         name = uuid.uuid1().hex
+        env = next((e for e in Environment.envs if e.cr is self), None)
+        if env is not None:
+            env['base'].flush()
         self.execute('SAVEPOINT "%s"' % name)
         try:
             yield
+            if env is not None:
+                env['base'].flush()
         except Exception:
+            if env is not None:
+                env.clear()
             self.execute('ROLLBACK TO SAVEPOINT "%s"' % name)
             raise
         else:
@@ -463,9 +480,17 @@ class TestCursor(object):
         _logger.debug("TestCursor.autocommit(%r) does nothing", on)
 
     def commit(self):
+        for env in Environment.envs:
+            if env.cr is self:
+                env['base'].flush()
+                break
         self._cursor.execute('SAVEPOINT "%s"' % self._savepoint)
 
     def rollback(self):
+        for env in Environment.envs:
+            if env.cr is self:
+                env.clear()
+                break
         self._cursor.execute('ROLLBACK TO SAVEPOINT "%s"' % self._savepoint)
 
     def __enter__(self):
@@ -482,40 +507,6 @@ class TestCursor(object):
             raise psycopg2.OperationalError('Unable to use a closed cursor.')
         return value
 
-
-class LazyCursor(object):
-    """ A proxy object to a cursor. The cursor itself is allocated only if it is
-        needed. This class is useful for cached methods, that use the cursor
-        only in the case of a cache miss.
-    """
-    def __init__(self, dbname=None):
-        self._dbname = dbname
-        self._cursor = None
-        self._depth = 0
-
-    @property
-    def dbname(self):
-        return self._dbname or threading.currentThread().dbname
-
-    def __getattr__(self, name):
-        cr = self._cursor
-        if cr is None:
-            from odoo import registry
-            cr = self._cursor = registry(self.dbname).cursor()
-            for _ in range(self._depth):
-                cr.__enter__()
-        return getattr(cr, name)
-
-    def __enter__(self):
-        self._depth += 1
-        if self._cursor is not None:
-            self._cursor.__enter__()
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self._depth -= 1
-        if self._cursor is not None:
-            self._cursor.__exit__(exc_type, exc_value, traceback)
 
 class PsycoConnection(psycopg2.extensions.connection):
     pass

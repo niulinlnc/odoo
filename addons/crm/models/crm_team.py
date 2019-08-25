@@ -11,9 +11,11 @@ from odoo.exceptions import ValidationError
 class Team(models.Model):
     _name = 'crm.team'
     _inherit = ['mail.alias.mixin', 'crm.team']
-    _description = 'Sales Channels'
-    use_opportunities = fields.Boolean('Manage a pipeline', default=True, help="Check this box to manage a presales process with opportunities.")
-    alias_id = fields.Many2one('mail.alias', string='Alias', ondelete="restrict", required=True, help="The email address associated with this channel. New emails received will automatically create new leads assigned to the channel.")    
+    _description = 'Sales Team'
+
+    use_leads = fields.Boolean('Leads', help="Check this box to filter and qualify incoming requests as leads before converting them into opportunities and assigning them to a salesperson.")
+    use_opportunities = fields.Boolean('Pipeline', default=True, help="Check this box to manage a presales process with opportunities.")
+    alias_id = fields.Many2one('mail.alias', string='Alias', ondelete="restrict", required=True, help="The email address associated with this channel. New emails received will automatically create new leads assigned to the channel.")
 
     unassigned_leads_count = fields.Integer(
         compute='_compute_unassigned_leads_count',
@@ -31,7 +33,10 @@ class Team(models.Model):
         compute='_compute_overdue_opportunities',
         string='Overdue Opportunities Revenues')
 
-    alias_user_id = fields.Many2one(domain=lambda self: [
+    # Since we are in a _inherits case, this is not an override
+    # but a plain definition of a field
+    # So we need to reset the property related of that field
+    alias_user_id = fields.Many2one('res.users', related='alias_id.alias_user_id', inherited=True, domain=lambda self: [
         ('groups_id', 'in', self.env.ref('sales_team.group_sale_salesman_all_leads').id)])
 
     def _compute_unassigned_leads_count(self):
@@ -45,13 +50,18 @@ class Team(models.Model):
             team.unassigned_leads_count = counts.get(team.id, 0)
 
     def _compute_opportunities(self):
-        opportunity_data = self.env['crm.lead'].read_group([
+        opportunity_data = self.env['crm.lead'].search([
             ('team_id', 'in', self.ids),
             ('probability', '<', 100),
             ('type', '=', 'opportunity'),
-        ], ['planned_revenue', 'team_id'], ['team_id'])
-        counts = {datum['team_id'][0]: datum['team_id_count'] for datum in opportunity_data}
-        amounts = {datum['team_id'][0]: (datum['planned_revenue']) for datum in opportunity_data}
+        ]).read(['planned_revenue', 'team_id'])
+        counts = {}
+        amounts = {}
+        for datum in opportunity_data:
+            counts.setdefault(datum['team_id'][0], 0)
+            amounts.setdefault(datum['team_id'][0], 0)
+            counts[datum['team_id'][0]] += 1
+            amounts[datum['team_id'][0]] += (datum.get('planned_revenue', 0))
         for team in self:
             team.opportunities_count = counts.get(team.id, 0)
             team.opportunities_amount = amounts.get(team.id, 0)
@@ -68,10 +78,10 @@ class Team(models.Model):
         for team in self:
             team.overdue_opportunities_count = counts.get(team.id, 0)
             team.overdue_opportunities_amount = amounts.get(team.id, 0)
-    
-    @api.onchange('use_opportunities')
-    def _onchange_opportunities(self):
-        if not self.use_opportunities:
+
+    @api.onchange('use_leads', 'use_opportunities')
+    def _onchange_use_leads_opportunities(self):
+        if not self.use_leads and not self.use_opportunities:
             self.alias_name = False
 
     def get_alias_model_name(self, vals):
@@ -81,14 +91,13 @@ class Team(models.Model):
         has_group_use_lead = self.env.user.has_group('crm.group_use_lead')
         values = super(Team, self).get_alias_values()
         values['alias_defaults'] = defaults = safe_eval(self.alias_defaults or "{}")
-        defaults['type'] = 'lead' if has_group_use_lead  else 'opportunity'
+        defaults['type'] = 'lead' if has_group_use_lead and self.use_leads else 'opportunity'
         defaults['team_id'] = self.id
-        return values   
+        return values
 
-    @api.multi
     def write(self, vals):
         result = super(Team, self).write(vals)
-        if 'alias_defaults' in vals:
+        if 'use_leads' in vals or 'alias_defaults' in vals:
             for team in self:
                 team.alias_id.write(team.get_alias_values())
         return result
@@ -123,7 +132,7 @@ class Team(models.Model):
         if self.use_opportunities:
             return self.env.ref('crm.crm_case_form_view_salesteams_opportunity').read()[0]
         return super(Team,self).action_primary_channel_button()
-    
+
     def _graph_get_model(self):
         if self.use_opportunities:
             return 'crm.lead'

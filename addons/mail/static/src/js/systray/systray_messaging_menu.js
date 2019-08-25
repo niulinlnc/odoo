@@ -24,13 +24,14 @@ var MessagingMenu = Widget.extend({
         'click .o_filter_button': '_onClickFilterButton',
         'click .o_new_message': '_onClickNewMessage',
         'click .o_mail_preview_mark_as_read': '_onClickPreviewMarkAsRead',
+        'click .o_thread_window_expand': '_onClickExpand',
         'show.bs.dropdown': '_onShowDropdown',
     },
     /**
      * @override
      */
     willStart: function () {
-        return $.when(this._super.apply(this, arguments), this.call('mail_service', 'isReady'));
+        return Promise.all([this._super.apply(this, arguments), this.call('mail_service', 'isReady')]);
     },
     /**
      * @override
@@ -112,7 +113,7 @@ var MessagingMenu = Widget.extend({
     },
     /**
      * @private
-     * @returns {$.Promise<Object[]>} resolved with list of previews that are
+     * @returns {Promise<Object[]>} resolved with list of previews that are
      *   compatible with the 'mail.Preview' template.
      */
     _getPreviews: function () {
@@ -124,6 +125,34 @@ var MessagingMenu = Widget.extend({
      */
     _isShown: function () {
         return this.$el.hasClass('show');
+    },
+    /**
+     * Process Preview Mark As Read
+     *
+     * @private
+     * @param {Element} $preview
+     */
+    _markAsRead: function ($preview) {
+        var previewID = $preview.data('preview-id');
+        if (previewID === 'mailbox_inbox') {
+            var messageIDs = [].concat($preview.data('message-ids'));
+            this.call('mail_service', 'markMessagesAsRead', messageIDs);
+        } else if (previewID === 'mail_failure') {
+            var documentModel = $preview.data('document-model');
+            var unreadCounter = $preview.data('unread-counter');
+            this.do_action('mail.mail_resend_cancel_action', {
+                additional_context: {
+                    default_model: documentModel,
+                    unread_counter: unreadCounter
+                }
+            });
+        } else {
+            // this is mark as read on a thread
+            var thread = this.call('mail_service', 'getThread', previewID);
+            if (thread) {
+                thread.markAsRead();
+            }
+        }
     },
     /**
      * Open discuss
@@ -247,6 +276,19 @@ var MessagingMenu = Widget.extend({
         this._updatePreviews();
     },
     /**
+     * Opens the related document
+     *
+     * @private
+     * @param {MouseEvent} ev
+     */
+    _onClickExpand: function (ev) {
+        ev.stopPropagation();
+        var $preview = $(ev.currentTarget).closest('.o_mail_preview');
+        var documentModel = $preview.data('document-model');
+        var documentID = $preview.data('document-id');
+        this._openDocument(documentModel, documentID);
+    },
+    /**
      * @private
      * @param {MouseEvent} ev
      */
@@ -301,28 +343,8 @@ var MessagingMenu = Widget.extend({
      */
     _onClickPreviewMarkAsRead: function (ev) {
         ev.stopPropagation();
-        var thread;
         var $preview = $(ev.currentTarget).closest('.o_mail_preview');
-        var previewID = $preview.data('preview-id');
-        if (previewID === 'mailbox_inbox') {
-            var messageIDs = [].concat($preview.data('message-ids'));
-            this.call('mail_service', 'markMessagesAsRead', messageIDs);
-        } else if (previewID === 'mail_failure') {
-            var documentModel = $preview.data('document-model');
-            var unreadCounter = $preview.data('unread-counter');
-            this.do_action('mail.mail_resend_cancel_action', {
-                additional_context: {
-                    default_model: documentModel,
-                    unread_counter: unreadCounter
-                }
-            });
-        } else {
-            // this is mark as read on a thread
-            thread = this.call('mail_service', 'getThread', previewID);
-            if (thread) {
-                thread.markAsRead();
-            }
-        }
+        this._markAsRead($preview);
     },
 });
 

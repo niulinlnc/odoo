@@ -18,7 +18,7 @@ sOptions.registry.js_get_posts_limit = sOptions.Class.extend({
     postsLimit: function (previewMode, value, $opt) {
         value = parseInt(value);
         this.$target.attr('data-posts-limit', value).data('postsLimit', value);
-        this.trigger_up('animation_start_demand', {
+        this.trigger_up('widgets_start_request', {
             editableMode: true,
             $target: this.$target,
         });
@@ -32,14 +32,11 @@ sOptions.registry.js_get_posts_limit = sOptions.Class.extend({
      * @override
      */
     _setActive: function () {
-        var self = this;
         this._super.apply(this, arguments);
-        this.$('[data-posts-limit]').addBack('[data-posts-limit]')
-            .removeClass('active')
-            .filter(function () {
-                return (self.$target.data('postsLimit') || 3) == $(this).data('postsLimit');
-            })
-            .addClass('active');
+        var activeLimit = this.$target.data('postsLimit') || 3;
+
+        this.$el.find('[data-posts-limit]').removeClass('active');
+        this.$el.find('[data-posts-limit=' + activeLimit + ']').addClass('active');
     },
 });
 
@@ -64,9 +61,11 @@ sOptions.registry.js_get_posts_selectBlog = sOptions.Class.extend({
                     text: blog.name,
                 }));
             });
+
+            self._setActive();
         });
 
-        return $.when(this._super.apply(this, arguments), def);
+        return Promise.all([this._super.apply(this, arguments), def]);
     },
 
     //--------------------------------------------------------------------------
@@ -79,7 +78,7 @@ sOptions.registry.js_get_posts_selectBlog = sOptions.Class.extend({
     filterByBlogId: function (previewMode, value, $opt) {
         value = parseInt(value);
         this.$target.attr('data-filter-by-blog-id', value).data('filterByBlogId', value);
-        this.trigger_up('animation_start_demand', {
+        this.trigger_up('widgets_start_request', {
             editableMode: true,
             $target: this.$target,
         });
@@ -93,14 +92,12 @@ sOptions.registry.js_get_posts_selectBlog = sOptions.Class.extend({
      * @override
      */
     _setActive: function () {
-        var self = this;
         this._super.apply(this, arguments);
-        this.$('[data-filter-by-blog-id]').addBack('[data-filter-by-blog-id]')
-            .removeClass('active')
-            .filter(function () {
-                return (self.$target.data('filterByBlogId') || 0) == $(this).data('filterByBlogId');
-            })
-            .addClass('active');
+
+        var activeBlogId = this.$target.data('filterByBlogId') || 0;
+
+        this.$el.find('[data-filter-by-blog-id]').removeClass('active');
+        this.$el.find('[data-filter-by-blog-id=' + activeBlogId + ']').addClass('active');
     },
 });
 });

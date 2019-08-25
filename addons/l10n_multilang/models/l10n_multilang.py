@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+from collections import defaultdict
 import logging
 
 from odoo import api, models
@@ -11,7 +12,6 @@ _logger = logging.getLogger(__name__)
 class AccountChartTemplate(models.Model):
     _inherit = 'account.chart.template'
 
-    @api.multi
     def process_translations(self, langs, in_field, in_ids, out_ids):
         """
         This method copies translations values of templates into new Accounts/Taxes/Journals for languages selected
@@ -45,7 +45,6 @@ class AccountChartTemplate(models.Model):
                 counter += 1
         return True
 
-    @api.multi
     def process_coa_translations(self):
         installed_langs = dict(self.env['res.lang'].get_installed())
         company_obj = self.env['res.company']
@@ -71,37 +70,55 @@ class AccountChartTemplate(models.Model):
                         chart_template_id._process_fiscal_pos_translations(company.id, langs, 'name')
         return True
 
-    @api.multi
     def _process_accounts_translations(self, company_id, langs, field):
         in_ids, out_ids = self._get_template_from_model(company_id, 'account.account')
         return self.process_translations(langs, field, in_ids, out_ids)
 
-    @api.multi
     def _process_taxes_translations(self, company_id, langs, field):
         in_ids, out_ids = self._get_template_from_model(company_id, 'account.tax')
         return self.process_translations(langs, field, in_ids, out_ids)
 
-    @api.multi
     def _process_fiscal_pos_translations(self, company_id, langs, field):
         in_ids, out_ids = self._get_template_from_model(company_id, 'account.fiscal.position')
         return self.process_translations(langs, field, in_ids, out_ids)
 
     def _get_template_from_model(self, company_id, model):
-        out_data = self.env['ir.model.data'].search([('model', '=', model), ('name', '=like', str(company_id)+'\_%')])
-        out_ids = self.env[model].search([('id', 'in', out_data.mapped('res_id'))], order='id')
-        in_xml_id_names = [xml_id.partition(str(company_id) + '_')[-1] for xml_id in out_data.mapped('name')]
-        in_xml_ids = self.env['ir.model.data'].search([('model', '=', model+'.template'), ('name', 'in', in_xml_id_names)])
-        in_ids = self.env[model+'.template'].search([('id', 'in', in_xml_ids.mapped('res_id'))], order='id')
-        return (in_ids, out_ids)
+        """ Find the records and their matching template """
+        # generated records have an external id with the format <company id>_<template xml id>
+        grouped_out_data = defaultdict(lambda: self.env['ir.model.data'])
+        for imd in self.env['ir.model.data'].search([
+                ('model', '=', model),
+                ('name', '=like', str(company_id) + '_%')
+            ]):
+            grouped_out_data[imd.module] += imd
+
+        in_records = self.env[model + '.template']
+        out_records = self.env[model]
+        for module, out_data in grouped_out_data.items():
+            # templates and records may have been created in a different order
+            # reorder them based on external id names
+            expected_in_xml_id_names = {xml_id.name.partition(str(company_id) + '_')[-1]: xml_id for xml_id in out_data}
+
+            in_xml_ids = self.env['ir.model.data'].search([
+                ('model', '=', model + '.template'),
+                ('module', '=', module),
+                ('name', 'in', list(expected_in_xml_id_names))
+            ])
+            in_xml_ids = {xml_id.name: xml_id for xml_id in in_xml_ids}
+
+            for name, xml_id in expected_in_xml_id_names.items():
+                in_records += self.env[model + '.template'].browse(in_xml_ids[name].res_id)
+                out_records += self.env[model].browse(xml_id.res_id)
+
+        return (in_records, out_records)
 
 class BaseLanguageInstall(models.TransientModel):
     """ Install Language"""
     _inherit = "base.language.install"
 
-    @api.multi
     def lang_install(self):
         self.ensure_one()
-        already_installed = self.env['res.lang'].search_count([('code', '=', self.lang)])
+        already_installed = self.lang in [code for code, _ in self.env['res.lang'].get_installed()]
         res = super(BaseLanguageInstall, self).lang_install()
         if already_installed:
             # update of translations instead of new installation

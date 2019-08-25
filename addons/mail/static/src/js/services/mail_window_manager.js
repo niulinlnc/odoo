@@ -94,6 +94,7 @@ MailManager.include({
      *   is not open yet, and do nothing otherwise.
      * @param {boolean} [options.keepFoldState=false] if set to true, keep the
      *   fold state of the thread
+     * @returns {Promise}
      */
     openThreadWindow: function (threadID, options) {
         var self = this;
@@ -105,17 +106,17 @@ MailManager.include({
             // This may happen due to concurrent calls to this method from
             // messaging menu preview click and handling of longpolling chat
             // window state.
-            return;
+            return Promise.resolve();
         }
         var threadWindow = this._getThreadWindow(threadID);
-        var def = $.when();
+        var prom = Promise.resolve();
         if (!threadWindow) {
             thread.isCreatingWindow = true;
-            def = thread.fetchMessages().then(function () {
+            prom = thread.fetchMessages().then(function () {
                 threadWindow = self._makeNewThreadWindow(thread, options);
-                self._placeNewThreadWindow(threadWindow, options.passively);
                 return threadWindow.appendTo($(self.THREAD_WINDOW_APPENDTO));
             }).then(function () {
+                self._placeNewThreadWindow(threadWindow, options.passively);
                 self._repositionThreadWindows();
                 threadWindow.render();
                 threadWindow.scrollToBottom();
@@ -126,20 +127,16 @@ MailManager.include({
                 ) {
                     thread.markAsRead();
                 }
-            }).fail(function () {
+                thread.isCreatingWindow = false;
+            }).guardedCatch(function () {
                 // thread window could not be open, which may happen due to
                 // access error while fetching messages to the document.
                 // abort opening the thread window in this case.
                 thread.close();
-            }).always(function () {
                 thread.isCreatingWindow = false;
             });
-        } else if (!options.passively) {
-            if (threadWindow.isHidden()) {
-                this._makeThreadWindowVisible(threadWindow);
-            }
         }
-        def.then(function () {
+        return prom.then(function () {
             threadWindow.updateVisualFoldState();
         });
     },
@@ -155,14 +152,16 @@ MailManager.include({
      */
     updateThreadWindow: function (threadID, options) {
         var thread = this.getThread(threadID);
+        var prom = Promise.resolve();
         if (thread) {
             if (thread.isDetached()) {
                 _.extend(options, { keepFoldState: true });
-                this.openThreadWindow(threadID, options);
+                prom = this.openThreadWindow(threadID, options);
             } else {
                 this._closeThreadWindow(threadID);
             }
         }
+        return prom;
     },
 
     //--------------------------------------------------------------------------
@@ -345,6 +344,7 @@ MailManager.include({
             .on('is_thread_bottom_visible', this, this._onIsThreadBottomVisible)
             .on('unsubscribe_from_channel', this, this._onUnsubscribeFromChannel)
             .on('updated_im_status', this, this._onUpdatedImStatus)
+            .on('updated_out_of_office', this, this._onUpdatedOutOfOffice)
             .on('update_thread_unread_counter', this, this._onUpdateThreadUnreadCounter);
 
         core.bus.on('resize', this, _.debounce(this._repositionThreadWindows.bind(this), 100));
@@ -429,7 +429,7 @@ MailManager.include({
      *
      * @private
      * @param {integer} partnerID
-     * @returns {$.Promise<integer>} resolved with ID of the DM chat
+     * @returns {Promise<integer>} resolved with ID of the DM chat
      */
     _openAndDetachDMChat: function (partnerID) {
         return this._rpc({
@@ -647,10 +647,16 @@ MailManager.include({
      *
      * @private
      * @param {mail.model.Channel} channel
+     * @param {Promise[]} proms used to synchronize async operations on the
+     *   channel (like the rendering of its window)
      */
-    _onNewChannel: function (channel) {
+    _onNewChannel: function (channel, proms) {
         if (channel.isDetached()) {
-            this.openThreadWindow(channel.getID(), { keepFoldState: true, passively: true });
+            var prom = this.openThreadWindow(channel.getID(), {
+                keepFoldState: true,
+                passively: true,
+            });
+            proms.push(prom);
         } else {
             this._closeThreadWindow(channel.getID());
         }
@@ -694,6 +700,18 @@ MailManager.include({
             }
             threadWindow.renderHeader();
         });
+    },
+    /**
+     * @private
+     * @param {Object} data
+     * @param {integer} data.threadID
+     */
+    _onUpdatedOutOfOffice: function (data) {
+        var threadWindow = this._getThreadWindow(data.threadID);
+        if (!threadWindow) {
+            return;
+        }
+        threadWindow.renderOutOfOffice();
     },
     /**
      * Called when a thread has its unread counter that has changed.

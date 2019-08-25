@@ -25,9 +25,13 @@ PKGS_TO_INSTALL="
     fswebcam \
     nginx-full \
     dnsmasq \
+    dbus \
+    dbus-x11 \
     cups \
     printer-driver-all \
     cups-ipp-utils \
+    libcups2-dev \
+    pcscd \
     localepurge \
     vim \
     mc \
@@ -37,6 +41,7 @@ PKGS_TO_INSTALL="
     hostapd \
     git \
     rsync \
+    swig \
     console-data \
     lightdm \
     xserver-xorg-video-fbdev \
@@ -49,7 +54,9 @@ PKGS_TO_INSTALL="
     rpi-update \
     adduser \
     postgresql \
+    python-cups \
     python3 \
+    python3-pyscard \
     python3-urllib3 \
     python3-dateutil \
     python3-decorator \
@@ -104,10 +111,19 @@ rm -rf /usr/share/doc
 # this may be fixed with libusb>2:1.0.11-1, but that's the most recent one in raspbian
 # so we install the latest pyusb that works with this libusb.
 # Even in stretch, we had an error with langid (but worked otherwise)
-pip3 install pyusb==1.0.0b1
-pip3 install evdev
-pip3 install gatt
+PIP_TO_INSTALL="
+    pyusb==1.0.0b1 \
+    evdev \
+    gatt \
+    v4l2 \
+    polib \
+    pycups"
 
+pip3 install ${PIP_TO_INSTALL}
+
+# Dowload MPD server and library for Six terminals
+wget 'https://nightly.odoo.com/master/iotbox/eftdvs' -P /usr/local/bin/
+wget 'https://nightly.odoo.com/master/iotbox/eftapi.so' -P /usr/lib/
 
 groupadd usbusers
 usermod -a -G usbusers pi
@@ -128,6 +144,7 @@ echo "* * * * * rm /var/run/odoo/sessions/*" | crontab -
 update-rc.d -f hostapd remove
 update-rc.d -f nginx remove
 update-rc.d -f dnsmasq remove
+update-rc.d timesyncd defaults
 
 systemctl daemon-reload
 systemctl enable ramdisks.service
@@ -148,6 +165,7 @@ if [ $SYSTEMD -eq 1 ]; then
     systemctl set-default graphical.target
     ln -fs /etc/systemd/system/autologin@.service /etc/systemd/system/getty.target.wants/getty@tty1.service
     rm /etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service
+    rm /etc/systemd/system/hostapd.service
 else
     update-rc.d lightdm enable 2
 fi
@@ -164,8 +182,6 @@ echo "disable_overscan=1" >> /boot/config.txt
 setupcon
 
 # exclude /drivers folder from git info to be able to load specific drivers
-mkdir /home/pi/odoo/addons/hw_drivers/drivers/
-chmod 777 /home/pi/odoo/addons/hw_drivers/drivers/
 echo "addons/hw_drivers/drivers/" > /home/pi/odoo/.git/info/exclude
 
 # create dirs for ramdisks

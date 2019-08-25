@@ -1,10 +1,12 @@
 odoo.define('web.kanban_mobile_tests', function (require) {
 "use strict";
 
+var core = require('web.core');
 var KanbanView = require('web.KanbanView');
 var testUtils = require('web.test_utils');
 
 var createView = testUtils.createView;
+var _t = core._t;
 
 QUnit.module('Views', {
     beforeEach: function () {
@@ -55,10 +57,10 @@ QUnit.module('Views', {
 
     QUnit.module('KanbanView Mobile');
 
-    QUnit.test('mobile grouped rendering', function (assert) {
+    QUnit.test('mobile grouped rendering', async function (assert) {
         assert.expect(13);
 
-        var kanban = createView({
+        var kanban = await createView({
             View: KanbanView,
             model: 'partner',
             data: this.data,
@@ -83,13 +85,13 @@ QUnit.module('Views', {
             "there is no records in next tab. Records will be loaded when it will be opened");
 
         // quick create in first column
-        testUtils.dom.click(kanban.$buttons.find('.o-kanban-button-new'));
-        assert.hasClass(kanban.$('.o_kanban_group:nth(0) > div:nth(1)'), 'o_kanban_quick_create',
+        await testUtils.dom.click(kanban.$buttons.find('.o-kanban-button-new'));
+        assert.hasClass(kanban.$('.o_kanban_group:nth(0) > div:nth(1)'),'o_kanban_quick_create',
             "clicking on create should open the quick_create in the first column");
 
         // move to second column
-        kanban.$('.o_kanban_mobile_tab:nth(1)').trigger('click');
-        assert.hasClass(kanban.$('.o_kanban_mobile_tab:nth(1)'), 'o_current',
+        await testUtils.dom.click(kanban.$('.o_kanban_mobile_tab:nth(1)'));
+        assert.hasClass(kanban.$('.o_kanban_mobile_tab:nth(1)'),'o_current',
             "second tab is now active with class 'o_current'");
         assert.hasClass(kanban.$('.o_kanban_group:nth(1)'),'o_current',
             "second column is now active with class 'o_current'");
@@ -97,8 +99,8 @@ QUnit.module('Views', {
             "the 2 records of the second group have now been loaded");
 
         // quick create in second column
-        testUtils.dom.click(kanban.$buttons.find('.o-kanban-button-new'));
-        assert.hasClass(kanban.$('.o_kanban_group:nth(1) >  div:nth(1)'), 'o_kanban_quick_create',
+        await testUtils.dom.click(kanban.$buttons.find('.o-kanban-button-new'));
+        assert.hasClass(kanban.$('.o_kanban_group:nth(1) >  div:nth(1)'),'o_kanban_quick_create',
             "clicking on create should open the quick_create in the second column");
 
         // kanban column should match kanban mobile tabs
@@ -118,10 +120,40 @@ QUnit.module('Views', {
 
         kanban.destroy();
     });
-    QUnit.test('mobile grouped with undefined column', function (assert) {
+
+    QUnit.test('mobile grouped rendering in rtl direction', async function (assert) {
+        assert.expect(2);
+
+        var direction = _t.database.parameters.direction;
+        _t.database.parameters.direction = 'rtl';
+
+        var kanban = await createView({
+            View: KanbanView,
+            model: 'partner',
+            data: this.data,
+            arch: '<kanban class="o_kanban_test o_kanban_small_column" on_create="quick_create">' +
+                    '<templates><t t-name="kanban-box">' +
+                        '<div><field name="foo"/></div>' +
+                    '</t></templates>' +
+                '</kanban>',
+            domain: [['product_id', '!=', false]],
+            groupBy: ['product_id'],
+        });
+
+        assert.strictEqual(kanban.$('.o_kanban_group:first')[0].style.right, '0%',
+            "first tab should have 50% right");
+        assert.strictEqual(kanban.$('.o_kanban_group:nth(1)')[0].style.right, '100%',
+            "second tab should have 100% right");
+
+        kanban.destroy();
+        _t.database.parameters.direction = direction;
+    });
+
+
+    QUnit.test('mobile grouped with undefined column', async function (assert) {
         assert.expect(5);
 
-        var kanban = createView({
+        var kanban = await createView({
             View: KanbanView,
             model: 'partner',
             data: this.data,
@@ -155,10 +187,11 @@ QUnit.module('Views', {
 
         kanban.destroy();
     });
-    QUnit.test('mobile grouped on many2one rendering', function (assert) {
+
+    QUnit.test('mobile grouped on many2one rendering', async function (assert) {
         assert.expect(5);
 
-        var kanban = createView({
+        var kanban = await createView({
             View: KanbanView,
             model: 'partner',
             data: this.data,
@@ -189,35 +222,6 @@ QUnit.module('Views', {
             "should have justify-content-around class");
         assert.hasClass(kanban.$('.o_kanban_mobile_tabs'), 'justify-content-around',
             "the mobile tabs have the class 'justify-content-around'");
-
-        kanban.destroy();
-    });
-
-    QUnit.test('kanban with searchpanel: there should be no searchpanel in mobile', function (assert) {
-        assert.expect(3);
-
-        var kanban = createView({
-            View: KanbanView,
-            model: 'partner',
-            data: this.data,
-            arch: '<kanban>' +
-                    '<templates><t t-name="kanban-box">' +
-                        '<div>' +
-                            '<field name="foo"/>' +
-                        '</div>' +
-                    '</t></templates>' +
-                    '<searchpanel>' +
-                        '<field name="product_id"/>' +
-                    '</searchpanel>' +
-                '</kanban>',
-            mockRPC: function (route, args) {
-                assert.step(args.method || route);
-                return this._super.apply(this, arguments);
-            },
-        });
-
-        assert.containsNone(kanban, '.o_search_panel');
-        assert.verifySteps(['/web/dataset/search_read']);
 
         kanban.destroy();
     });

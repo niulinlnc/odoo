@@ -2,6 +2,7 @@ odoo.define('base_import.import', function (require) {
 "use strict";
 
 var AbstractAction = require('web.AbstractAction');
+var config = require('web.config');
 var core = require('web.core');
 var session = require('web.session');
 var time = require('web.time');
@@ -101,6 +102,10 @@ var DataImport = AbstractAction.extend({
         },
         'click .oe_import_report a.oe_import_report_count': function (e) {
             e.preventDefault();
+            $(e.target).parent().parent().toggleClass('oe_import_report_showmore');
+        },
+        'click .oe_import_report_see_possible_value': function (e) {
+            e.preventDefault();
             $(e.target).parent().toggleClass('oe_import_report_showmore');
         },
         'click .oe_import_moreinfo_action a': function (e) {
@@ -152,7 +157,7 @@ var DataImport = AbstractAction.extend({
         }).then(function (result) {
             self.importTemplates = result;
         });
-        return $.when(this._super.apply(this, arguments), def);
+        return Promise.all([this._super.apply(this, arguments), def]);
     },
     start: function () {
         var self = this;
@@ -162,9 +167,9 @@ var DataImport = AbstractAction.extend({
         this.setup_float_format_picker();
         this.setup_date_format_picker();
 
-        return $.when(
+        return Promise.all([
             this._super(),
-            self.create_model().done(function (id) {
+            self.create_model().then(function (id) {
                 self.id = id;
                 self.$('input[name=import_id]').val(id);
 
@@ -173,8 +178,8 @@ var DataImport = AbstractAction.extend({
                     cp_content: {$buttons: self.$buttons},
                 };
                 self.updateControlPanel(status);
-            })
-        );
+            }),
+        ]);
     },
     create_model: function() {
         return this._rpc({
@@ -346,7 +351,7 @@ var DataImport = AbstractAction.extend({
                 method: 'parse_preview',
                 args: [this.id, this.import_options()],
                 kwargs: {context: session.user_context},
-            }).done(function (result) {
+            }).then(function (result) {
                 var signal = result.error ? 'preview_failed' : 'preview_succeeded';
                 self[signal](result);
             });
@@ -414,7 +419,7 @@ var DataImport = AbstractAction.extend({
 
             var $thing = $();
             var bind = function (d) {};
-            if (session.debug) {
+            if (config.isDebug()) {
                 $thing = $(QWeb.render('ImportView.create_record_option')).insertAfter(v).hide();
                 bind = function (data) {
                     switch (data.type) {
@@ -453,6 +458,7 @@ var DataImport = AbstractAction.extend({
         });
     },
     generate_fields_completion: function (root, index) {
+        var self = this;
         var basic = [];
         var regulars = [];
         var o2m = [];
@@ -567,7 +573,9 @@ var DataImport = AbstractAction.extend({
                 method: 'do',
                 args: [this.id, fields, columns, this.import_options()],
                 kwargs : kwargs,
-            }).then(null, function (error, event) {
+            }).then(null, function (reason) {
+                var error = reason.message;
+                var event = reason.event;
                 // In case of unexpected exception, convert
                 // "JSON-RPC error" to an import failure, and
                 // prevent default handling (warning dialog)
@@ -588,7 +596,7 @@ var DataImport = AbstractAction.extend({
                         || error.message;
                 }
 
-                return $.when({'messages': [{
+                return Promise.resolve({'messages': [{
                     type: 'error',
                     record: false,
                     message: msg,
@@ -596,12 +604,14 @@ var DataImport = AbstractAction.extend({
             }) ;
     },
     onvalidate: function () {
-        return this.call_import({ dryrun: true, tracking_disable: true })
-            .done(this.proxy('validated'));
+        var prom = this.call_import({ dryrun: true, tracking_disable: true });
+        prom.then(this.proxy('validated'));
+        return prom;
     },
     onimport: function () {
         var self = this;
-        return this.call_import({ dryrun: false }).done(function (results) {
+        var prom = this.call_import({ dryrun: false });
+        prom.then(function (results) {
             var message = results.messages;
             if (!_.any(message, function (message) {
                     return message.type === 'error'; })) {
@@ -610,6 +620,7 @@ var DataImport = AbstractAction.extend({
             }
             self['import_failed'](results);
         });
+        return prom;
     },
     onimported: function (event, from, to, results) {
         this.do_notify(_t("Import completed"), _.str.sprintf(_t("%d records were successfully imported"), results.ids.length));
@@ -619,6 +630,10 @@ var DataImport = AbstractAction.extend({
         this.trigger_up('history_back');
     },
     onresults: function (event, from, to, results) {
+        var fields = this.$('.oe_import_fields input.oe_import_match_field').map(function (index, el) {
+            return $(el).select2('val') || false;
+        }).get();
+
         var message = results.messages;
         var no_messages = _.isEmpty(message);
         if (no_messages) {
@@ -633,18 +648,47 @@ var DataImport = AbstractAction.extend({
         // offset more if header
         if (this.import_options().headers) { offset += 1; }
 
+        var messagesSorted = _.sortBy(_(message).groupBy('message'), function (messageGroupped) {
+            var order = 0;
+            if (messageGroupped[0].type === 'warning') {
+                order = fields.length + 1;
+            }
+            return order + _.indexOf(fields, messageGroupped[0].field);
+        });
+
         this.$form.addClass('oe_import_error');
         this.$('.oe_import_error_report').html(
             QWeb.render('ImportView.error', {
-                errors: _(message).groupBy('message'),
+                errors: messagesSorted,
                 at: function (rows) {
                     var from = rows.from + offset;
                     var to = rows.to + offset;
+                    var rowName = '';
+                    if (results.name.length > rows.from && results.name[rows.from] !== '') {
+                        rowName = _.str.sprintf(' (%s)', results.name[rows.from]);
+                    }
                     if (from === to) {
-                        return _.str.sprintf(_t("at row %d"), from);
+                        return _.str.sprintf(_t("at row %d%s"), from, rowName);
                     }
                     return _.str.sprintf(_t("between rows %d and %d"),
                                          from, to);
+                },
+                at_multi: function (rows) {
+                    var from = rows.from + offset;
+                    var to = rows.to + offset;
+                    var rowName = '';
+                    if (results.name.length > rows.from && results.name[rows.from] !== '') {
+                        rowName = _.str.sprintf(' (%s)', results.name[rows.from]);
+                    }
+                    if (from === to) {
+                        return _.str.sprintf(_t("Row %d%s"), from, rowName);
+                    }
+                    return _.str.sprintf(_t("Between rows %d and %d"),
+                                         from, to);
+                },
+                at_multi_header: function (numberLines) {
+                    return _.str.sprintf(_t("at %d different rows:"),
+                                         numberLines);
                 },
                 more: function (n) {
                     return _.str.sprintf(_t("(%d more)"), n);
@@ -657,8 +701,8 @@ var DataImport = AbstractAction.extend({
                     }
                     if (msg instanceof Array) {
                         return _.str.sprintf(
-                            '<div class="oe_import_moreinfo oe_import_moreinfo_choices">%s <ul>%s</ul></div>',
-                            _.str.escapeHTML(_t("Here are the possible values:")),
+                            '<div class="oe_import_moreinfo oe_import_moreinfo_choices"><a href="#" class="oe_import_report_see_possible_value oe_import_see_all"><i class="fa fa-arrow-right"/> %s </a><ul class="oe_import_report_more">%s</ul></div>',
+                            _.str.escapeHTML(_t("See possible values")),
                             _(msg).map(function (msg) {
                                 return '<li>'
                                     + _.str.escapeHTML(msg)
@@ -668,10 +712,10 @@ var DataImport = AbstractAction.extend({
                     // Final should be object, action descriptor
                     return [
                         '<div class="oe_import_moreinfo oe_import_moreinfo_action">',
-                            _.str.sprintf('<a href="#" data-action="%s">',
+                            _.str.sprintf('<a href="#" data-action="%s" class="oe_import_see_all"><i class="fa fa-arrow-right"/> ',
                                     _.str.escapeHTML(JSON.stringify(msg))),
                                 _.str.escapeHTML(
-                                    _t("Get all possible values")),
+                                    _t("See possible values")),
                             '</a>',
                         '</div>'
                     ].join('');

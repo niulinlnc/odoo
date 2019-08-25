@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
-import requests
-from PIL import Image
 
 import base64
 import datetime
 import io
 import re
-import uuid
+import requests
+import PyPDF2
 
+from PIL import Image
 from werkzeug import urls
 
 from odoo import api, fields, models, _
 from odoo.addons.http_routing.models.ir_http import slug
+from odoo.addons.gamification.models.gamification_karma_rank import KarmaError
 from odoo.exceptions import Warning, UserError
 from odoo.http import request
 from odoo.addons.http_routing.models.ir_http import url_for
@@ -24,21 +25,40 @@ class SlidePartnerRelation(models.Model):
     _table = 'slide_slide_partner'
 
     slide_id = fields.Many2one('slide.slide', ondelete="cascade", index=True, required=True)
-    channel_id = fields.Many2one('slide.channel', string="Channel", related="slide_id.channel_id", store=True, index=True)
-    partner_id = fields.Many2one('res.partner', index=True, required=True)
+    channel_id = fields.Many2one(
+        'slide.channel', string="Channel",
+        related="slide_id.channel_id", store=True, index=True, ondelete='cascade')
+    partner_id = fields.Many2one('res.partner', index=True, required=True, ondelete='cascade')
     vote = fields.Integer('Vote', default=0)
     completed = fields.Boolean('Completed')
+    quiz_attempts_count = fields.Integer('Quiz attempts count', default=0)
 
-    quiz_attempts_count = fields.Integer(string="Number of times this user attempted the quiz")
+    def create(self, values):
+        res = super(SlidePartnerRelation, self).create(values)
+        completed = res.filtered('completed')
+        if completed:
+            completed._completed_callback()
+        return res
 
+    def write(self, values):
+        res = super(SlidePartnerRelation, self).write(values)
+        if values.get('completed'):
+            self._completed_callback()
+        return res
+
+    def _completed_callback(self):
+        self.env['slide.channel.partner'].search([
+            ('channel_id', 'in', self.channel_id.ids),
+            ('partner_id', 'in', self.partner_id.ids),
+        ])._compute_completion()
 
 class SlideLink(models.Model):
     _name = 'slide.slide.link'
     _description = "External URL for a particular slide"
 
-    slide_id = fields.Many2one('slide.slide', required=True)
+    slide_id = fields.Many2one('slide.slide', required=True, ondelete='cascade')
     name = fields.Char('Title', required=True)
-    link = fields.Char("External Link", required=True)
+    link = fields.Char('External Link', required=True)
 
 
 class EmbeddedSlide(models.Model):
@@ -51,8 +71,10 @@ class EmbeddedSlide(models.Model):
     url = fields.Char('Third Party Website URL', required=True)
     count_views = fields.Integer('# Views', default=1)
 
-    def add_embed_url(self, slide_id, url):
+    def _add_embed_url(self, slide_id, url):
         baseurl = urls.url_parse(url).netloc
+        if not baseurl:
+            return 0
         embeds = self.search([('url', '=', baseurl), ('slide_id', '=', int(slide_id))], limit=1)
         if embeds:
             embeds.count_views += 1
@@ -79,48 +101,46 @@ class SlideTag(models.Model):
 class Slide(models.Model):
     _name = 'slide.slide'
     _inherit = [
-        'mail.thread', 'rating.mixin',
+        'mail.thread',
         'image.mixin',
         'website.seo.metadata', 'website.published.mixin']
     _description = 'Slides'
     _mail_post_access = 'read'
     _order_by_strategy = {
+        'sequence': 'sequence asc',
         'most_viewed': 'total_views desc',
         'most_voted': 'likes desc',
         'latest': 'date_published desc',
     }
-    _order = 'category_sequence asc, sequence asc'
-
-    def _default_access_token(self):
-        return str(uuid.uuid4())
+    _order = 'sequence asc, is_category asc'
 
     # description
     name = fields.Char('Title', required=True, translate=True)
     active = fields.Boolean(default=True)
-    sequence = fields.Integer('Sequence', default=10)
-    category_sequence = fields.Integer('Category sequence', related="category_id.sequence", store=True)
+    sequence = fields.Integer('Sequence', default=0)
     user_id = fields.Many2one('res.users', string='Uploaded by', default=lambda self: self.env.uid)
     description = fields.Text('Description', translate=True)
     channel_id = fields.Many2one('slide.channel', string="Channel", required=True)
-    category_id = fields.Many2one('slide.category', string="Category", domain="[('channel_id', '=', channel_id)]")
     tag_ids = fields.Many2many('slide.tag', 'rel_slide_tag', 'slide_id', 'tag_id', string='Tags')
-    access_token = fields.Char("Security Token", copy=False, default=_default_access_token)
-    is_preview = fields.Boolean('Always visible', default=False)
-    completion_time = fields.Float('# Hours', default=1, digits=(10, 4))
+    is_preview = fields.Boolean('Is Preview', default=False, help="The course is accessible by anyone : the users don't need to join the channel to access the content of the course.")
+    completion_time = fields.Float('Completion Time', digits=(10, 4), help="The estimated completion time for this slide")
+    # Categories
+    is_category = fields.Boolean('Is a category', default=False)
+    category_id = fields.Many2one('slide.slide', string="Category", compute="_compute_category_id", store=True)
+    slide_ids = fields.One2many('slide.slide', "category_id", string="Slides")
     # subscribers
     partner_ids = fields.Many2many('res.partner', 'slide_slide_partner', 'slide_id', 'partner_id',
                                    string='Subscribers', groups='website.group_website_publisher')
     slide_partner_ids = fields.One2many('slide.slide.partner', 'slide_id', string='Subscribers information', groups='website.group_website_publisher')
     user_membership_id = fields.Many2one(
-        'slide.slide.partner', string="Subscriber information", compute='_compute_user_membership_id',
+        'slide.slide.partner', string="Subscriber information", compute='_compute_user_membership_id', compute_sudo=False,
         help="Subscriber information for the current logged in user")
     # Quiz related fields
-    question_ids = fields.One2many("slide.question","slide_id", string="Questions")
+    question_ids = fields.One2many("slide.question", "slide_id", string="Questions")
     quiz_first_attempt_reward = fields.Integer("First attempt reward", default=10)
     quiz_second_attempt_reward = fields.Integer("Second attempt reward", default=7)
     quiz_third_attempt_reward = fields.Integer("Third attempt reward", default=5,)
     quiz_fourth_attempt_reward = fields.Integer("Reward for every attempt after the third try", default=2)
-
     # content
     slide_type = fields.Selection([
         ('infographic', 'Infographic'),
@@ -130,9 +150,8 @@ class Slide(models.Model):
         ('video', 'Video'),
         ('quiz', "Quiz")],
         string='Type', required=True,
-        default='document', readonly=True,
+        default='document',
         help="The document type will be set automatically based on the document URL and properties (e.g. height and width for presentation and document).")
-    index_content = fields.Text('Transcript')
     datas = fields.Binary('Content', attachment=True)
     url = fields.Char('Document URL', help="Youtube or Google Document URL")
     document_id = fields.Char('Document ID', help="Youtube or Google Document ID")
@@ -142,19 +161,60 @@ class Slide(models.Model):
     # website
     website_id = fields.Many2one(related='channel_id.website_id', readonly=True)
     date_published = fields.Datetime('Publish Date')
-    likes = fields.Integer('Likes', compute='_compute_user_info', store=True)
-    dislikes = fields.Integer('Dislikes', compute='_compute_user_info', store=True)
-    user_vote = fields.Integer('User vote', compute='_compute_user_info')
+    likes = fields.Integer('Likes', compute='_compute_user_info', store=True, compute_sudo=False)
+    dislikes = fields.Integer('Dislikes', compute='_compute_user_info', store=True, compute_sudo=False)
+    user_vote = fields.Integer('User vote', compute='_compute_user_info', compute_sudo=False)
     embed_code = fields.Text('Embed Code', readonly=True, compute='_compute_embed_code')
     # views
     embedcount_ids = fields.One2many('slide.embed', 'slide_id', string="Embed Count")
     slide_views = fields.Integer('# of Website Views', store=True, compute="_compute_slide_views")
     public_views = fields.Integer('# of Public Views')
-    total_views = fields.Integer("Total # Views", default="0", compute='_compute_total', store=True)
+    total_views = fields.Integer("Views", default="0", compute='_compute_total', store=True)
+    # comments
+    comments_count = fields.Integer('Number of comments', compute="_compute_comments_count")
+    # channel
+    channel_type = fields.Selection(related="channel_id.channel_type", string="Channel type")
+    channel_allow_comment = fields.Boolean(related="channel_id.allow_comment", string="Allows comment")
+    # Statistics in case the slide is a category
+    nbr_presentation = fields.Integer("Number of Presentations", compute='_compute_slides_statistics', store=True)
+    nbr_document = fields.Integer("Number of Documents", compute='_compute_slides_statistics', store=True)
+    nbr_video = fields.Integer("Number of Videos", compute='_compute_slides_statistics', store=True)
+    nbr_infographic = fields.Integer("Number of Infographics", compute='_compute_slides_statistics', store=True)
+    nbr_webpage = fields.Integer("Number of Webpages", compute='_compute_slides_statistics', store=True)
+    nbr_quiz = fields.Integer("Number of Quizs", compute="_compute_slides_statistics", store=True)
+    total_slides = fields.Integer(compute='_compute_slides_statistics', store=True)
 
     _sql_constraints = [
         ('exclusion_html_content_and_url', "CHECK(html_content IS NULL OR url IS NULL)", "A slide is either filled with a document url or HTML content. Not both.")
     ]
+
+    @api.depends('channel_id.slide_ids.is_category', 'channel_id.slide_ids.sequence')
+    def _compute_category_id(self):
+        """ Will take all the slides of the channel for which the index is higher
+        than the index of this category and lower than the index of the next category.
+
+        Lists are manually sorted because when adding a new browse record order
+        will not be correct as the added slide would actually end up at the
+        first place no matter its sequence."""
+        channel_slides = {}
+        for slide in self:
+            if slide.channel_id.id not in channel_slides:
+                channel_slides[slide.channel_id.id] = slide.channel_id.slide_ids
+
+        for cid, slides in channel_slides.items():
+            current_category = self.env['slide.slide']
+            slide_list = list(slides)
+            slide_list.sort(key=lambda s: (s.sequence, not s.is_category))
+            for slide in slide_list:
+                if slide.is_category:
+                    current_category = slide
+                elif slide.category_id != current_category:
+                    slide.category_id = current_category.id
+
+    @api.depends('website_message_ids.res_id', 'website_message_ids.model', 'website_message_ids.message_type')
+    def _compute_comments_count(self):
+        for slide in self:
+            slide.comments_count = len(slide.website_message_ids)
 
     @api.depends('slide_views', 'public_views')
     def _compute_total(self):
@@ -162,6 +222,7 @@ class Slide(models.Model):
             record.total_views = record.slide_views + record.public_views
 
     @api.depends('slide_partner_ids.vote')
+    @api.depends_context('uid')
     def _compute_user_info(self):
         slide_data = dict.fromkeys(self.ids, dict({'likes': 0, 'dislikes': 0, 'user_vote': False}))
         slide_partners = self.env['slide.slide.partner'].sudo().search([
@@ -176,8 +237,8 @@ class Slide(models.Model):
                 slide_data[slide_partner.slide_id.id]['dislikes'] += 1
                 if slide_partner.partner_id == self.env.user.partner_id:
                     slide_data[slide_partner.slide_id.id]['user_vote'] = -1
-        for slide_sudo in self.sudo():
-            slide_sudo.update(slide_data[slide_sudo.id])
+        for slide in self:
+            slide.update(slide_data[slide.id])
 
     @api.depends('slide_partner_ids.slide_id')
     def _compute_slide_views(self):
@@ -191,7 +252,39 @@ class Slide(models.Model):
         for slide in self:
             slide.slide_views = mapped_data.get(slide.id, 0)
 
+    @api.depends('slide_ids.slide_type', 'slide_ids.is_published', 'slide_ids.is_category')
+    def _compute_slides_statistics(self):
+        # Do not use dict.fromkeys(self.ids, dict()) otherwise it will use the same dictionnary for all keys.
+        # Therefore, when updating the dict of one key, it updates the dict of all keys.
+        result = {_id: {} for _id in self.ids}
+
+        res = self.env['slide.slide'].read_group(
+            [('is_published', '=', True), ('category_id', 'in', self.ids), ('is_category', '=', False)],
+            ['category_id', 'slide_type'], ['category_id', 'slide_type'],
+            lazy=False)
+
+        type_stats = self._compute_slides_statistics_type(res)
+        for cid, cdata in type_stats.items():
+            result[cid].update(cdata)
+
+        for record in self:
+            record.update(result[record.id])
+
+    def _compute_slides_statistics_type(self, read_group_res):
+        """ Compute statistics based on all existing slide types """
+        slide_types = self.env['slide.slide']._fields['slide_type'].get_values(self.env)
+        keys = ['nbr_%s' % slide_type for slide_type in slide_types]
+        result = dict((cid, dict((key, 0) for key in keys)) for cid in self.ids)
+        for res_group in read_group_res:
+            cid = res_group['category_id'][0]
+            result[cid]['total_slides'] = 0
+            for slide_type in slide_types:
+                result[cid]['nbr_%s' % slide_type] += res_group.get('slide_type', '') == slide_type and res_group['__count'] or 0
+                result[cid]['total_slides'] += result[cid]['nbr_%s' % slide_type]
+        return result
+
     @api.depends('slide_partner_ids.partner_id')
+    @api.depends('uid')
     def _compute_user_membership_id(self):
         slide_partners = self.env['slide.slide.partner'].sudo().search([
             ('slide_id', 'in', self.ids),
@@ -236,14 +329,22 @@ class Slide(models.Model):
             for key, value in values.items():
                 self[key] = value
 
-    @api.multi
-    @api.depends('name')
+    @api.onchange('datas')
+    def _on_change_datas(self):
+        """ For PDFs, we assume that it takes 5 minutes to read a page. """
+        if self.datas:
+            data = base64.b64decode(self.datas)
+            if data.startswith(b'%PDF-'):
+                pdf = PyPDF2.PdfFileReader(io.BytesIO(data), overwriteWarnings=False)
+                self.completion_time = (5 * len(pdf.pages)) / 60
+
+    @api.depends('name', 'channel_id.website_id.domain')
     def _compute_website_url(self):
         # TDE FIXME: clena this link.tracker strange stuff
         super(Slide, self)._compute_website_url()
-        base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
         for slide in self:
             if slide.id:  # avoid to perform a slug on a not yet saved record in case of an onchange.
+                base_url = slide.channel_id.get_base_url()
                 # link_tracker is not in dependencies, so use it to shorten url only if installed.
                 if self.env.registry.get('link.tracker'):
                     url = self.env['link.tracker'].sudo().create({
@@ -275,11 +376,12 @@ class Slide(models.Model):
             # 'website_published' is handled by mixin
             values['date_published'] = False
 
-        if not values.get('index_content'):
-            values['index_content'] = values.get('description')
-        if values.get('slide_type') == 'infographic' and not values.get('image'):
-            values['image'] = values['datas']
-        if values.get('website_published') and not values.get('date_published'):
+        if values.get('slide_type') == 'infographic' and not values.get('image_1920'):
+            values['image_1920'] = values['datas']
+        if values.get('is_category'):
+            values['is_preview'] = True
+            values['is_published'] = True
+        if values.get('is_published') and not values.get('date_published'):
             values['date_published'] = datetime.datetime.now()
         if values.get('url') and not values.get('document_id'):
             doc_data = self._parse_document_url(values['url']).get('values', dict())
@@ -288,28 +390,49 @@ class Slide(models.Model):
 
         slide = super(Slide, self).create(values)
 
-        if slide.website_published:
+        if slide.is_published:
             slide._post_publication()
         return slide
 
-    @api.multi
     def write(self, values):
         if values.get('url') and values['url'] != self.url:
             doc_data = self._parse_document_url(values['url']).get('values', dict())
             for key, value in doc_data.items():
                 values.setdefault(key, value)
+        if values.get('is_category'):
+            values['is_preview'] = True
+            values['is_published'] = True
 
         res = super(Slide, self).write(values)
-        if values.get('website_published'):
+        if values.get('is_published'):
             self.date_published = datetime.datetime.now()
             self._post_publication()
+
+        if 'is_published' in values or 'active' in values:
+            # if the slide is published/unpublished, recompute the completion for the partners
+            self.slide_partner_ids._completed_callback()
+
         return res
+
+    @api.returns('self', lambda value: value.id)
+    def copy(self, default=None):
+        """Sets the sequence to zero so that it always lands at the beginning
+        of the newly selected course as an uncategorized slide"""
+        rec = super(Slide, self).copy(default)
+        rec.sequence = 0
+        return rec
 
     # ---------------------------------------------------------
     # Mail/Rating
     # ---------------------------------------------------------
 
-    @api.multi
+    @api.returns('mail.message', lambda value: value.id)
+    def message_post(self, message_type='notification', **kwargs):
+        self.ensure_one()
+        if message_type == 'comment' and not self.channel_id.can_comment:  # user comments have a restriction on karma
+            raise KarmaError(_('Not enough karma to comment'))
+        return super(Slide, self).message_post(message_type=message_type, **kwargs)
+
     def get_access_action(self, access_uid=None):
         """ Instead of the classic form view, redirect to website if it is published. """
         self.ensure_one()
@@ -323,10 +446,9 @@ class Slide(models.Model):
             }
         return super(Slide, self).get_access_action(access_uid)
 
-    @api.multi
-    def _notify_get_groups(self, message, groups):
+    def _notify_get_groups(self):
         """ Add access button to everyone if the document is active. """
-        groups = super(Slide, self)._notify_get_groups(message, groups)
+        groups = super(Slide, self)._notify_get_groups()
 
         if self.website_published:
             for group_name, group_method, group_data in groups:
@@ -338,22 +460,6 @@ class Slide(models.Model):
     # Business Methods
     # ---------------------------------------------------------
 
-    def _get_related_slides(self, limit=20):
-        # TDE FIXME: should build a smarter domain
-        domain = request.website.website_domain()
-        domain += [('website_published', '=', True), ('id', '!=', self.id)]
-        if self.category_id:
-            domain += [('category_id', '=', self.category_id.id)]
-        for record in self.search(domain, limit=limit):
-            yield record
-
-    def _get_most_viewed_slides(self, limit=20):
-        # TDE FIXME: should build a smarter domain
-        domain = request.website.website_domain()
-        domain += [('website_published', '=', True), ('id', '!=', self.id)]
-        for record in self.search(domain, limit=limit, order='total_views desc'):
-            yield record
-
     def _post_publication(self):
         base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
         for slide in self.filtered(lambda slide: slide.website_published and slide.channel_id.publish_template_id):
@@ -364,7 +470,7 @@ class Slide(models.Model):
                 subject=subject,
                 body=html_body,
                 subtype='website_slides.mt_channel_slide_published',
-                notif_layout='mail.mail_notification_light',
+                email_layout_xmlid='mail.mail_notification_light',
             )
         return True
 
@@ -377,12 +483,15 @@ class Slide(models.Model):
             self.write({'access_token': self._default_access_token()})
         return self._sign_token(partner_id)
 
-    def _send_share_email(self, email):
+    def _send_share_email(self, email, fullscreen):
         # TDE FIXME: template to check
         mail_ids = []
         base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
         for record in self:
-            mail_ids.append(self.channel_id.share_template_id.with_context(email=email, base_url=base_url).send_mail(record.id, notif_layout='mail.mail_notification_light'))
+            if self.env.user.has_group('base.group_portal'):
+                mail_ids.append(self.channel_id.share_template_id.with_context(user=self.env.user, email=email, base_url=base_url, fullscreen=fullscreen).sudo().send_mail(record.id, notif_layout='mail.mail_notification_light', email_values={'email_from': self.env['res.company'].catchall or self.env['res.company'].email, 'email_to': email}))
+            else:
+                mail_ids.append(self.channel_id.share_template_id.with_context(user=self.env.user, email=email, base_url=base_url, fullscreen=fullscreen).send_mail(record.id, notif_layout='mail.mail_notification_light', email_values={'email_to': email}))
         return mail_ids
 
     def action_like(self):
@@ -407,13 +516,20 @@ class Slide(models.Model):
             ('slide_id', 'in', self.ids),
             ('partner_id', '=', self.env.user.partner_id.id)
         ])
-        new_slides = self_sudo - slide_partners.mapped('slide_id')
+        slide_id = slide_partners.mapped('slide_id')
+        new_slides = self_sudo - slide_id
+        channel = slide_id.channel_id
+        karma_to_add = 0
 
         for slide_partner in slide_partners:
             if upvote:
                 new_vote = 0 if slide_partner.vote == -1 else 1
+                if slide_partner.vote != 1:
+                    karma_to_add += channel.karma_gen_slide_vote
             else:
                 new_vote = 0 if slide_partner.vote == 1 else -1
+                if slide_partner.vote != -1:
+                    karma_to_add -= channel.karma_gen_slide_vote
             slide_partner.vote = new_vote
 
         for new_slide in new_slides:
@@ -421,27 +537,36 @@ class Slide(models.Model):
             new_slide.write({
                 'slide_partner_ids': [(0, 0, {'vote': new_vote, 'partner_id': self.env.user.partner_id.id})]
             })
-            self.env.user.add_karma(new_slide.channel_id.karma_gen_slide_vote)
+            karma_to_add += new_slide.channel_id.karma_gen_slide_vote * (1 if upvote else -1)
 
-    def action_set_viewed(self):
+        if karma_to_add:
+            self.env.user.add_karma(karma_to_add)
+
+    def action_set_viewed(self, quiz_attempts_inc=False):
         if not all(slide.channel_id.is_member for slide in self):
             raise UserError(_('You cannot mark a slide as viewed if you are not among its members.'))
 
-        return bool(self._action_set_viewed(self.env.user.partner_id))
+        return bool(self._action_set_viewed(self.env.user.partner_id, quiz_attempts_inc=quiz_attempts_inc))
 
-    def _action_set_viewed(self, target_partner):
+    def _action_set_viewed(self, target_partner, quiz_attempts_inc=False):
         self_sudo = self.sudo()
         SlidePartnerSudo = self.env['slide.slide.partner'].sudo()
         existing_sudo = SlidePartnerSudo.search([
             ('slide_id', 'in', self.ids),
             ('partner_id', '=', target_partner.id)
         ])
+        if quiz_attempts_inc:
+            for exsting_slide in existing_sudo:
+                exsting_slide.write({
+                    'quiz_attempts_count': exsting_slide.quiz_attempts_count + 1
+                })
 
         new_slides = self_sudo - existing_sudo.mapped('slide_id')
         return SlidePartnerSudo.create([{
             'slide_id': new_slide.id,
             'channel_id': new_slide.channel_id.id,
             'partner_id': target_partner.id,
+            'quiz_attempts_count': 1 if quiz_attempts_inc else 0,
             'vote': 0} for new_slide in new_slides])
 
     def action_set_completed(self):
@@ -469,15 +594,63 @@ class Slide(models.Model):
 
         return True
 
+    def _action_set_quiz_done(self):
+        if not all(slide.channel_id.is_member for slide in self):
+            raise UserError(_('You cannot mark a slide quiz as completed if you are not among its members.'))
+
+        points = 0
+        for slide in self:
+            user_membership_sudo = slide.user_membership_id.sudo()
+            if not user_membership_sudo or user_membership_sudo.completed or not user_membership_sudo.quiz_attempts_count:
+                continue
+
+            gains = [slide.quiz_first_attempt_reward,
+                     slide.quiz_second_attempt_reward,
+                     slide.quiz_third_attempt_reward,
+                     slide.quiz_fourth_attempt_reward]
+            points += gains[user_membership_sudo.quiz_attempts_count - 1] if user_membership_sudo.quiz_attempts_count <= len(gains) else gains[-1]
+
+        return self.env.user.sudo().add_karma(points)
+
+    def _compute_quiz_info(self, target_partner, quiz_done=False):
+        result = dict.fromkeys(self.ids, False)
+        slide_partners = self.env['slide.slide.partner'].sudo().search([
+            ('slide_id', 'in', self.ids),
+            ('partner_id', '=', target_partner.id)
+        ])
+        slide_partners_map = dict((sp.slide_id.id, sp) for sp in slide_partners)
+        for slide in self:
+            if not slide.question_ids:
+                gains = [0]
+            else:
+                gains = [slide.quiz_first_attempt_reward,
+                         slide.quiz_second_attempt_reward,
+                         slide.quiz_third_attempt_reward,
+                         slide.quiz_fourth_attempt_reward]
+            result[slide.id] = {
+                'quiz_karma_max': gains[0],  # what could be gained if succeed at first try
+                'quiz_karma_gain': gains[0],  # what would be gained at next test
+                'quiz_karma_won': 0,  # what has been gained
+                'quiz_attempts_count': 0,  # number of attempts
+            }
+            slide_partner = slide_partners_map.get(slide.id)
+            if slide.question_ids and slide_partner:
+                if slide_partner.quiz_attempts_count:
+                    result[slide.id]['quiz_karma_gain'] = gains[slide_partner.quiz_attempts_count] if slide_partner.quiz_attempts_count < len(gains) else gains[-1]
+                    result[slide.id]['quiz_attempts_count'] = slide_partner.quiz_attempts_count
+                if quiz_done or slide_partner.completed:
+                    result[slide.id]['quiz_karma_won'] = gains[slide_partner.quiz_attempts_count-1] if slide_partner.quiz_attempts_count < len(gains) else gains[-1]
+        return result
+
     # --------------------------------------------------
     # Parsing methods
     # --------------------------------------------------
 
     @api.model
-    def _fetch_data(self, base_url, data, content_type=False, extra_params=False):
+    def _fetch_data(self, base_url, params, content_type=False):
         result = {'values': dict()}
         try:
-            response = requests.get(base_url, params=data)
+            response = requests.get(base_url, params=params)
             response.raise_for_status()
             if content_type == 'json':
                 result['values'] = response.json()
@@ -492,11 +665,16 @@ class Slide(models.Model):
         return result
 
     def _find_document_data_from_url(self, url):
-        expr = re.compile(r'^.*((youtu.be/)|(v/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*')
-        arg = expr.match(url)
-        document_id = arg and arg.group(7) or False
-        if document_id:
-            return ('youtube', document_id)
+        url_obj = urls.url_parse(url)
+        if url_obj.ascii_host == 'youtu.be':
+            return ('youtube', url_obj.path[1:] if url_obj.path else False)
+        elif url_obj.ascii_host in ('youtube.com', 'www.youtube.com', 'm.youtube.com'):
+            v_query_value = url_obj.decode_query().get('v')
+            if v_query_value:
+                return ('youtube', v_query_value)
+            split_path = url_obj.path.split('/')
+            if len(split_path) >= 3 and split_path[1] in ('v', 'embed'):
+                return ('youtube', split_path[2])
 
         expr = re.compile(r'(^https:\/\/docs.google.com|^https:\/\/drive.google.com).*\/d\/([^\/]*)')
         arg = expr.match(url)
@@ -513,8 +691,11 @@ class Slide(models.Model):
         return {'error': _('Unknown document')}
 
     def _parse_youtube_document(self, document_id, only_preview_fields):
+        """ If we receive a duration (YT video), we use it to determine the slide duration.
+        The received duration is under a special format (e.g: PT1M21S15, meaning 1h 21m 15s). """
+
         key = self.env['website'].get_current_website().website_slide_google_app_key
-        fetch_res = self._fetch_data('https://www.googleapis.com/youtube/v3/videos', {'id': document_id, 'key': key, 'part': 'snippet', 'fields': 'items(id,snippet)'}, 'json')
+        fetch_res = self._fetch_data('https://www.googleapis.com/youtube/v3/videos', {'id': document_id, 'key': key, 'part': 'snippet,contentDetails', 'fields': 'items(id,snippet,contentDetails)'}, 'json')
         if fetch_res.get('error'):
             return fetch_res
 
@@ -523,6 +704,14 @@ class Slide(models.Model):
         if not items:
             return {'error': _('Please enter valid Youtube or Google Doc URL')}
         youtube_values = items[0]
+
+        youtube_duration = youtube_values.get('contentDetails', {}).get('duration')
+        if youtube_duration:
+            parsed_duration = re.search(r'^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$', youtube_duration)
+            values['completion_time'] = (int(parsed_duration.group(1) or 0)) + \
+                                        (int(parsed_duration.group(2) or 0) / 60) + \
+                                        (int(parsed_duration.group(3) or 0) / 3600)
+
         if youtube_values.get('snippet'):
             snippet = youtube_values['snippet']
             if only_preview_fields:
@@ -531,10 +720,12 @@ class Slide(models.Model):
                     'title': snippet['title'],
                     'description': snippet['description']
                 })
+
                 return values
+
             values.update({
                 'name': snippet['title'],
-                'image': self._fetch_data(snippet['thumbnails']['high']['url'], {}, 'image')['values'],
+                'image_1920': self._fetch_data(snippet['thumbnails']['high']['url'], {}, 'image')['values'],
                 'description': snippet['description'],
                 'mime_type': False,
             })
@@ -545,8 +736,8 @@ class Slide(models.Model):
         def get_slide_type(vals):
             # TDE FIXME: WTF ??
             slide_type = 'presentation'
-            if vals.get('image'):
-                image = Image.open(io.BytesIO(base64.b64decode(vals['image'])))
+            if vals.get('image_1920'):
+                image = Image.open(io.BytesIO(base64.b64decode(vals['image_1920'])))
                 width, height = image.size
                 if height > width:
                     return 'document'
@@ -578,24 +769,19 @@ class Slide(models.Model):
 
         values = {
             'name': google_values['title'],
-            'image': self._fetch_data(google_values['thumbnailLink'].replace('=s220', ''), {}, 'image')['values'],
+            'image_1920': self._fetch_data(google_values['thumbnailLink'].replace('=s220', ''), {}, 'image')['values'],
             'mime_type': google_values['mimeType'],
             'document_id': document_id,
         }
         if google_values['mimeType'].startswith('video/'):
             values['slide_type'] = 'video'
         elif google_values['mimeType'].startswith('image/'):
-            values['datas'] = values['image']
+            values['datas'] = values['image_1920']
             values['slide_type'] = 'infographic'
         elif google_values['mimeType'].startswith('application/vnd.google-apps'):
             values['slide_type'] = get_slide_type(values)
             if 'exportLinks' in google_values:
-                values['datas'] = self._fetch_data(google_values['exportLinks']['application/pdf'], params, 'pdf', extra_params=True)['values']
-                # Content indexing
-                if google_values['exportLinks'].get('text/plain'):
-                    values['index_content'] = self._fetch_data(google_values['exportLinks']['text/plain'], params, extra_params=True)['values']
-                elif google_values['exportLinks'].get('text/csv'):
-                    values['index_content'] = self._fetch_data(google_values['exportLinks']['text/csv'], params, extra_params=True)['values']
+                values['datas'] = self._fetch_data(google_values['exportLinks']['application/pdf'], params, 'pdf')['values']
         elif google_values['mimeType'] == 'application/pdf':
             # TODO: Google Drive PDF document doesn't provide plain text transcript
             values['datas'] = self._fetch_data(google_values['webContentLink'], {}, 'pdf')['values']
@@ -607,5 +793,6 @@ class Slide(models.Model):
         res = super(Slide, self)._default_website_meta()
         res['default_opengraph']['og:title'] = res['default_twitter']['twitter:title'] = self.name
         res['default_opengraph']['og:description'] = res['default_twitter']['twitter:description'] = self.description
-        res['default_opengraph']['og:image'] = res['default_twitter']['twitter:image'] = "/web/image/slide.slide/%s/image_small" % (self.id)
+        res['default_opengraph']['og:image'] = res['default_twitter']['twitter:image'] = self.env['website'].image_url(self, 'image_1024')
+        res['default_meta_description'] = self.description
         return res

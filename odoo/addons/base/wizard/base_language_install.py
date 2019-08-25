@@ -25,11 +25,11 @@ class BaseLanguageInstall(models.TransientModel):
     lang = fields.Selection(_get_languages, string='Language', required=True,
                             default=_default_language)
     overwrite = fields.Boolean('Overwrite Existing Terms',
+                               default=True,
                                help="If you check this box, your customized translations will be overwritten and replaced by the official ones.")
     state = fields.Selection([('init', 'init'), ('done', 'done')],
                              string='Status', readonly=True, default='init')
 
-    @api.multi
     def lang_install(self):
         self.ensure_one()
         mods = self.env['ir.module.module'].search([('state', '=', 'installed')])
@@ -37,7 +37,6 @@ class BaseLanguageInstall(models.TransientModel):
         self.state = 'done'
         return {
             'name': _('Language Pack'),
-            'view_type': 'form',
             'view_mode': 'form',
             'view_id': False,
             'res_model': 'base.language.install',

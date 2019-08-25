@@ -17,15 +17,15 @@ class BaseLanguageImport(models.TransientModel):
     _description = "Language Import"
 
     name = fields.Char('Language Name', required=True)
-    code = fields.Char('ISO Code', size=5, required=True,
+    code = fields.Char('ISO Code', size=6, required=True,
                        help="ISO Language and Country code, e.g. en_US")
     data = fields.Binary('File', required=True, attachment=False)
     filename = fields.Char('File Name', required=True)
     overwrite = fields.Boolean('Overwrite Existing Terms',
+                               default=True,
                                help="If you enable this option, existing translations (including custom ones) "
                                     "will be overwritten and replaced by those in this file")
 
-    @api.multi
     def import_lang(self):
         this = self[0]
         this = this.with_context(overwrite=this.overwrite)

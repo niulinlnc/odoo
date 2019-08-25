@@ -38,8 +38,8 @@ QUnit.test('simple set im_status', function (assert) {
     parent.destroy();
 });
 
-QUnit.test('multi get_im_status', function (assert) {
-    assert.expect(9);
+QUnit.test('multi get_im_status', async function (assert) {
+    assert.expect(8);
     var readCount = 0;
     var parent = testUtils.createParent({
         //data: this.data,
@@ -48,11 +48,10 @@ QUnit.test('multi get_im_status', function (assert) {
             if (route === '/mail/init_messaging') {
                 return this._super.apply(this, arguments);
             }
-            if (args.method === 'read' && args.model === 'res.partner') {
-                assert.deepEqual(args.args[0], [2,3]);
-                assert.deepEqual(args.args[1], ['id', 'im_status']);
+            if (route === '/longpolling/im_status') {
+                assert.deepEqual(args.partner_ids, [2,3]);
                 readCount++;
-                return $.when([
+                return Promise.resolve([
                     {id: 2, im_status: 'away'},
                     {id: 3, im_status: 'im_partner'}
                 ]);
@@ -64,23 +63,28 @@ QUnit.test('multi get_im_status', function (assert) {
         id: 1,
         im_status: 'online',
     }]);
+    await testUtils.nextTick();
     assert.strictEqual(parent.call('mail_service', 'getImStatus', { partnerID: 1 }), 'online');
     assert.strictEqual(parent.call('mail_service', 'getImStatus', { partnerID: 2 }), undefined);
     assert.strictEqual(parent.call('mail_service', 'getImStatus', { partnerID: 3 }), undefined);
 
     this.timeoutMock.runPendingTimeouts();
+    await testUtils.nextTick();
+
     assert.strictEqual(parent.call('mail_service', 'getImStatus', { partnerID: 1 }), 'online');
     assert.strictEqual(parent.call('mail_service', 'getImStatus', { partnerID: 2 }), 'away');
     assert.strictEqual(parent.call('mail_service', 'getImStatus', { partnerID: 3 }), 'im_partner');
 
     this.timeoutMock.runPendingTimeouts();
+    await testUtils.nextTick();
+
     assert.strictEqual(readCount, 1, 'Only one read on partner should have been performed');
 
     parent.destroy();
 });
 
-QUnit.test('update loop', function (assert) {
-    assert.expect(12);
+QUnit.test('update loop', async function (assert) {
+    assert.expect(10);
     var readCount = 0;
     var parent = testUtils.createParent({
         services: this.services,
@@ -88,11 +92,10 @@ QUnit.test('update loop', function (assert) {
             if (route === '/mail/init_messaging') {
                 return this._super.apply(this, arguments);
             }
-            if (args.method === 'read' && args.model === 'res.partner') {
-                assert.deepEqual(args.args[0], [1, 2]);
-                assert.deepEqual(args.args[1], ['id', 'im_status']);
+            if (route === '/longpolling/im_status') {
+                assert.deepEqual(args.partner_ids, [1, 2]);
                 readCount++;
-                return $.when([
+                return Promise.resolve([
                     {"id": 1, "im_status": "online"},
                     {"id": 2, "im_status": "away"}
                 ]);
@@ -106,11 +109,14 @@ QUnit.test('update loop', function (assert) {
         { id: 2, im_status: 'offline' },
         { id: 3, im_status: 'im_partner' }, //shouldn't be updated !!!!
     ]);
+    await testUtils.nextTick();
     //_updateImStatusLoop should be running at one second per iteration, lets make a minute pass.
     assert.strictEqual(readCount, 0);
     this.timeoutMock.addTime(50*1000);
+    await testUtils.nextTick();
     assert.strictEqual(readCount, 0);
     this.timeoutMock.addTime(1000);
+    await testUtils.nextTick();
     assert.strictEqual(readCount, 1, 'one call should have been made after 50 seconds' );
     assert.strictEqual(parent.call('mail_service', 'getImStatus', { partnerID: 1 }), 'online');
     assert.strictEqual(parent.call('mail_service', 'getImStatus', { partnerID: 2 }), 'away');
@@ -118,21 +124,27 @@ QUnit.test('update loop', function (assert) {
     //simulate change of focus
     //original listener:  $(window).on("blur", this._onWindowFocusChange.bind(this, false); + unload, ...
     parent.call('mail_service', '_onWindowFocusChange', false); // remove focus from tab
+    await testUtils.nextTick();
 
     this.timeoutMock.addTime(5*60*1000); // x minutes without focus, no rpc should be done during this time
+    await testUtils.nextTick();
     assert.strictEqual(readCount, 1, 'No more call should have been performed');
     //simulate change of focus
     //original listener:  $(window).on("focus", this._onWindowFocusChange.bind(this, true);
     parent.call('mail_service', '_onWindowFocusChange', true); // give focus to tab
+    await testUtils.nextTick();
     var nextUpdateDelay = this.timeoutMock.getNextTimeoutDelay();
+    await testUtils.nextTick();
     assert.strictEqual(nextUpdateDelay, 1000, "next update should be done in maximum one second");
     this.timeoutMock.addTime(nextUpdateDelay); // one second should be enough
+    await testUtils.nextTick();
     assert.strictEqual(readCount, 2, 'One more call should have been done once tab focused');
     this.timeoutMock.runPendingTimeouts();
+    await testUtils.nextTick();
     parent.destroy();
 });
 
-QUnit.test('update status', function (assert) {
+QUnit.test('update status', async function (assert) {
     // the current solution to look for updatable im_status in dom is not perfect, but waiting for
     // ability to include widgets in views, this is the most simple solution
     assert.expect(2);
@@ -159,7 +171,7 @@ QUnit.test('update status', function (assert) {
             throw new Error(_.str.sprintf('No rpc call should be performed: %s, %s \n %s', args.model, args.method, route));
         },
     });
-    statusWidget.appendTo($('#qunit-fixture'));
+    await statusWidget.appendTo($('#qunit-fixture'));
     //Render unknow im_status:
     // set initial status
     assert.ok(statusWidget.$('.o_updatable_im_status i').hasClass('o_user_online'));
@@ -167,6 +179,7 @@ QUnit.test('update status', function (assert) {
     statusWidget.call('mail_service', 'updateImStatus', [
         { id: 1, im_status: 'offline' },
     ]);
+    await testUtils.nextTick();
     assert.notOk(statusWidget.$('.o_updatable_im_status i').hasClass('o_user_online'));
     this.timeoutMock.runPendingTimeouts();
     statusWidget.destroy();

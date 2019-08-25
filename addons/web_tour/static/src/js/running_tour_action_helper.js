@@ -87,14 +87,14 @@ var RunningTourActionHelper = core.Class.extend({
             $options.prop("selected", false).removeProp("selected");
             var $selectedOption = $options.filter(function () { return $(this).val() === text; });
             if ($selectedOption.length === 0) {
-                $selectedOption = $options.filter(function () { return $(this).text() === text; });
+                $selectedOption = $options.filter(function () { return $(this).text().trim() === text; });
             }
             $selectedOption.prop("selected", true);
             this._click(values);
         } else {
             values.$element.focusIn();
             values.$element.trigger($.Event( "keydown", {key: '_', keyCode: 95}));
-            values.$element.text(text);
+            values.$element.text(text).trigger("input");
             values.$element.focusInEnd();
             values.$element.trigger($.Event( "keyup", {key: '_', keyCode: 95}));
         }

@@ -3,8 +3,8 @@ odoo.define('web.Session', function (require) {
 
 var ajax = require('web.ajax');
 var concurrency = require('web.concurrency');
-var config = require('web.config');
 var core = require('web.core');
+var local_storage = require('web.local_storage');
 var mixins = require('web.mixins');
 var utils = require('web.utils');
 
@@ -34,7 +34,6 @@ var Session = core.Class.extend(mixins.EventDispatcherMixin, {
         this.avoid_recursion = false;
         this.use_cors = options.use_cors || false;
         this.setup(origin);
-        this.debug = config.debug;
 
         // for historic reasons, the session requires a name to properly work
         // (see the methods get_cookie and set_cookie).  We should perhaps
@@ -65,17 +64,12 @@ var Session = core.Class.extend(mixins.EventDispatcherMixin, {
      * Setup a session
      */
     session_bind: function (origin) {
-        var self = this;
         this.setup(origin);
         qweb.default_dict._s = this.origin;
         this.uid = null;
         this.username = null;
         this.user_context= {};
         this.db = null;
-        this.module_loaded = {};
-        _(this.module_list).each(function (mod) {
-            self.module_loaded[mod] = true;
-        });
         this.active_id = null;
         return this.session_init();
     },
@@ -84,27 +78,27 @@ var Session = core.Class.extend(mixins.EventDispatcherMixin, {
      */
     session_init: function () {
         var self = this;
-        var def = this.session_reload();
+        var prom = this.session_reload();
 
         if (this.is_frontend) {
-            return def.then(function () {
+            return prom.then(function () {
                 return self.load_translations();
             });
         }
 
-        return def.then(function () {
+        return prom.then(function () {
             var modules = self.module_list.join(',');
-            var deferred = self.load_qweb(modules);
+            var promise = self.load_qweb(modules);
             if (self.session_is_valid()) {
-                return deferred.then(function () { return self.load_modules(); });
+                return promise.then(function () { return self.load_modules(); });
             }
-            return $.when(
-                    deferred,
+            return Promise.all([
+                    promise,
                     self.rpc('/web/webclient/bootstrap_translations', {mods: self.module_list})
                         .then(function (trans) {
                             _t.database.set_bundle(trans);
                         })
-            );
+                    ]);
         });
     },
     session_is_valid: function () {
@@ -119,7 +113,7 @@ var Session = core.Class.extend(mixins.EventDispatcherMixin, {
      */
     session_authenticate: function () {
         var self = this;
-        return $.when(this._session_authenticate.apply(this, arguments)).then(function () {
+        return Promise.resolve(this._session_authenticate.apply(this, arguments)).then(function () {
             return self.load_modules();
         });
     },
@@ -131,7 +125,7 @@ var Session = core.Class.extend(mixins.EventDispatcherMixin, {
         var params = {db: db, login: login, password: password};
         return this.rpc("/web/session/authenticate", params).then(function (result) {
             if (!result.uid) {
-                return $.Deferred().reject();
+                return Promise.reject();
             }
             _.extend(self, result);
         });
@@ -142,7 +136,7 @@ var Session = core.Class.extend(mixins.EventDispatcherMixin, {
     },
     user_has_group: function (group) {
         if (!this.uid) {
-            return $.when(false);
+            return Promise.resolve(false);
         }
         var def = this._groups_def[group];
         if (!def) {
@@ -196,25 +190,24 @@ var Session = core.Class.extend(mixins.EventDispatcherMixin, {
         var to_load = _.difference(modules, self.module_list).join(',');
         this.module_list = all_modules;
 
-        var loaded = $.when(self.load_translations());
+        var loaded = Promise.resolve(self.load_translations());
         var locale = "/web/webclient/locale/" + self.user_context.lang || 'en_US';
         var file_list = [ locale ];
         if(to_load.length) {
-            loaded = $.when(
+            loaded = Promise.all([
                 loaded,
-                self.rpc('/web/webclient/csslist', {mods: to_load}).done(self.load_css.bind(self)),
+                self.rpc('/web/webclient/csslist', {mods: to_load})
+                    .then(self.load_css.bind(self)),
                 self.load_qweb(to_load),
-                self.rpc('/web/webclient/jslist', {mods: to_load}).done(function (files) {
-                    file_list = file_list.concat(files);
-                })
-            );
+                self.rpc('/web/webclient/jslist', {mods: to_load})
+                    .then(function (files) {
+                        file_list = file_list.concat(files);
+                    })
+            ]);
         }
         return loaded.then(function () {
             return self.load_js(file_list);
-        }).done(function () {
-            self.on_modules_loaded();
-            self.trigger('module_loaded');
-       });
+        });
     },
     load_translations: function () {
         return _t.database.load_translations(this, this.module_list, this.user_context.lang, this.translationURL);
@@ -227,43 +220,27 @@ var Session = core.Class.extend(mixins.EventDispatcherMixin, {
     },
     load_js: function (files) {
         var self = this;
-        var d = $.Deferred();
-        if (files.length !== 0) {
-            var file = files.shift();
-            var url = self.url(file, null);
-            ajax.loadJS(url).done(d.resolve);
-        } else {
-            d.resolve();
-        }
-        return d;
+        return new Promise(function (resolve, reject) {
+            if (files.length !== 0) {
+                var file = files.shift();
+                var url = self.url(file, null);
+                ajax.loadJS(url).then(resolve);
+            } else {
+                resolve();
+            }
+        });
     },
     load_qweb: function (mods) {
-        this.qweb_mutex.exec(function () {
-            return $.get('/web/webclient/qweb?mods=' + mods).then(function (doc) {
+        var self = this;
+        var lock = this.qweb_mutex.exec(function () {
+            var cacheId = self.cache_hashes && self.cache_hashes.qweb;
+            var route  = '/web/webclient/qweb/' + (cacheId ? cacheId : Date.now()) + '?mods=' + mods;
+            return $.get(route).then(function (doc) {
                 if (!doc) { return; }
                 qweb.add_template(doc);
             });
         });
-        return this.qweb_mutex.def;
-    },
-    on_modules_loaded: function () {
-        var openerp = window.openerp;
-        for(var j=0; j<this.module_list.length; j++) {
-            var mod = this.module_list[j];
-            if(this.module_loaded[mod])
-                continue;
-            openerp[mod] = {};
-            // init module mod
-            var fct = openerp._openerp[mod];
-            if(typeof(fct) === "function") {
-                openerp._openerp[mod] = {};
-                for (var k in fct) {
-                    openerp._openerp[mod][k] = fct[k];
-                }
-                fct(openerp, openerp._openerp[mod]);
-            }
-            this.module_loaded[mod] = true;
-        }
+        return lock;
     },
     get_currency: function (currency_id) {
         return this.currencies[currency_id];
@@ -276,12 +253,12 @@ var Session = core.Class.extend(mixins.EventDispatcherMixin, {
      * (re)loads the content of a session: db name, username, user id, session
      * context and status of the support contract
      *
-     * @returns {$.Deferred} deferred indicating the session is done reloading
+     * @returns {Promise} promise indicating the session is done reloading
      */
     session_reload: function () {
         var result = _.extend({}, window.odoo.session_info);
         _.extend(this, result);
-        return $.when();
+        return Promise.resolve();
     },
     /**
      * Executes an RPC call, registering the provided callbacks.
@@ -293,14 +270,17 @@ var Session = core.Class.extend(mixins.EventDispatcherMixin, {
      * @param {String} url RPC endpoint
      * @param {Object} params call parameters
      * @param {Object} options additional options for rpc call
-     * @returns {jQuery.Deferred} jquery-provided ajax deferred
+     * @returns {Promise}
      */
     rpc: function (url, params, options) {
         var self = this;
         options = _.clone(options || {});
         options.headers = _.extend({}, options.headers);
-        if (odoo.debug) {
-            options.headers["X-Debug-Mode"] = $.deparam($.param.querystring()).debug;
+
+        // we add here the user context for ALL queries, mainly to pass
+        // the allowed_company_ids key
+        if (params && params.kwargs) {
+            params.kwargs.context = _.extend(params.kwargs.context || {}, this.user_context);
         }
 
         // TODO: remove
@@ -335,10 +315,18 @@ var Session = core.Class.extend(mixins.EventDispatcherMixin, {
     getTZOffset: function (date) {
         return -new Date(date).getTimezoneOffset();
     },
-
     //--------------------------------------------------------------------------
     // Public
     //--------------------------------------------------------------------------
+    /**
+     * Replaces the value of a key in cache_hashes (the hash of some resource computed on the back-end by a unique value
+     * @param {string} key the key in the cache_hashes to invalidate
+     */
+    invalidateCacheKey: function(key) {
+        if (this.cache_hashes && this.cache_hashes[key]) {
+            this.cache_hashes[key] = Date.now();
+        }
+    },
 
     /**
      * Reload the currencies (initially given in session_info). This is meant to
@@ -355,6 +343,22 @@ var Session = core.Class.extend(mixins.EventDispatcherMixin, {
         return this.rpc('/web/session/get_session_info').then(function (result) {
             self.currencies = result.currencies;
         });
+    },
+
+    setCompanies: function (main_company_id, company_ids) {
+        var hash = $.bbq.getState()
+        hash.cids = company_ids.sort(function(a, b) {
+            if (a === main_company_id) {
+                return -1;
+            } else if (b === main_company_id) {
+                return 1;
+            } else {
+                return a - b;
+            }
+        }).join(',');
+        utils.set_cookie('cids', hash.cids || String(main_company_id));
+        $.bbq.pushState({'cids': hash.cids}, 0);
+        location.reload();
     },
 
     //--------------------------------------------------------------------------

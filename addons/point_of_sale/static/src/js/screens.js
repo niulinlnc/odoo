@@ -76,7 +76,10 @@ var ScreenWidget = PosBaseWidget.extend({
     barcode_client_action: function(code){
         var partner = this.pos.db.get_partner_by_barcode(code.code);
         if(partner){
-            this.pos.get_order().set_client(partner);
+            if (this.pos.get_order().get_client() !== partner) {
+                this.pos.get_order().set_client(partner);
+                this.pos.get_order().set_pricelist(_.findWhere(this.pos.pricelists, {'id': partner.property_product_pricelist[0]}) || this.pos.default_pricelist);
+            }
             return true;
         }
         this.barcode_error_action(code);
@@ -149,6 +152,61 @@ var ScreenWidget = PosBaseWidget.extend({
             if(this.$el){
                 this.$el.addClass('oe_hidden');
             }
+        }
+    },
+    /**
+     * Handles the error response from the server when we push
+     * an invoiceable order
+     * Displays appropriates warnings and errors and
+     * proposes subsequent actions
+     *
+     * @private
+     * @param {PosModel} order: the order to consider, defaults to current order
+     * @param {Boolean} refresh_screens: whether or not displayed screens should refresh
+     * @param {Object} error: the error provided by Ajax
+     */
+    _handleFailedPushForInvoice: function (order, refresh_screen, error) {
+        var self = this;
+        order = order || this.pos.get_order();
+        this.invoicing = false;
+        order.finalized = false;
+        if (error.message === 'Missing Customer') {
+            this.gui.show_popup('confirm',{
+                'title': _t('Please select the Customer'),
+                'body': _t('You need to select the customer before you can invoice an order.'),
+                confirm: function(){
+                    self.gui.show_screen('clientlist', null, refresh_screen);
+                },
+            });
+        } else if (error.message === 'Backend Invoice') {
+            this.gui.show_popup('confirm',{
+                'title': _t('Please print the invoice from the backend'),
+                'body': _t('The order has been synchronized earlier. Please make the invoice from the backend for the order: ') + error.data.order.name,
+                confirm: function () {
+                    this.gui.show_screen('receipt', null, refresh_screen);
+                },
+                cancel: function () {
+                    this.gui.show_screen('receipt', null, refresh_screen);
+                },
+            });
+        } else if (error.code < 0) {        // XmlHttpRequest Errors
+            this.gui.show_popup('error',{
+                'title': _t('The order could not be sent'),
+                'body': _t('Check your internet connection and try again.'),
+                cancel: function () {
+                    this.gui.show_screen('receipt', {button_print_invoice: true}, refresh_screen); // refresh if necessary
+                },
+            });
+        } else if (error.code === 200) {    // OpenERP Server Errors
+            this.gui.show_popup('error-traceback',{
+                'title': error.data.message || _t("Server Error"),
+                'body': error.data.debug || _t('The server encountered an error while receiving your order.'),
+            });
+        } else {                            // ???
+            this.gui.show_popup('error',{
+                'title': _t("Unknown Error"),
+                'body':  _t("The order could not be sent to the server due to an unknown error"),
+            });
         }
     },
 });
@@ -234,7 +292,6 @@ var ScaleScreenWidget = ScreenWidget.extend({
     show: function(){
         this._super();
         var self = this;
-        var queue = this.pos.proxy_queue;
 
         this.set_weight(0);
         this.renderElement();
@@ -259,7 +316,12 @@ var ScaleScreenWidget = ScreenWidget.extend({
             // add product *after* switching screen to scroll properly
             self.order_product();
         });
+        this._read_scale();
+    },
 
+    _read_scale: function() {
+        var self = this;
+        var queue = this.pos.proxy_queue;
         queue.schedule(function(){
             return self.pos.proxy.scale_read().then(function(weight){
                 self.set_weight(weight.weight);
@@ -673,7 +735,7 @@ var ProductCategoriesWidget = PosBaseWidget.extend({
     },
 
     get_image_url: function(category){
-        return window.location.origin + '/web/image?model=pos.category&field=image_medium&id='+category.id;
+        return window.location.origin + '/web/image?model=pos.category&field=image_128&id='+category.id;
     },
 
     render_category: function( category, with_image ){
@@ -752,7 +814,7 @@ var ProductCategoriesWidget = PosBaseWidget.extend({
 
         this.el.querySelector('.searchbox input').addEventListener('keydown',this.search_handler);
 
-        this.el.querySelector('.search-clear').addEventListener('click',this.clear_search_handler);
+        this.el.querySelector('.search-clear.right').addEventListener('click',this.clear_search_handler);
 
         if(this.pos.config.iface_vkeyboard && this.chrome.widget.keyboard){
             this.chrome.widget.keyboard.connect($(this.el.querySelector('.searchbox input')));
@@ -781,11 +843,11 @@ var ProductCategoriesWidget = PosBaseWidget.extend({
                     this.pos.get_order().add_product(products[0]);
                     this.clear_search();
             }else{
-                this.product_list_widget.set_product_list(products);
+                this.product_list_widget.set_product_list(products, query);
             }
         }else{
             products = this.pos.db.get_product_by_category(this.category.id);
-            this.product_list_widget.set_product_list(products);
+            this.product_list_widget.set_product_list(products, query);
         }
     },
 
@@ -808,6 +870,7 @@ var ProductListWidget = PosBaseWidget.extend({
         this.weight = options.weight || 0;
         this.show_scale = options.show_scale || false;
         this.next_screen = options.next_screen || false;
+        this.search_word = false;
 
         this.click_product_handler = function(){
             var product = self.pos.db.get_product_by_id(this.dataset.productId);
@@ -835,12 +898,13 @@ var ProductListWidget = PosBaseWidget.extend({
             this.renderElement();
         }, this);
     },
-    set_product_list: function(product_list){
+    set_product_list: function(product_list, search_word){
         this.product_list = product_list;
+        this.search_word = !!search_word ? search_word : false;
         this.renderElement();
     },
     get_product_image_url: function(product){
-        return window.location.origin + '/web/image?model=product.product&field=image_medium&id='+product.id;
+        return window.location.origin + '/web/image?model=product.product&field=image_128&id='+product.id;
     },
     replace: function($target){
         this.renderElement();
@@ -1095,6 +1159,7 @@ var ClientListScreenWidget = ScreenWidget.extend({
         this.$('.new-customer').click(function(){
             self.display_client_details('edit',{
                 'country_id': self.pos.company.country_id,
+                'state_id': self.pos.company.state_id,
             });
         });
 
@@ -1107,7 +1172,7 @@ var ClientListScreenWidget = ScreenWidget.extend({
             this.display_client_details('show',this.old_client,0);
         }
 
-        this.$('.client-list-contents').delegate('.client-line','click',function(event){
+        this.$('.client-list-contents').on('click', '.client-line', function(event){
             self.line_select(event,$(this),parseInt($(this).data('id')));
         });
 
@@ -1192,10 +1257,11 @@ var ClientListScreenWidget = ScreenWidget.extend({
         if( this.has_client_changed() ){
             var default_fiscal_position_id = _.findWhere(this.pos.fiscal_positions, {'id': this.pos.config.default_fiscal_position_id[0]});
             if ( this.new_client ) {
+                var client_fiscal_position_id;
                 if (this.new_client.property_account_position_id ){
-                  var client_fiscal_position_id = _.findWhere(this.pos.fiscal_positions, {'id': this.new_client.property_account_position_id[0]});
-                  order.fiscal_position = client_fiscal_position_id || default_fiscal_position_id;
+                    client_fiscal_position_id = _.findWhere(this.pos.fiscal_positions, {'id': this.new_client.property_account_position_id[0]});
                 }
+                order.fiscal_position = client_fiscal_position_id || default_fiscal_position_id;
                 order.set_pricelist(_.findWhere(this.pos.pricelists, {'id': this.new_client.property_product_pricelist[0]}) || this.pos.default_pricelist);
             } else {
                 order.fiscal_position = default_fiscal_position_id;
@@ -1247,7 +1313,7 @@ var ClientListScreenWidget = ScreenWidget.extend({
         }
     },
     partner_icon_url: function(id){
-        return '/web/image?model=res.partner&id='+id+'&field=image_small';
+        return '/web/image?model=res.partner&id='+id+'&field=image_64';
     },
 
     // ui handle for the 'edit selected customer' action
@@ -1317,11 +1383,16 @@ var ClientListScreenWidget = ScreenWidget.extend({
                 contents.on('click','.button.save',function(){ self.save_client_details(partner); });
             });
     },
-    
+
     // what happens when we've just pushed modifications for a partner of id partner_id
-    saved_client_details: function(partner_id){
+    saved_client_details: function (partner_id) {
         var self = this;
-        this.reload_partners().then(function(){
+        var always = function () {
+            $(".client-details-contents").on('click', '.button.save', function () {
+                self.save_client_details(partner);
+            });
+        };
+        return this.reload_partners().then( function() {
             var partner = self.pos.db.get_partner_by_id(partner_id);
             if (partner) {
                 self.new_client = partner;
@@ -1329,12 +1400,10 @@ var ClientListScreenWidget = ScreenWidget.extend({
                 self.display_client_details('show',partner);
             } else {
                 // should never happen, because create_from_ui must return the id of the partner it
-                // has created, and reload_partner() must have loaded the newly created partner. 
+                // has created, and reload_partner() must have loaded the newly created partner.
                 self.display_client_details('hide');
             }
-        }).always(function(){
-            $(".client-details-contents").on('click','.button.save',function(){ self.save_client_details(partner); });
-        });
+        }).then(always, always);
     },
 
     // resizes an image, keeping the aspect ratio intact,
@@ -1375,21 +1444,16 @@ var ClientListScreenWidget = ScreenWidget.extend({
             });
             return;
         }
-        
-        var reader = new FileReader();
-        reader.onload = function(event){
-            var dataurl = event.target.result;
+        utils.getDataURLFromFile(file).then(function (dataurl) {
             var img     = new Image();
             img.src = dataurl;
             self.resize_image_to_dataurl(img,800,600,callback);
-        };
-        reader.onerror = function(){
+        }).guardedCatch(function () {
             self.gui.show_popup('error',{
                 title :_t('Could Not Read Image'),
                 body  :_t('The provided file could not be read due to an unknown error'),
             });
-        };
-        reader.readAsDataURL(file);
+        });
     },
 
     // This fetches partner changes on the server, and in case of changes, 
@@ -1482,6 +1546,24 @@ var ClientListScreenWidget = ScreenWidget.extend({
                 }, 0);
             });
 
+            contents.find('.client-address-country').on('change', function (ev) {
+                var $stateSelection = contents.find('.client-address-states');
+                var value = this.value;
+                $stateSelection.empty()
+                $stateSelection.append($("<option/>", {
+                    value: '',
+                    text: 'None',
+                }));
+                self.pos.states.forEach(function (state) {
+                    if (state.country_id[0] == value) {
+                        $stateSelection.append($("<option/>", {
+                            value: state.id,
+                            text: state.name
+                        }));
+                    }
+                });
+            });
+
             contents.find('.image-uploader').on('change',function(event){
                 self.load_image_file(event.target.files[0],function(res){
                     if (res) {
@@ -1550,7 +1632,9 @@ var ReceiptScreenWidget = ScreenWidget.extend({
         return this.pos.config.iface_print_auto && !this.pos.get_order()._printed;
     },
     should_close_immediately: function() {
-        return this.pos.config.iface_print_via_proxy && this.pos.config.iface_print_skip_screen;
+        var order = this.pos.get_order();
+        var invoiced_finalized = order.is_to_invoice() ? order.finalized : true;
+        return this.pos.proxy.printer && this.pos.config.iface_print_skip_screen && invoiced_finalized;
     },
     lock_screen: function(locked) {
         this._locked = locked;
@@ -1590,16 +1674,16 @@ var ReceiptScreenWidget = ScreenWidget.extend({
         }
         this.pos.get_order()._printed = true;
     },
-    print_xml: function() {
-        var receipt = QWeb.render('XmlReceipt', this.get_receipt_render_env());
+    print_html: function () {
+        var receipt = QWeb.render('OrderReceipt', this.get_receipt_render_env());
 
-        this.pos.proxy.print_receipt(receipt);
+        this.pos.proxy.printer.print_receipt(receipt);
         this.pos.get_order()._printed = true;
     },
     print: function() {
         var self = this;
 
-        if (!this.pos.config.iface_print_via_proxy) { // browser (html) printing
+        if (!this.pos.proxy.printer) { // browser (html) printing
 
             // The problem is that in chrome the print() is asynchronous and doesn't
             // execute until all rpc are finished. So it conflicts with the rpc used
@@ -1624,8 +1708,8 @@ var ReceiptScreenWidget = ScreenWidget.extend({
             }, 1000);
 
             this.print_web();
-        } else {    // proxy (xml) printing
-            this.print_xml();
+        } else {    // proxy (html) printing
+            this.print_html();
             this.lock_screen(false);
         }
     },
@@ -1654,12 +1738,35 @@ var ReceiptScreenWidget = ScreenWidget.extend({
                 self.print();
             }
         });
+        var button_print_invoice = this.$('.button.print_invoice');
+        button_print_invoice.click(function () {
+            var order = self.pos.get_order();
+            var invoiced = self.pos.push_and_invoice_order(order);
+            self.invoicing = true;
+
+            invoiced.fail(self._handleFailedPushForInvoice.bind(self, order, true)); // refresh
+
+            invoiced.then(function(){
+                self.invoicing = false;
+                self.gui.show_screen('receipt', {button_print_invoice: false}, true); // refresh
+            });
+        });
+
     },
     render_change: function() {
+        var self = this;
         this.$('.change-value').html(this.format_currency(this.pos.get_order().get_change()));
+        var order = this.pos.get_order();
+        var order_screen_params = order.get_screen_data('params');
+        var button_print_invoice = this.$('.button.print_invoice');
+        if (order_screen_params && order_screen_params.button_print_invoice) {
+            button_print_invoice.show();
+        } else {
+            button_print_invoice.hide();
+        }
     },
     render_receipt: function() {
-        this.$('.pos-receipt-container').html(QWeb.render('PosTicket', this.get_receipt_render_env()));
+        this.$('.pos-receipt-container').html(QWeb.render('OrderReceipt', this.get_receipt_render_env()));
     },
 });
 gui.define_screen({name:'receipt', widget: ReceiptScreenWidget});
@@ -1799,7 +1906,7 @@ var PaymentScreenWidget = ScreenWidget.extend({
 	}
 
 	if (! open_paymentline) {
-            this.pos.get_order().add_paymentline( this.pos.cashregisters[0]);
+            this.pos.get_order().add_paymentline( this.pos.payment_methods[0]);
             this.render_paymentlines();
         }
 
@@ -1843,12 +1950,7 @@ var PaymentScreenWidget = ScreenWidget.extend({
         }
 
         var lines = order.get_paymentlines();
-        var due   = order.get_due();
-        var extradue = 0;
-        if (due && lines.length  && due !== order.get_due(lines[lines.length-1])) {
-            extradue = due;
-        }
-
+        var extradue = this.compute_extradue(order);
 
         this.$('.paymentlines-container').empty();
         var lines = $(QWeb.render('PaymentScreen-Paymentlines', { 
@@ -1868,15 +1970,17 @@ var PaymentScreenWidget = ScreenWidget.extend({
             
         lines.appendTo(this.$('.paymentlines-container'));
     },
-    click_paymentmethods: function(id) {
-        var cashregister = null;
-        for ( var i = 0; i < this.pos.cashregisters.length; i++ ) {
-            if ( this.pos.cashregisters[i].journal_id[0] === id ){
-                cashregister = this.pos.cashregisters[i];
-                break;
-            }
+    compute_extradue: function (order) {
+        var lines = order.get_paymentlines();
+        var due   = order.get_due();
+        if (due && lines.length  && due !== order.get_due(lines[lines.length-1])) {
+            return due;
         }
-        this.pos.get_order().add_paymentline( cashregister );
+        return 0;
+    },
+    click_paymentmethods: function(id) {
+        var payment_method = this.pos.payment_methods_by_id[id]
+        this.pos.get_order().add_paymentline(payment_method);
         this.reset_input();
         this.render_paymentlines();
     },
@@ -1960,7 +2064,7 @@ var PaymentScreenWidget = ScreenWidget.extend({
         });
 
         this.$('.js_cashdrawer').click(function(){
-            self.pos.proxy.open_cashbox();
+            self.pos.proxy.printer.open_cashbox();
         });
 
     },
@@ -2030,8 +2134,8 @@ var PaymentScreenWidget = ScreenWidget.extend({
         // The exact amount must be paid if there is no cash payment method defined.
         if (Math.abs(order.get_total_with_tax() - order.get_total_paid()) > 0.00001) {
             var cash = false;
-            for (var i = 0; i < this.pos.cashregisters.length; i++) {
-                cash = cash || (this.pos.cashregisters[i].journal.type === 'cash');
+            for (var i = 0; i < this.pos.payment_methods.length; i++) {
+                cash = cash || (this.pos.payment_methods[i].is_cash_count);
             }
             if (!cash) {
                 this.gui.show_popup('error',{
@@ -2071,7 +2175,7 @@ var PaymentScreenWidget = ScreenWidget.extend({
 
         if (order.is_paid_with_cash() && this.pos.config.iface_cashdrawer) { 
 
-                this.pos.proxy.open_cashbox();
+                this.pos.proxy.printer.open_cashbox();
         }
 
         order.initialize_validation_date();
@@ -2081,47 +2185,9 @@ var PaymentScreenWidget = ScreenWidget.extend({
             var invoiced = this.pos.push_and_invoice_order(order);
             this.invoicing = true;
 
-            invoiced.fail(function(error){
-                self.invoicing = false;
-                order.finalized = false;
-                if (error.message === 'Missing Customer') {
-                    self.gui.show_popup('confirm',{
-                        'title': _t('Please select the Customer'),
-                        'body': _t('You need to select the customer before you can invoice an order.'),
-                        confirm: function(){
-                            self.gui.show_screen('clientlist');
-                        },
-                    });
-                } else if (error.message === 'Backend Invoice') {
-                    self.gui.show_popup('confirm',{
-                        'title': _t('Please print the invoice from the backend'),
-                        'body': _t('The order has been synchronized earlier. Please make the invoice from the backend for the order: ') + error.data.order.name,
-                        confirm: function () {
-                            this.gui.show_screen('receipt');
-                        },
-                        cancel: function () {
-                            this.gui.show_screen('receipt');
-                        },
-                    });
-                } else if (error.code < 0) {        // XmlHttpRequest Errors
-                    self.gui.show_popup('error',{
-                        'title': _t('The order could not be sent'),
-                        'body': _t('Check your internet connection and try again.'),
-                    });
-                } else if (error.code === 200) {    // OpenERP Server Errors
-                    self.gui.show_popup('error-traceback',{
-                        'title': error.data.message || _t("Server Error"),
-                        'body': error.data.debug || _t('The server encountered an error while receiving your order.'),
-                    });
-                } else {                            // ???
-                    self.gui.show_popup('error',{
-                        'title': _t("Unknown Error"),
-                        'body':  _t("The order could not be sent to the server due to an unknown error"),
-                    });
-                }
-            });
+            invoiced.catch(this._handleFailedPushForInvoice.bind(this, order, false));
 
-            invoiced.done(function(){
+            invoiced.then(function () {
                 self.invoicing = false;
                 self.gui.show_screen('receipt');
             });
@@ -2170,7 +2236,7 @@ var set_fiscal_position_button = ActionButtonWidget.extend({
 
         var selection_list = no_fiscal_position.concat(fiscal_positions);
         self.gui.show_popup('selection',{
-            title: _t('Select tax'),
+            title: _t('Select Fiscal Position'),
             list: selection_list,
             confirm: function (fiscal_position) {
                 var order = self.pos.get_order();

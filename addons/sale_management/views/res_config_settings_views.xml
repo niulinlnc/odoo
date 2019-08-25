@@ -6,7 +6,7 @@
         <field name="model">res.config.settings</field>
         <field name="inherit_id" ref="sale.res_config_settings_view_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//div[@id='sale_config_online_confirmation_pay']" position="after">
+            <xpath expr="//div[@id='confirmation_email_setting']" position="after">
                 <div class="col-12 col-lg-6 o_setting_box">
                     <div class="o_setting_left_pane">
                         <field name="group_sale_order_template"/>
@@ -22,7 +22,7 @@
                                 <label for="default_sale_order_template_id" class="o_light_label"/>
                                 <field name="default_sale_order_template_id" class="oe_inline"/>
                             </div>
-                            <div>
+                            <div class="mt8">
                                 <button name="%(sale_management.sale_order_template_action)d" icon="fa-arrow-right" type="action" string="Quotation Templates" class="btn-link"/>
                             </div>
                         </div>

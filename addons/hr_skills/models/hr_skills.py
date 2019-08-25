@@ -16,6 +16,8 @@ class Skill(models.Model):
 class EmployeeSkill(models.Model):
     _name = 'hr.employee.skill'
     _description = "Skill level for an employee"
+    _rec_name = 'skill_id'
+    _order = "skill_level_id"
 
     employee_id = fields.Many2one('hr.employee', required=True, ondelete='cascade')
     skill_id = fields.Many2one('hr.skill', required=True)
@@ -24,7 +26,7 @@ class EmployeeSkill(models.Model):
     level_progress = fields.Integer(related='skill_level_id.level_progress')
 
     _sql_constraints = [
-        ('_unique_skill', 'unique (employee_id, skill_id)', _("Two levels for the same skill is not allowed")),
+        ('_unique_skill', 'unique (employee_id, skill_id)', "Two levels for the same skill is not allowed"),
     ]
 
     @api.constrains('skill_id', 'skill_type_id')
@@ -43,11 +45,11 @@ class EmployeeSkill(models.Model):
 class SkillLevel(models.Model):
     _name = 'hr.skill.level'
     _description = "Skill Level"
+    _order = "level_progress desc"
 
     skill_type_id = fields.Many2one('hr.skill.type')
     name = fields.Char(required=True)
     level_progress = fields.Integer(string="Progress", help="Progress from zero knowledge (0%) to fully mastered (100%).")
-    sequence = fields.Integer(default=100)
 
 
 class SkillType(models.Model):

@@ -12,6 +12,12 @@ class PayUlatamCommon(PaymentAcquirerCommon):
     def setUp(self):
         super(PayUlatamCommon, self).setUp()
         self.payulatam = self.env.ref('payment.payment_acquirer_payulatam')
+        self.payulatam.write({
+            'payulatam_account_id': 'dummy',
+            'payulatam_merchant_id': 'dummy',
+            'payulatam_api_key': 'dummy',
+            'state': 'test',
+        })
 
 
 @tagged('post_install', '-at_install', 'external', '-standard')
@@ -19,7 +25,7 @@ class PayUlatamForm(PayUlatamCommon):
 
     def test_10_payulatam_form_render(self):
         base_url = self.env['ir.config_parameter'].get_param('web.base.url')
-        self.assertEqual(self.payulatam.environment, 'test', 'test without test environment')
+        self.assertEqual(self.payulatam.state, 'test', 'test without test environment')
         self.payulatam.write({
             'payulatam_merchant_id': 'dummy',
             'payulatam_account_id': 'dummy',
@@ -71,7 +77,7 @@ class PayUlatamForm(PayUlatamCommon):
             )
 
     def test_20_payulatam_form_management(self):
-        self.assertEqual(self.payulatam.environment, 'test', 'test without test environment')
+        self.assertEqual(self.payulatam.state, 'test', 'test without test environment')
 
         # typical data posted by payulatam after client has successfully paid
         payulatam_post_data = {
@@ -121,10 +127,9 @@ class PayUlatamForm(PayUlatamCommon):
             'amount': 0.01,
             'acquirer_id': self.payulatam.id,
             'currency_id': self.currency_euro.id,
-            'reference': 'test_ref_2',
+            'reference': 'test_ref_10',
             'partner_name': 'Norbert Buyer',
             'partner_country_id': self.country_france.id,
-            'acquirer_reference': 'test_ref_10',
             'partner_id': self.buyer_id})
 
         # validate transaction
@@ -132,7 +137,7 @@ class PayUlatamForm(PayUlatamCommon):
         # check
         self.assertEqual(tx.state, 'pending', 'Payulatam: wrong state after receiving a valid pending notification')
         self.assertEqual(tx.state_message, 'PENDING', 'Payulatam: wrong state message after receiving a valid pending notification')
-        self.assertEqual(tx.acquirer_reference, 'b232989a-4aa8-42d1-bace-153236eee791', 'PayUlatam: wrong txn_id after receiving a valid pending notification')
+        self.assertEqual(tx.acquirer_reference, 'b232989a-4aa8-42d1-bace-153236eee791', 'PayU Latam: wrong txn_id after receiving a valid pending notification')
 
         # update transaction
         tx.write({

@@ -75,7 +75,7 @@ KanbanRenderer.include({
     /**
      * Displays the quick create record in the active column
      *
-     * @returns {Deferred}
+     * @returns {Promise}
      */
     addQuickCreate: function () {
         return this.widgets[this.activeColumnIndex].addQuickCreate();
@@ -91,10 +91,15 @@ KanbanRenderer.include({
         var index = _.findIndex(this.widgets, {db_id: localID});
         var $column = this.widgets[index].$el;
         var left = $column.css('left');
+        var right = $column.css('right');
         var scrollTop = $column.scrollTop();
         return this._super.apply(this, arguments).then(function () {
             $column = self.widgets[index].$el;
-            $column.css({left: left});
+            if (_t.database.parameters.direction === 'rtl') {
+                $column.css({right: right});
+            } else {
+                $column.css({left: left});
+            }
             $column.scrollTop(scrollTop); // required when clicking on 'Load More'
             self._enableSwipe();
         });
@@ -115,19 +120,40 @@ KanbanRenderer.include({
             var self = this;
             var moveToIndex = this.activeColumnIndex;
             var updateFunc = animate ? 'animate' : 'css';
+            var rtl = _t.database.parameters.direction === 'rtl';
             _.each(this.widgets, function (column, index) {
                 var columnID = column.id || column.db_id;
                 var $column = self.$('.o_kanban_group[data-id="' + columnID + '"]');
                 if (index === moveToIndex - 1) {
-                    $column[updateFunc]({left: '-100%'});
+                    if (rtl) {
+                        $column[updateFunc]({right: '-100%'});
+                    } else {
+                        $column[updateFunc]({left: '-100%'});
+                    }
                 } else if (index === moveToIndex + 1) {
-                    $column[updateFunc]({left: '100%'});
+                    if (rtl) {
+                        $column[updateFunc]({right: '100%'});
+                    } else {
+                        $column[updateFunc]({left: '100%'});
+                    }
                 } else if (index === moveToIndex) {
-                    $column[updateFunc]({left: '0%'});
+                    if (rtl) {
+                        $column[updateFunc]({right: '0%'});
+                    } else {
+                        $column[updateFunc]({left: '0%'});
+                    }
                 } else if (index < moveToIndex) {
-                    $column.css({left: '-100%'});
+                    if (rtl) {
+                        $column.css({right: '-100%'});
+                    } else {
+                        $column.css({left: '-100%'});
+                    }
                 } else if (index > moveToIndex) {
-                    $column.css({left: '100%'});
+                    if (rtl) {
+                        $column.css({right: '100%'});
+                    } else {
+                        $column.css({left: '100%'});
+                    }
                 }
             });
         }
@@ -184,6 +210,7 @@ KanbanRenderer.include({
                 }
             }
             // Apply the scroll x on the tabs
+            // XXX in case of RTL, should we use scrollRight?
             this.$('.o_kanban_mobile_tabs').scrollLeft(scrollToLeft);
         }
     },
@@ -213,16 +240,17 @@ KanbanRenderer.include({
      */
     _enableSwipe: function () {
         var self = this;
+        var step = _t.database.parameters.direction === 'rtl' ? -1 : 1;
         this.$el.swipe({
             excludedElements: ".o_kanban_mobile_tabs",
             swipeLeft: function () {
-                var moveToIndex = self.activeColumnIndex + 1;
+                var moveToIndex = self.activeColumnIndex + step;
                 if (moveToIndex < self.widgets.length) {
                     self._moveToGroup(moveToIndex, self.ANIMATE);
                 }
             },
             swipeRight: function () {
-                var moveToIndex = self.activeColumnIndex - 1;
+                var moveToIndex = self.activeColumnIndex - step;
                 if (moveToIndex > -1) {
                     self._moveToGroup(moveToIndex, self.ANIMATE);
                 }
@@ -260,26 +288,26 @@ KanbanRenderer.include({
      * @private
      * @param {integer} moveToIndex index of the column to move to
      * @param {boolean} [animate=false] set to true to animate
-     * @returns {Deferred} resolved when the new current group has been loaded
+     * @returns {Promise} resolved when the new current group has been loaded
      *   and displayed
      */
     _moveToGroup: function (moveToIndex, animate) {
         var self = this;
         if (moveToIndex < 0 || moveToIndex >= this.widgets.length) {
             this._layoutUpdate(animate);
-            return $.when();
+            return Promise.resolve();
         }
-        var def = $.Deferred();
         this.activeColumnIndex = moveToIndex;
         var column = this.widgets[this.activeColumnIndex];
-        this.trigger_up('kanban_load_records', {
-            columnID: column.db_id,
-            onSuccess: function () {
-                self._layoutUpdate(animate);
-                def.resolve();
-            },
+        return new Promise(function (resolve) {
+            self.trigger_up('kanban_load_records', {
+                columnID: column.db_id,
+                onSuccess: function () {
+                    self._layoutUpdate(animate);
+                    resolve();
+                },
+            });
         });
-        return def;
     },
 
     /**
@@ -287,22 +315,23 @@ KanbanRenderer.include({
      * @private
      */
     _renderGrouped: function (fragment) {
-        var result = this._super.apply(this, arguments);
-        var data = [];
-        _.each(this.state.data, function (group) {
-            if (!group.value) {
-                group = _.extend({}, group, {value: _t('Undefined')});
-                data.unshift(group);
-            }
-            else {
-                data.push(group);
-            }
-        });
+        var self = this;
+        this._super.apply(this, arguments);
+        this.defs.push(Promise.all(this.defs).then(function () {
+            var data = [];
+            _.each(self.state.data, function (group) {
+                if (!group.value) {
+                    group = _.extend({}, group, {value: _t('Undefined')});
+                    data.unshift(group);
+                } else {
+                    data.push(group);
+                }
+            });
 
-        $(qweb.render('KanbanView.MobileTabs', {
-            data: data,
-        })).prependTo(fragment);
-        return result;
+            $(qweb.render('KanbanView.MobileTabs', {
+                data: data,
+            })).prependTo(fragment);
+        }));
     },
 
     /**

@@ -14,6 +14,9 @@
         'views/report_sale_order.xml',
         'views/sale_views.xml'
     ],
+    'demo': [
+        'data/product_demo.xml',
+    ],
     'installable': True,
     'application': False,
     'auto_install': True,

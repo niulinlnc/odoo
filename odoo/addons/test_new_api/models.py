@@ -24,13 +24,17 @@ class Category(models.Model):
     discussions = fields.Many2many('test_new_api.discussion', 'test_new_api_discussion_category',
                                    'category', 'discussion')
 
-    @api.one
+    _sql_constraints = [
+        ('positive_color', 'CHECK(color >= 0)', 'The color code must be positive !')
+    ]
+
     @api.depends('name', 'parent.display_name')     # this definition is recursive
     def _compute_display_name(self):
-        if self.parent:
-            self.display_name = self.parent.display_name + ' / ' + self.name
-        else:
-            self.display_name = self.name
+        for cat in self:
+            if cat.parent:
+                cat.display_name = cat.parent.display_name + ' / ' + cat.name
+            else:
+                cat.display_name = cat.name
 
     @api.depends('parent')
     def _compute_root_categ(self):
@@ -40,27 +44,29 @@ class Category(models.Model):
                 current = current.parent
             cat.root_categ = current
 
-    @api.one
     def _inverse_display_name(self):
-        names = self.display_name.split('/')
-        # determine sequence of categories
-        categories = []
-        for name in names[:-1]:
-            category = self.search([('name', 'ilike', name.strip())])
-            categories.append(category[0])
-        categories.append(self)
-        # assign parents following sequence
-        for parent, child in zip(categories, categories[1:]):
-            if parent and child:
-                child.parent = parent
-        # assign name of last category, and reassign display_name (to normalize it)
-        self.name = names[-1].strip()
+        for cat in self:
+            names = cat.display_name.split('/')
+            # determine sequence of categories
+            categories = []
+            for name in names[:-1]:
+                category = self.search([('name', 'ilike', name.strip())])
+                categories.append(category[0])
+            categories.append(cat)
+            # assign parents following sequence
+            for parent, child in zip(categories, categories[1:]):
+                if parent and child:
+                    child.parent = parent
+            # assign name of last category, and reassign display_name (to normalize it)
+            cat.name = names[-1].strip()
 
-    @api.multi
-    def read(self, fields=None, load='_classic_read'):
+    def _read(self, fields):
+        # DLE P45: `test_31_prefetch`,
+        # with self.assertRaises(AccessError):
+        #     cat1.name
         if self.search_count([('id', 'in', self._ids), ('name', '=', 'NOACCESS')]):
             raise AccessError('Sorry')
-        return super(Category, self).read(fields=fields, load=load)
+        return super(Category, self)._read(fields)
 
 
 class Discussion(models.Model):
@@ -128,32 +134,37 @@ class Message(models.Model):
         search='_search_author_partner')
     important = fields.Boolean()
     label = fields.Char(translate=True)
+    priority = fields.Integer()
 
-    @api.one
     @api.constrains('author', 'discussion')
     def _check_author(self):
-        if self.discussion and self.author not in self.discussion.participants:
-            raise ValidationError(_("Author must be among the discussion participants."))
+        for message in self:
+            if message.discussion and message.author not in message.discussion.participants:
+                raise ValidationError(_("Author must be among the discussion participants."))
 
-    @api.one
     @api.depends('author.name', 'discussion.name')
     def _compute_name(self):
-        # one may force the value through the context
-        self.name = (
-            self._context.get('compute_name') or
-            "[%s] %s" % (self.discussion.name or '', self.author.name or '')
-        )
+        for message in self:
+            message.name = self._context.get('compute_name',
+                "[%s] %s" % (message.discussion.name or '', message.author.name or ''))
 
-    @api.one
+    @api.constrains('name')
+    def _check_name(self):
+        # dummy constraint to check on computed field
+        for message in self:
+            if message.name.startswith("[X]"):
+                raise ValidationError("No way!")
+
     @api.depends('author.name', 'discussion.name', 'body')
     def _compute_display_name(self):
-        stuff = "[%s] %s: %s" % (self.author.name, self.discussion.name or '', self.body or '')
-        self.display_name = stuff[:80]
+        for message in self:
+            stuff = "[%s] %s: %s" % (message.author.name, message.discussion.name or '', message.body or '')
+            message.display_name = stuff[:80]
 
-    @api.one
     @api.depends('body')
     def _compute_size(self):
-        self.size = len(self.body or '')
+        for message in self:
+            message.size = len(message.body or '')
 
     def _search_size(self, operator, value):
         if operator not in ('=', '!=', '<', '<=', '>', '>=', 'in', 'not in'):
@@ -165,26 +176,32 @@ class Message(models.Model):
         ids = [t[0] for t in self.env.cr.fetchall()]
         return [('id', 'in', ids)]
 
-    @api.one
     @api.depends('size')
     def _compute_double_size(self):
-        # This illustrates a subtle situation: self.double_size depends on
-        # self.size. When size is computed, self.size is assigned, which should
-        # normally invalidate self.double_size. However, this may not happen
-        # while self.double_size is being computed: the last statement below
-        # would fail, because self.double_size would be undefined.
-        self.double_size = 0
-        size = self.size
-        self.double_size = self.double_size + size
+        for message in self:
+            # This illustrates a subtle situation: message.double_size depends
+            # on message.size. When the latter is computed, message.size is
+            # assigned, which would normally invalidate message.double_size.
+            # However, this may not happen while message.double_size is being
+            # computed: the last statement below would fail, because
+            # message.double_size would be undefined.
+            message.double_size = 0
+            size = message.size
+            message.double_size = message.double_size + size
 
-    @api.one
     @api.depends('author', 'author.partner_id')
     def _compute_author_partner(self):
-        self.author_partner = self.author.partner_id
+        for message in self:
+            message.author_partner = message.author.partner_id
 
     @api.model
     def _search_author_partner(self, operator, value):
         return [('author.partner_id', operator, value)]
+
+    def write(self, vals):
+        if 'priority' in vals:
+            vals['priority'] = 5
+        return super().write(vals)
 
 
 class EmailMessage(models.Model):
@@ -207,6 +224,7 @@ class Multi(models.Model):
     name = fields.Char(related='partner.name', readonly=True)
     partner = fields.Many2one('res.partner')
     lines = fields.One2many('test_new_api.multi.line', 'multi')
+    partners = fields.One2many(related='partner.child_ids')
 
     @api.onchange('name')
     def _onchange_name(self):
@@ -276,6 +294,7 @@ class MixedModel(models.Model):
     _description = 'Test New API Mixed'
 
     number = fields.Float(digits=(10, 2), default=3.14)
+    number2 = fields.Float(digits='New API Precision')
     date = fields.Date()
     now = fields.Datetime(compute='_compute_now')
     lang = fields.Selection(string='Language', selection='_get_lang')
@@ -289,10 +308,10 @@ class MixedModel(models.Model):
     currency_id = fields.Many2one('res.currency', default=lambda self: self.env.ref('base.EUR'))
     amount = fields.Monetary()
 
-    @api.one
     def _compute_now(self):
         # this is a non-stored computed field without dependencies
-        self.now = fields.Datetime.now()
+        for message in self:
+            message.now = fields.Datetime.now()
 
     @api.model
     def _get_lang(self):
@@ -329,7 +348,7 @@ class Bar(models.Model):
     _description = 'Test New API Bar'
 
     name = fields.Char()
-    foo = fields.Many2one('test_new_api.foo', compute='_compute_foo')
+    foo = fields.Many2one('test_new_api.foo', compute='_compute_foo', search='_search_foo')
     value1 = fields.Integer(related='foo.value1', readonly=False)
     value2 = fields.Integer(related='foo.value2', readonly=False)
 
@@ -337,6 +356,11 @@ class Bar(models.Model):
     def _compute_foo(self):
         for bar in self:
             bar.foo = self.env['test_new_api.foo'].search([('name', '=', bar.name)], limit=1)
+
+    def _search_foo(self, operator, value):
+        assert operator == 'in'
+        records = self.env['test_new_api.foo'].browse(value)
+        return [('name', 'in', records.mapped('name'))]
 
 
 class Related(models.Model):
@@ -471,6 +495,18 @@ class ComputeCascade(models.Model):
             record.baz = "<%s>" % (record.bar or "")
 
 
+class ModelImage(models.Model):
+    _name = 'test_new_api.model_image'
+    _description = 'Test Image field'
+
+    name = fields.Char(required=True)
+
+    image = fields.Image()
+    image_512 = fields.Image("Image 512", related='image', max_width=512, max_height=512, store=True, readonly=False)
+    image_256 = fields.Image("Image 256", related='image', max_width=256, max_height=256, store=False, readonly=False)
+    image_128 = fields.Image("Image 128", max_width=128, max_height=128)
+
+
 class BinarySvg(models.Model):
     _name = 'test_new_api.binary_svg'
     _description = 'Test SVG upload'
@@ -522,6 +558,13 @@ class FieldWithCaps(models.Model):
     pArTneR_321_id = fields.Many2one('res.partner')
 
 
+class Selection(models.Model):
+    _name = 'test_new_api.selection'
+    _description = "Selection"
+
+    state = fields.Selection([('foo', 'Foo'), ('bar', 'Bar')])
+
+
 class RequiredM2O(models.Model):
     _name = 'test_new_api.req_m2o'
     _description = 'Required Many2one'
@@ -543,6 +586,22 @@ class Attachment(models.Model):
         for rec in self:
             rec.name = self.env[rec.res_model].browse(rec.res_id).display_name
 
+    # DLE P55: `test_cache_invalidation`
+    def modified(self, fnames, modified=None, create=False):
+        if not self:
+            return
+        comodel = self.env[self.res_model]
+        if 'res_id' in fnames and 'attachment_ids' in comodel:
+            field = comodel._fields['attachment_ids']
+            record = comodel.browse(self.res_id)
+            self.env.cache.invalidate([(field, record._ids)])
+            record.modified(['attachment_ids'])
+            if modified is None:
+                modified = {field: record}
+            else:
+                modified[field] = modified.get(field, record) | record
+        return super(Attachment, self).modified(fnames, modified=modified)
+
 
 class AttachmentHost(models.Model):
     _name = 'test_new_api.attachment.host'
@@ -552,3 +611,29 @@ class AttachmentHost(models.Model):
         'test_new_api.attachment', 'res_id', auto_join=True,
         domain=lambda self: [('res_model', '=', self._name)],
     )
+
+class DecimalPrecisionTestModel(models.Model):
+    _name = 'decimal.precision.test'
+    _description = 'Decimal Precision Test'
+
+    float = fields.Float()
+    float_2 = fields.Float(digits=(16, 2))
+    float_4 = fields.Float(digits=(16, 4))
+
+
+class ModelA(models.Model):
+    _name = 'test_new_api.model_a'
+    _description = 'Model A'
+
+    name = fields.Char()
+    a_restricted_b_ids = fields.Many2many('test_new_api.model_b', relation='rel_model_a_model_b_1')
+    b_restricted_b_ids = fields.Many2many('test_new_api.model_b', relation='rel_model_a_model_b_2', ondelete='restrict')
+
+
+class ModelB(models.Model):
+    _name = 'test_new_api.model_b'
+    _description = 'Model B'
+
+    name = fields.Char()
+    a_restricted_a_ids = fields.Many2many('test_new_api.model_a', relation='rel_model_a_model_b_1', ondelete='restrict')
+    b_restricted_a_ids = fields.Many2many('test_new_api.model_a', relation='rel_model_a_model_b_2')

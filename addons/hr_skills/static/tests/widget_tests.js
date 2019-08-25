@@ -82,21 +82,21 @@ odoo.define('hr_skills.field_one_to_many_group_tests', function (require) {
                     fields: {
                         name: { string: "Name", type: "char" },
                         line_type_id: { string: "Type", relation: 'line_type', type: "many2one" },
-                        sequence: { string: "Sequence", type: "int", default:10 },
                         description: { string: "Description", type: "text" },
                         date_start: { string: "Date start", type: "date" },
                         date_end: { string: "Date end", type: "date" },
                         trululu: { string: "Trululu", type: "many2one", relation: 'partner' },
+                        display_type: { string: "display type", type: "selection"},
                     },
                     records: [{
                         id: 37,
                         name: "ULB",
                         line_type_id: 50,
-                        sequence: 5,
                         date_start: "2017-01-25",
                         date_end: "2019-01-25",
                         description: 'Hello',
                         trululu: 1,
+                        display_type: 'classic',
                     }, {
                         id: 38,
                         name: "UCL",
@@ -105,14 +105,15 @@ odoo.define('hr_skills.field_one_to_many_group_tests', function (require) {
                         date_end: "2014-01-25",
                         description: 'World',
                         trululu: 1,
+                        display_type: 'classic',
                     }, {
                         id: 39,
                         name: "KUL",
                         line_type_id: 51,
-                        sequence: 15,
                         date_start: "2008-01-25",
                         description: 'Hi',
                         trululu: 1,
+                        display_type: 'classic',
                     }],
                     onchanges: {},
                 },
@@ -131,9 +132,9 @@ odoo.define('hr_skills.field_one_to_many_group_tests', function (require) {
             };
         }
     }, function () {
-        QUnit.test('resumé one2many field group by field render', function (assert) {
+        QUnit.test('resumé one2many field group by field render', async function (assert) {
             assert.expect(16);
-            var form = createView({
+            var form = await createView({
                 View: FormView,
                 model: 'partner',
                 data: this.data,
@@ -145,7 +146,7 @@ odoo.define('hr_skills.field_one_to_many_group_tests', function (require) {
                             '<field name="description"/>' +
                             '<field name="date_start"/>' +
                             '<field name="date_end"/>' +
-                            '<field name="sequence"/>' +
+                            '<field name="display_type"/>' +
                         '</tree>' +
                     '</field>' +
                     '</form>',
@@ -179,9 +180,9 @@ odoo.define('hr_skills.field_one_to_many_group_tests', function (require) {
 
             form.destroy();
         });
-        QUnit.test('resumé one2many field group by field create', function (assert) {
+        QUnit.test('resumé one2many field group by field create', async function (assert) {
             assert.expect(5);
-            var form = createView({
+            var form = await createView({
                 View: FormView,
                 model: 'partner',
                 data: this.data,
@@ -193,7 +194,6 @@ odoo.define('hr_skills.field_one_to_many_group_tests', function (require) {
                             '<field name="description"/>' +
                             '<field name="date_start"/>' +
                             '<field name="date_end"/>' +
-                            '<field name="sequence"/>' +
                         '</tree>' +
                     '</field>' +
                     '</form>',
@@ -221,22 +221,22 @@ odoo.define('hr_skills.field_one_to_many_group_tests', function (require) {
                 },
             });
 
-            testUtils.form.clickEdit(form);
-            testUtils.dom.click(form.$('.o_field_x2many_list_row_add a')[0]);
+            await testUtils.form.clickEdit(form);
+            await testUtils.dom.click(form.$('.o_field_x2many_list_row_add a')[0]);
 
             // Fill line form (type should be set from the add button context)
-            testUtils.fields.editInput($('input[name="name"]'), 'new line');
-            testUtils.fields.editInput($('textarea[name="description"]'), 'new description');
-            testUtils.fields.editSelect($('input[name="date_start"]'), '2025-01-01');
-            testUtils.fields.editSelect($('input[name="date_end"]'), '2030-01-01');
-            testUtils.modal.clickButton('Save & Close');
+            await testUtils.fields.editInput($('input[name="name"]'), 'new line');
+            await testUtils.fields.editInput($('textarea[name="description"]'), 'new description');
+            await testUtils.fields.editSelect($('input[name="date_start"]'), '2025-01-01');
+            await testUtils.fields.editSelect($('input[name="date_end"]'), '2030-01-01');
+            await testUtils.modal.clickButton('Save & Close');
 
-            testUtils.form.clickSave(form);
+            await testUtils.form.clickSave(form);
             form.destroy();
         });
-        QUnit.test('resumé one2many field group by field delete', function (assert) {
+        QUnit.test('resumé one2many field group by field delete', async function (assert) {
             assert.expect(2);
-            var form = createView({
+            var form = await createView({
                 View: FormView,
                 model: 'partner',
                 data: this.data,
@@ -248,7 +248,6 @@ odoo.define('hr_skills.field_one_to_many_group_tests', function (require) {
                             '<field name="description"/>' +
                             '<field name="date_start"/>' +
                             '<field name="date_end"/>' +
-                            '<field name="sequence"/>' +
                         '</tree>' +
                     '</field>' +
                     '</form>',
@@ -274,16 +273,16 @@ odoo.define('hr_skills.field_one_to_many_group_tests', function (require) {
                 },
             });
 
-            testUtils.form.clickEdit(form);
-            testUtils.dom.click(form.$('.o_list_record_remove')[0]);
+            await testUtils.form.clickEdit(form);
+            await testUtils.dom.click(form.$('.o_list_record_remove')[0]);
 
-            testUtils.form.clickSave(form);
+            await testUtils.form.clickSave(form);
             form.destroy();
         });
 
-        QUnit.test('skills one2many field group by field render', function (assert) {
+        QUnit.test('skills one2many field group by field render', async function (assert) {
             assert.expect(13);
-            var form = createView({
+            var form = await createView({
                 View: FormView,
                 model: 'partner',
                 data: this.data,

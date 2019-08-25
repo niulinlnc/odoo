@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import models, fields, api
+from odoo import models, fields, api, SUPERUSER_ID
 from odoo.http import request
 
 
@@ -29,6 +29,7 @@ class website_form_model(models.Model):
     website_form_access = fields.Boolean('Allowed to use in forms', help='Enable the form builder feature for this model.')
     website_form_default_field_id = fields.Many2one('ir.model.fields', 'Field for custom form data', domain="[('model', '=', model), ('ttype', '=', 'text')]", help="Specify the field which will contain meta and custom form fields datas.")
     website_form_label = fields.Char("Label for form action", help="Form action label. Ex: crm.lead could be 'Send an e-mail' and project.issue could be 'Create an Issue'.")
+    website_form_key = fields.Char(help='Used in FormBuilder Registry')
 
     def _get_form_writable_fields(self):
         """
@@ -59,7 +60,7 @@ class website_form_model(models.Model):
             fields_get.pop(val, None)
 
         # Unrequire fields with default values
-        default_values = model.default_get(list(fields_get))
+        default_values = model.with_user(SUPERUSER_ID).default_get(list(fields_get))
         for field in [f for f in fields_get if f in default_values]:
             fields_get[field]['required'] = False
 
@@ -78,7 +79,6 @@ class website_form_model_fields(models.Model):
     _description = 'Fields'
     _inherit = 'ir.model.fields'
 
-    @api.model_cr
     def init(self):
         # set all existing unset website_form_blacklisted fields to ``true``
         #  (so that we can use it as a whitelist rather than a blacklist)

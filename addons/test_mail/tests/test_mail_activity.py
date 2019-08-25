@@ -32,14 +32,14 @@ class TestActivityCommon(BaseFunctionalTest):
 class TestActivityRights(TestActivityCommon):
 
     def test_activity_security_user_access_other(self):
-        activity = self.test_record.sudo(self.user_employee).activity_schedule(
+        activity = self.test_record.with_user(self.user_employee).activity_schedule(
             'test_mail.mail_act_test_todo',
             user_id=self.user_admin.id)
         self.assertTrue(activity.can_write)
         activity.write({'user_id': self.user_employee.id})
 
     def test_activity_security_user_access_own(self):
-        activity = self.test_record.sudo(self.user_employee).activity_schedule(
+        activity = self.test_record.with_user(self.user_employee).activity_schedule(
             'test_mail.mail_act_test_todo')
         self.assertTrue(activity.can_write)
         activity.write({'user_id': self.user_admin.id})
@@ -81,7 +81,7 @@ class TestActivityRights(TestActivityCommon):
         # cannot create activities if no access to the document
         with patch.object(MailTestActivity, 'check_access_rights', autospec=True, side_effect=_employee_crash):
             with self.assertRaises(exceptions.AccessError):
-                activity = self.test_record.sudo(self.user_employee).activity_schedule(
+                activity = self.test_record.with_user(self.user_employee).activity_schedule(
                     'test_mail.mail_act_test_todo',
                     user_id=self.user_admin.id)
 
@@ -90,7 +90,7 @@ class TestActivityRights(TestActivityCommon):
 class TestActivityFlow(TestActivityCommon):
 
     def test_activity_flow_employee(self):
-        with self.sudoAs('ernest'):
+        with self.sudo('ernest'):
             test_record = self.env['mail.test.activity'].browse(self.test_record.id)
             self.assertEqual(test_record.activity_ids, self.env['mail.activity'])
 
@@ -121,7 +121,7 @@ class TestActivityFlow(TestActivityCommon):
     def test_activity_flow_portal(self):
         portal_user = mail_new_test_user(self.env, login='chell', groups='base.group_portal', name='Chell Gladys')
 
-        with self.sudoAs('chell'):
+        with self.sudo('chell'):
             test_record = self.env['mail.test.activity'].browse(self.test_record.id)
             with self.assertRaises(exceptions.AccessError):
                 self.env['mail.activity'].create({
@@ -133,7 +133,7 @@ class TestActivityFlow(TestActivityCommon):
 
     def test_activity_notify_other_user(self):
         self.user_admin.notification_type = 'email'
-        rec = self.test_record.sudo(self.user_employee)
+        rec = self.test_record.with_user(self.user_employee)
         with self.assertNotifications(partner_admin=(1, 'email', 'read')):
             activity = rec.activity_schedule(
                 'test_mail.mail_act_test_todo',
@@ -143,7 +143,7 @@ class TestActivityFlow(TestActivityCommon):
 
     def test_activity_notify_same_user(self):
         self.user_employee.notification_type = 'email'
-        rec = self.test_record.sudo(self.user_employee)
+        rec = self.test_record.with_user(self.user_employee)
         with self.assertNotifications(partner_employee=(0, 'email', 'read')):
             activity = rec.activity_schedule(
                 'test_mail.mail_act_test_todo',
@@ -155,7 +155,7 @@ class TestActivityFlow(TestActivityCommon):
         self.user_employee.notification_type = 'email'
         activity = self.test_record.activity_schedule('test_mail.mail_act_test_todo', user_id=self.user_employee.id)
         with self.assertNotifications(partner_employee=(0, 'email', 'read')):
-            activity.sudo(self.user_admin).write({'user_id': self.user_employee.id})
+            activity.with_user(self.user_admin).write({'user_id': self.user_employee.id})
         self.assertEqual(activity.user_id, self.user_employee)
 
 
@@ -164,7 +164,8 @@ class TestActivityMixin(TestActivityCommon):
 
     def test_activity_mixin(self):
         self.user_employee.tz = self.user_admin.tz
-        with self.sudoAs('ernest'):
+        with self.sudo('ernest'):
+            self.test_record = self.env['mail.test.activity'].browse(self.test_record.id)
             self.assertEqual(self.test_record.env.user, self.user_employee)
 
             now_utc = datetime.now(pytz.UTC)
@@ -187,6 +188,11 @@ class TestActivityMixin(TestActivityCommon):
                 'test_mail.mail_act_test_meeting',
                 today_user + relativedelta(days=-1))
             self.assertEqual(self.test_record.activity_state, 'overdue')
+            # `activity_user_id` is defined as `fields.Many2one('res.users', 'Responsible User', related='activity_ids.user_id')`
+            # it therefore relies on the natural order of `activity_ids`, according to which activity comes first.
+            # As we just created the activity, its not yet in the right order.
+            # We force it by invalidating it so it gets fetched from database, in the right order.
+            self.test_record.invalidate_cache(['activity_ids'])
             self.assertEqual(self.test_record.activity_user_id, self.user_employee)
 
             act3 = self.test_record.activity_schedule(
@@ -194,6 +200,11 @@ class TestActivityMixin(TestActivityCommon):
                 today_user + relativedelta(days=3),
                 user_id=self.user_employee.id)
             self.assertEqual(self.test_record.activity_state, 'overdue')
+            # `activity_user_id` is defined as `fields.Many2one('res.users', 'Responsible User', related='activity_ids.user_id')`
+            # it therefore relies on the natural order of `activity_ids`, according to which activity comes first.
+            # As we just created the activity, its not yet in the right order.
+            # We force it by invalidating it so it gets fetched from database, in the right order.
+            self.test_record.invalidate_cache(['activity_ids'])
             self.assertEqual(self.test_record.activity_user_id, self.user_employee)
 
             self.test_record.invalidate_cache(ids=self.test_record.ids)
@@ -232,7 +243,7 @@ class TestActivityMixin(TestActivityCommon):
             self.assertEqual(len(self.test_record.message_ids), 2)
 
     def test_activity_mixin_archive(self):
-        rec = self.test_record.sudo(self.user_employee)
+        rec = self.test_record.with_user(self.user_employee)
         new_act = rec.activity_schedule(
             'test_mail.mail_act_test_todo',
             user_id=self.user_admin.id)
@@ -245,7 +256,7 @@ class TestActivityMixin(TestActivityCommon):
         self.assertEqual(rec.activity_ids, self.env['mail.activity'])
 
     def test_activity_mixin_reschedule_user(self):
-        rec = self.test_record.sudo(self.user_employee)
+        rec = self.test_record.with_user(self.user_employee)
         rec.activity_schedule(
             'test_mail.mail_act_test_todo',
             user_id=self.user_admin.id)

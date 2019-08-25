@@ -4,10 +4,10 @@
 
 $-seen: ();
 $-font-numbers: (
-    $o-theme-font-number,
-    $o-theme-headings-font-number,
-    $o-theme-buttons-font-number,
-    $o-theme-navbar-font-number
+    o-website-value('font-number'),
+    o-website-value('headings-font-number'),
+    o-website-value('navbar-font-number'),
+    o-website-value('buttons-font-number'),
 );
 @each $-number in $-font-numbers {
     @if index($-seen, $-number) == null {
@@ -38,7 +38,7 @@ $-font-numbers: (
     }
 
     // 5) Use final value used by the theme
-    $-h1-color: if($headings-color == inherit, $body-color, $headings-color);
+    $-h1-color: if($headings-color == inherit or not $headings-color, $body-color, $headings-color);
     $-h2-color: if(color('h2'), color('h2'), $-h1-color);
     $-h3-color: if(color('h3'), color('h3'), $-h2-color);
     $-h4-color: if(color('h4'), color('h4'), $-h3-color);
@@ -55,6 +55,7 @@ $-font-numbers: (
     --h6: #{$-h6-color};
 
     --logo-height: #{$o-theme-navbar-logo-height};
+    --number-of-fonts: #{length($o-theme-fonts)};
 }
 
 #wrapwrap {
@@ -75,8 +76,8 @@ $-font-numbers: (
 }
 
 .navbar {
-    @if ($o-theme-navbar-font-number != $o-theme-font-number) {
-        font-family: nth($o-theme-fonts, $o-theme-navbar-font-number);
+    @if ($o-theme-navbar-font != $o-theme-font) {
+        font-family: $o-theme-navbar-font;
     }
 
     .nav-item {
@@ -154,8 +155,8 @@ h6 {
     color: color('h6');
 }
 .btn {
-    @if ($o-theme-buttons-font-number != $o-theme-font-number) {
-        font-family: nth($o-theme-fonts, $o-theme-buttons-font-number);
+    @if ($o-theme-buttons-font != $o-theme-font) {
+        font-family: $o-theme-buttons-font;
     }
 }
 
@@ -534,8 +535,8 @@ table.table_desc tr td {
     // Default
     &.s_carousel_default {
         // Controls - chevron
-        .carousel-control-prev-icon:before { content: "\f053"; margin-left: 1.5rem; }
-        .carousel-control-next-icon:before { content: "\f054"; margin-right: 1.5rem; }
+        .carousel-control-prev-icon:before { content: "\f053" #{"/*rtl:'\f054'*/"}; margin-left: 1.5rem; }
+        .carousel-control-next-icon:before { content: "\f054" #{"/*rtl:'\f053'*/"}; margin-right: 1.5rem; }
         .carousel-control-prev-icon:before,
         .carousel-control-next-icon:before {
             background-color: rgba(0,0,0,0);
@@ -1050,6 +1051,12 @@ table.table_desc tr td {
     background: $light;
     margin-top: -999px;
     transition: margin-top 500ms ease 0s;
+    @include media-breakpoint-down(sm) {
+        .navbar-collapse {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+    }
     &.affixed {
         margin-top: 0px !important; // the default margin-top is adapted in JS
     }

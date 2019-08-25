@@ -6,6 +6,7 @@ var BasicComposer = require('mail.composer.Basic');
 
 var core = require('web.core');
 
+var QWeb = core.qweb;
 var _t = core._t;
 
 /**
@@ -83,7 +84,7 @@ var ThreadWindow = AbstractThreadWindow.extend({
         }
         this._updateOutOfOfficeReadMoreLessButton();
 
-        return $.when(superDef, composerDef);
+        return Promise.all([superDef, composerDef]);
     },
 
     //--------------------------------------------------------------------------
@@ -152,6 +153,23 @@ var ThreadWindow = AbstractThreadWindow.extend({
      */
     removePassive: function () {
         this._passive = false;
+    },
+    renderOutOfOffice: function () {
+        var $outOfOffice = this.$('.o_out_of_office');
+        if (!this.getOutOfOfficeInfo() && !this.getOutOfOfficeMessage()) {
+            if ($outOfOffice.length) {
+                $outOfOffice.remove();
+            }
+            return;
+        }
+        var $newOutOfOffice = $(QWeb.render('mail.thread_window.OutOfOffice', {
+            widget: this,
+        }));
+        if ($outOfOffice.length) {
+            $outOfOffice.replaceWith($newOutOfOffice);
+        } else {
+            $newOutOfOffice.insertAfter(this.$('.o_thread_window_header'));
+        }
     },
     /**
      * Update this thread window
@@ -241,7 +259,7 @@ var ThreadWindow = AbstractThreadWindow.extend({
                 autoFocus: true,
                 source: function (request, response) {
                     self.call('mail_service', 'searchPartner', request.term, 10)
-                        .done(response);
+                        .then(response);
                 },
                 select: function (event, ui) {
                     // remember partner ID so that we can replace this window

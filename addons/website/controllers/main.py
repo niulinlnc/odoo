@@ -99,7 +99,7 @@ class Website(Home):
             if request.env['res.users'].browse(request.uid).has_group('base.group_user'):
                 redirect = b'/web?' + request.httprequest.query_string
             else:
-                redirect = '/'
+                redirect = '/my'
             return http.redirect_with_hash(redirect)
         return response
 
@@ -158,7 +158,7 @@ class Website(Home):
             sitemaps.unlink()
 
             pages = 0
-            locs = request.website.sudo(user=request.website.user_id.id).enumerate_pages()
+            locs = request.website.with_user(request.website.user_id).enumerate_pages()
             while True:
                 values = {
                     'locs': islice(locs, 0, LOC_PER_SITEMAP),
@@ -283,36 +283,21 @@ class Website(Home):
         views = views.sorted(key=lambda v: (v.inherit_id.id, v.name))
         return views.read(['name', 'id', 'key', 'xml_id', 'arch', 'active', 'inherit_id'])
 
-    @http.route('/website/reset_templates', type='http', auth='user', methods=['POST'], website=True, csrf=False)
-    def reset_template(self, templates, redirect='/', **kwargs):
-        """ This method will try to reset a list of broken views ids.
-        It will read the original `arch` from the view's XML file (arch_fs).
-        Views without an `arch_fs` can't be reset, except views created when
-        dropping a snippet in specific oe_structure that create an inherited
-        view doing an xpath.
-        Note: The `arch_fs` field is automatically erased when there is a
-              write on the `arch` field.
+    @http.route('/website/toggle_switchable_view', type='json', auth='user', website=True)
+    def toggle_switchable_view(self, view_key):
+        request.website.viewref(view_key).toggle()
 
-        This method is typically useful to reset specific views. In that case we
-        read the XML file from the generic view.
+    @http.route('/website/reset_template', type='http', auth='user', methods=['POST'], website=True, csrf=False)
+    def reset_template(self, view_id, mode='soft', redirect='/', **kwargs):
+        """ This method will try to reset a broken view.
+        Given the mode, the view can either be:
+        - Soft reset: restore to previous architeture.
+        - Hard reset: it will read the original `arch` from the XML file if the
+        view comes from an XML file (arch_fs).
         """
-        templates = request.httprequest.form.getlist('templates')
-        for temp_id in templates:
-            view = request.env['ir.ui.view'].browse(int(temp_id))
-            if 'oe_structure' in view.key:
-                # Particular xpathing view created in edit mode
-                view.unlink()
-                continue
-            xml_view = view._get_original_view()  # view might already be the xml_view
-            if xml_view.arch_fs:
-                view_file_arch = xml_view.with_context(read_arch_from_file=True).arch
-                # Deactivate COW to not fix a generic view by creating a specific
-                view.with_context(website_id=None).arch_db = view_file_arch
-                if view == xml_view:
-                    view.model_data_id.write({
-                        'noupdate': False
-                    })
-
+        view = request.env['ir.ui.view'].browse(int(view_id))
+        # Deactivate COW to not fix a generic view by creating a specific
+        view.with_context(website_id=None).reset_arch(mode)
         return request.redirect(redirect)
 
     @http.route(['/website/publish'], type='json', auth="public", website=True)
@@ -369,9 +354,9 @@ class Website(Home):
         if get_bundle:
             context = dict(request.context)
             return {
-                'web.assets_common': request.env["ir.qweb"]._get_asset('web.assets_common', options=context),
-                'web.assets_frontend': request.env["ir.qweb"]._get_asset('web.assets_frontend', options=context),
-                'website.assets_editor': request.env["ir.qweb"]._get_asset('website.assets_editor', options=context),
+                'web.assets_common': request.env['ir.qweb']._get_asset_link_urls('web.assets_common', options=context),
+                'web.assets_frontend': request.env['ir.qweb']._get_asset_link_urls('web.assets_frontend', options=context),
+                'website.assets_editor': request.env['ir.qweb']._get_asset_link_urls('website.assets_editor', options=context),
             }
 
         return True
@@ -384,10 +369,6 @@ class Website(Home):
     @http.route(['/website/make_scss_custo'], type='json', auth='user', website=True)
     def make_scss_custo(self, url, values):
         """
-        Makes a scss customization of the given file. That file must
-        contain a scss map including a line comment containing the word 'hook',
-        to indicate the location where to write the new key,value pairs.
-
         Params:
             url (str):
                 the URL of the scss file to customize (supposed to be a variable
@@ -397,24 +378,11 @@ class Website(Home):
                 key,value mapping to integrate in the file's map (containing the
                 word hook). If a key is already in the file's map, its value is
                 overridden.
+
+        Returns:
+            boolean
         """
-        AssetsUtils = request.env['web_editor.assets']
-
-        custom_url = AssetsUtils.make_custom_asset_file_url(url, 'web.assets_common')
-        updatedFileContent = AssetsUtils.get_asset_content(custom_url) or AssetsUtils.get_asset_content(url)
-        updatedFileContent = updatedFileContent.decode('utf-8')
-        for name, value in values.items():
-            pattern = "'%s': %%s,\n" % name
-            regex = re.compile(pattern % ".+")
-            replacement = pattern % value
-            if regex.search(updatedFileContent):
-                updatedFileContent = re.sub(regex, replacement, updatedFileContent)
-            else:
-                updatedFileContent = re.sub(r'( *)(.*hook.*)', r'\1%s\1\2' % replacement, updatedFileContent)
-
-        # Bundle is 'assets_common' as this route is only meant to update
-        # variables scss files
-        AssetsUtils.save_asset(url, 'web.assets_common', updatedFileContent, 'scss')
+        request.env['web_editor.assets'].make_scss_customization(url, values)
         return True
 
     @http.route(['/website/multi_render'], type='json', auth="public", website=True)
@@ -486,3 +454,8 @@ class WebsiteBinary(http.Controller):
             if unique:
                 kw['unique'] = unique
         return Binary().content_image(**kw)
+
+    @http.route(['/favicon.ico'], type='http', auth='public', website=True)
+    def favicon(self, **kw):
+        # when opening a pdf in chrome, chrome tries to open the default favicon url
+        return self.content_image(model='website', id=str(request.website.id), field='favicon', **kw)

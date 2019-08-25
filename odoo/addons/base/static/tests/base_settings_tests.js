@@ -24,10 +24,10 @@ QUnit.module('base_settings_tests', {
 
     QUnit.module('BaseSetting');
 
-    QUnit.test('change setting on nav bar click in base settings', function (assert) {
-        assert.expect(4);
+    QUnit.test('change setting on nav bar click in base settings', async function (assert) {
+        assert.expect(5);
 
-        var form = createView({
+        var form = await createView({
             View: BaseSettingsView,
             model: 'project',
             data: this.data,
@@ -63,7 +63,7 @@ QUnit.module('base_settings_tests', {
                                             '<field name="foo"/>'+
                                         '</div>'+
                                         '<div class="o_setting_right_pane">'+
-                                            '<label for="foo"/>'+
+                                            '<span class="o_form_label">Foo</span>'+
                                             '<div class="text-muted">'+
                                                 'this is foo'+
                                             '</div>'+
@@ -78,14 +78,16 @@ QUnit.module('base_settings_tests', {
 
         assert.hasAttrValue(form.$('.selected'), 'data-key',"crm","crm setting selected");
         assert.isVisible(form.$(".settings .app_settings_block"), "project settings show");
-        form.$('.searchInput').val('b').trigger('keyup');
-        assert.strictEqual($('.highlighter').html(),"B","b word hilited");
-        form.$('.searchInput').val('bx').trigger('keyup');
+        await testUtils.fields.editAndTrigger(form.$('.searchInput'), 'b', 'keyup');
+        assert.strictEqual(form.$('.highlighter').html(), "B", "b word highlighted");
+        await testUtils.fields.editAndTrigger(form.$('.searchInput'), 'bx', 'keyup');
         assert.isVisible(form.$('.notFound'), "record not found message shown");
+        form.$('.searchInput').val('f').trigger('keyup');
+        assert.strictEqual(form.$('span.o_form_label .highlighter').html(), "F", "F word highlighted");
         form.destroy();
     });
 
-    QUnit.test('settings views does not read existing id when coming back in breadcrumbs', function (assert) {
+    QUnit.test('settings views does not read existing id when coming back in breadcrumbs', async function (assert) {
         assert.expect(8);
 
         var actions = [{
@@ -111,7 +113,7 @@ QUnit.module('base_settings_tests', {
             'project,false,search': '<search></search>',
         };
 
-        var actionManager = createActionManager({
+        var actionManager = await createActionManager({
             actions: actions,
             archs: archs,
             data: this.data,
@@ -123,9 +125,10 @@ QUnit.module('base_settings_tests', {
             },
         });
 
-        actionManager.doAction(1);
-        testUtils.dom.click(actionManager.$('button[name="4"]'));
-        testUtils.dom.click($('.o_control_panel .breadcrumb-item a'));
+        await actionManager.doAction(1);
+        await testUtils.nextTick();
+        await testUtils.dom.click(actionManager.$('button[name="4"]'));
+        await testUtils.dom.click($('.o_control_panel .breadcrumb-item a'));
         assert.hasClass(actionManager.$('.o_form_view'), 'o_form_editable');
         assert.verifySteps([
             'load_views', // initial setting action
@@ -140,10 +143,10 @@ QUnit.module('base_settings_tests', {
         actionManager.destroy();
     });
 
-    QUnit.test('settings view does not display other settings after reload', function (assert) {
+    QUnit.test('settings view does not display other settings after reload', async function (assert) {
         assert.expect(2);
 
-        var form = createView({
+        var form = await createView({
             View: BaseSettingsView,
             model: 'project',
             data: this.data,
@@ -173,15 +176,15 @@ QUnit.module('base_settings_tests', {
         });
 
         assert.strictEqual(form.$('.app_settings_block').text().replace(/\s/g,''), 'CRMcrmtab');
-        form.reload();
+        await form.reload();
         assert.strictEqual(form.$('.app_settings_block').text().replace(/\s/g,''), 'CRMcrmtab');
         form.destroy();
     });
 
-    QUnit.test('settings view shows statusbar buttons only if there are changes to save', function (assert) {
+    QUnit.test('settings view shows a message if there are changes', async function (assert) {
         assert.expect(5);
 
-        var form = createView({
+        var form = await createView({
             View: BaseSettingsView,
             model: 'project',
             data: this.data,
@@ -203,14 +206,59 @@ QUnit.module('base_settings_tests', {
         });
 
         testUtils.mock.intercept(form, "field_changed", function (event) {
-            assert.ok("field changed");
+            assert.ok(true,"field changed");
         }, true);
 
         assert.containsNone(form, '.o_field_boolean input:checked', "checkbox should not be checked");
-        assert.hasClass(form.$('.o_statusbar_buttons'), 'd-none', "statusbar buttons should not be shown");
-        testUtils.dom.click(form.$("input[type='checkbox']"));
-        assert.strictEqual(form.$('.o_field_boolean input:checked').length, 1,"checkbox should be checked");
-        assert.isVisible(form.$('.o_statusbar_buttons'), "statusbar buttons should be shown");
+        assert.containsNone(form, ".o_dirty_warning", "warning message should not be shown");
+        await testUtils.dom.click(form.$("input[type='checkbox']"));
+        assert.containsOnce(form, '.o_field_boolean input:checked' ,"checkbox should be checked");
+        assert.containsOnce(form, ".o_dirty_warning", "warning message should be shown");
+        form.destroy();
+    });
+
+    QUnit.test('settings view shows a message if there are changes even if the save failed', async function (assert) {
+        assert.expect(3);
+        var self = this;
+        self.alreadySavedOnce = false;
+
+        var form = await createView({
+            View: BaseSettingsView,
+            model: 'project',
+            data: this.data,
+            mockRPC: function (route, args) {
+                if (args.method === "create" && !self.alreadySavedOnce) {
+                    self.alreadySavedOnce = true;
+                    //fail on first create
+                    return Promise.reject({});
+                }
+                return this._super.apply(this, arguments);
+            },
+            arch: '<form string="Settings" class="oe_form_configuration o_base_settings">' +
+                    '<header>' +
+                        '<button string="Save" type="object" name="execute" class="oe_highlight" />' +
+                        '<button string="Discard" type="object" name="cancel" special="cancel" />'+
+                    '</header>' +
+                    '<div class="o_setting_container">' +
+                        '<div class="settings_tab"/>' +
+                        '<div class="settings">' +
+                            '<div class="notFound o_hidden">No Record Found</div>' +
+                            '<div class="app_settings_block" string="Base Setting" data-key="base-setting">' +
+                                '<field name="bar"/>Make Changes' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</form>',
+        });
+
+
+        await testUtils.dom.click(form.$("input[type='checkbox']"));
+        assert.containsOnce(form, ".o_dirty_warning", "warning message should be shown");
+        await testUtils.form.clickSave(form);
+        assert.containsOnce(form, ".o_dirty_warning", "warning message should be shown");
+        await testUtils.form.clickSave(form);
+        assert.containsNone(form, ".o_dirty_warning", "warning message should be shown");
+
         form.destroy();
     });
 

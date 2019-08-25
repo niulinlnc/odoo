@@ -21,7 +21,7 @@ WebsiteNewMenu.include({
      * it and redirects the user to this new post.
      *
      * @private
-     * @returns {Deferred} Unresolved if there is a redirection
+     * @returns {Promise} Unresolved if there is a redirection
      */
     _createNewBlogPost: function () {
         return this._rpc({
@@ -30,7 +30,7 @@ WebsiteNewMenu.include({
         }).then(function (blog_ids) {
             if (blog_ids.length === 1) {
                 document.location = '/blog/' + blog_ids[0][0] + '/post/new';
-                return $.Deferred();
+                return new Promise(function () {});
             } else if (blog_ids.length > 1) {
                 return wUtils.prompt({
                     id: 'editor_new_blog',
@@ -39,12 +39,13 @@ WebsiteNewMenu.include({
                     init: function (field) {
                         return blog_ids;
                     },
-                }).then(function (blog_id) {
+                }).then(function (result) {
+                    var blog_id = result.val;
                     if (!blog_id) {
                         return;
                     }
                     document.location = '/blog/' + blog_id + '/post/new';
-                    return $.Deferred();
+                    return new Promise(function () {});
                 });
             }
         });
@@ -63,7 +64,7 @@ var options = require('web_editor.snippets.options');
 var WysiwygMultizone = require('web_editor.wysiwyg.multizone');
 
 if (!$('.website_blog').length) {
-    return $.Deferred().reject("DOM doesn't contain '.website_blog'");
+    return Promise.reject("DOM doesn't contain '.website_blog'");
 }
 
 WysiwygMultizone.include({
@@ -72,6 +73,12 @@ WysiwygMultizone.include({
      */
     start: function () {
         $('.js_tweet, .js_comment').off('mouseup').trigger('mousedown');
+        _.each($('.oe_structure[data-editor-message!="False"]'), function (el) {
+            if (!$.trim($(el).html()).length) {
+                $(el).empty();
+            }
+            $(el).toggleClass('oe_empty', !$.trim($(el).html()).length);
+        });
         return this._super.apply(this, arguments);
     },
 
@@ -96,15 +103,17 @@ WysiwygMultizone.include({
                 params: {
                     post_id: parseInt($el.closest('[name="blog_post"], .website_blog').find('[data-oe-model="blog.post"]').first().data('oe-id'), 10),
                     cover_properties: {
-                        'background-image': $el.children('.o_blog_cover_image').css('background-image').replace(/"/g, '').replace(window.location.protocol + "//" + window.location.host, ''),
-                        'background-color': $el.attr('data-filterColor'),
-                        'opacity': $el.attr('data-filterValue'),
-                        'resize_class': $el.attr('data-coverClass'),
+                        'background-image': $el.find('.o_blog_cover_image').css('background-image').replace(/"/g, '').replace(window.location.protocol + "//" + window.location.host, ''),
+                        'background-color': $el.attr('data-filter-color'),
+                        'opacity': $el.attr('data-filter-value'),
+                        'resize_class': $el.attr('data-cover-class'),
+                        'text_size_class': $el.attr('data-text-size-class'),
+                        'text_align_class': $el.attr('data-text-align-class'),
                     },
                 },
             }));
         }
-        return $.when.apply($, defs);
+        return Promise.all(defs);
     },
 });
 
@@ -126,7 +135,7 @@ options.registry.many2one.include({
                 var $img = $(this).find('img');
                 var css = window.getComputedStyle($img[0]);
                 $img.css({ width: css.width, height: css.height });
-                $img.attr('src', '/web/image/res.partner/'+self.ID+'/image');
+                $img.attr('src', '/web/image/res.partner/'+self.ID+'/image_1024');
             });
             setTimeout(function () { $nodes.removeClass('o_dirty'); },0);
         }
@@ -140,8 +149,8 @@ options.registry.blog_cover = options.Class.extend({
     init: function () {
         this._super.apply(this, arguments);
 
-        this.$image = this.$target.children('.o_blog_cover_image');
-        this.$filter = this.$target.children('.o_blog_cover_filter');
+        this.$image = this.$target.find('.o_blog_cover_image');
+        this.$filter = this.$target.find('.o_blog_cover_filter');
     },
     /**
      * @override
@@ -178,14 +187,15 @@ options.registry.blog_cover = options.Class.extend({
         }
 
         var editor = new weWidgets.MediaDialog(this, {
+            mediaWidth: 1920,
             onlyImages: true,
             firstFilters: ['background']
         }, $image[0]).open();
-        editor.on('save', this, function (event, img) {
-            var src = $image.attr('src');
+        editor.on('save', this, function (image) {
+            var src = image.src;
             this.$image.css('background-image', src ? ('url(' + src + ')') : '');
-            if (!this.$target.hasClass('cover')) {
-                var $opt = this.$el.find('[data-select-class]').first();
+            if (!this.$target.hasClass('o_wblog_has_cover')) {
+                var $opt = this.$el.find('.o_wblog_cover_opt_size_default[data-select-class]');
                 this.selectClass(previewMode, $opt.data('selectClass'), $opt);
             }
             this._setActive();
@@ -223,13 +233,28 @@ options.registry.blog_cover = options.Class.extend({
     _setActive: function () {
         this._super.apply(this, arguments);
         var self = this;
+        var isRegularCover = this.$target.is('.o_wblog_post_page_cover_regular');
 
         _.each(this.$el, function (el) {
             var $el = $(el);
-            $el.toggleClass('d-none',
-                $el.is(':not([data-change])') && !self.$target.hasClass('cover')
-                || $el.is(':has([data-select-class])') && self.$target.hasClass('o_list_cover'));
+
+            if (!$el.is('[data-change]')) {
+                $el.removeClass('d-none');
+
+                ['size', 'filters', 'text_size', 'text_align'].forEach(optName => {
+                    var $opts = $el.find('[data-cover-opt="' + optName + '"]');
+                    var notAllowed = (self.$target.data('use_' + optName) !== 'True');
+
+                    if ($opts.length && (!self.$target.hasClass('o_wblog_has_cover') || notAllowed)) {
+                        $el.addClass('d-none');
+                    }
+                });
+            }
+            $el.find('.o_js_hide_regular').toggleClass('d-none', isRegularCover);
+            $el.find('.o_js_show_regular').toggleClass('d-none', !isRegularCover);
         });
+
+        this.$el.filter('[data-clear]').toggleClass('d-none', !self.$target.hasClass('o_wblog_has_cover'));
 
         this.$filterValueOpts.removeClass('active');
         this.$filterColorOpts.removeClass('active');
@@ -244,9 +269,11 @@ options.registry.blog_cover = options.Class.extend({
                 return self.$filter.hasClass($(this).data('filterColor'));
             }).addClass('active').data('filterColor');
 
-        this.$target.attr('data-coverClass', this.$el.find('.active[data-select-class]').data('selectClass') || '');
-        this.$target.attr('data-filterValue', activeFilterValue || 0.0);
-        this.$target.attr('data-filterColor', activeFilterColor || '');
+        this.$target.attr('data-cover-class', this.$el.find('.active[data-cover-opt="size"]').data('selectClass') || '');
+        this.$target.attr('data-text-size-class', this.$el.find('.active[data-cover-opt="text_size"]').data('selectClass') || '');
+        this.$target.attr('data-text-align-class', this.$el.find('.active[data-cover-opt="text_align"]').data('selectClass') || '');
+        this.$target.attr('data-filter-value', activeFilterValue || 0.0);
+        this.$target.attr('data-filter-color', activeFilterColor || '');
     },
 });
 });

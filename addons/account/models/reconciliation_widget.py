@@ -83,18 +83,44 @@ class AccountReconciliation(models.AbstractModel):
 
     @api.model
     def _get_bank_statement_line_partners(self, st_lines):
+        params = []
+
+        # Add the res.partner.ban's IR rules. In case partners are not shared between companies,
+        # identical bank accounts may exist in a company we don't have access to.
+        ir_rules_query = self.env['res.partner.bank']._where_calc([])
+        self.env['res.partner.bank']._apply_ir_rules(ir_rules_query, 'read')
+        from_clause, where_clause, where_clause_params = ir_rules_query.get_sql()
+        if where_clause:
+            where_bank = ('AND %s' % where_clause).replace('res_partner_bank', 'bank')
+            params += where_clause_params
+        else:
+            where_bank = ''
+
+        # Add the res.partner's IR rules. In case partners are not shared between companies,
+        # identical partners may exist in a company we don't have access to.
+        ir_rules_query = self.env['res.partner']._where_calc([])
+        self.env['res.partner']._apply_ir_rules(ir_rules_query, 'read')
+        from_clause, where_clause, where_clause_params = ir_rules_query.get_sql()
+        if where_clause:
+            where_partner = ('AND %s' % where_clause).replace('res_partner', 'p3')
+            params += where_clause_params
+        else:
+            where_partner = ''
+
         query = '''
             SELECT
                 st_line.id                          AS id,
                 COALESCE(p1.id,p2.id,p3.id)         AS partner_id
             FROM account_bank_statement_line st_line
-            LEFT JOIN res_partner_bank bank         ON bank.id = st_line.bank_account_id OR bank.acc_number = st_line.account_number
-            LEFT JOIN res_partner p1 ON st_line.partner_id=p1.id
-            LEFT JOIN res_partner p2 ON bank.partner_id=p2.id
-            LEFT JOIN res_partner p3 ON p3.name ILIKE st_line.partner_name
-            WHERE st_line.id IN %s
         '''
-        params = [tuple(st_lines.ids)]
+        query += 'LEFT JOIN res_partner_bank bank ON bank.id = st_line.bank_account_id OR bank.acc_number = st_line.account_number %s\n' % (where_bank)
+        query += 'LEFT JOIN res_partner p1 ON st_line.partner_id=p1.id \n'
+        query += 'LEFT JOIN res_partner p2 ON bank.partner_id=p2.id \n'
+        query += 'LEFT JOIN res_partner p3 ON p3.name ILIKE st_line.partner_name %s\n' % (where_partner)
+        query += 'WHERE st_line.id IN %s'
+
+        params += [tuple(st_lines.ids)]
+
         self._cr.execute(query, params)
 
         result = {}
@@ -143,11 +169,12 @@ class AccountReconciliation(models.AbstractModel):
             else:
                 aml_ids = matching_amls[line.id]['aml_ids']
                 bank_statements_left += line.statement_id
+                target_currency = line.currency_id or line.journal_id.currency_id or line.journal_id.company_id.currency_id
 
                 amls = aml_ids and self.env['account.move.line'].browse(aml_ids)
                 line_vals = {
                     'st_line': self._get_statement_line(line),
-                    'reconciliation_proposition': aml_ids and self._prepare_move_lines(amls) or [],
+                    'reconciliation_proposition': aml_ids and self._prepare_move_lines(amls, target_currency=target_currency, target_date=line.date) or [],
                     'model_id': matching_amls[line.id].get('model') and matching_amls[line.id]['model'].id,
                     'write_off': matching_amls[line.id].get('status') == 'write_off',
                 }
@@ -173,7 +200,7 @@ class AccountReconciliation(models.AbstractModel):
         """
         if not bank_statement_line_ids:
             return {}
-        edition_mode = self._context.get('edition_mode')
+        suspense_moves_mode = self._context.get('suspense_moves_mode')
         bank_statements = self.env['account.bank.statement.line'].browse(bank_statement_line_ids).mapped('statement_id')
 
         search_sql = '''
@@ -193,7 +220,7 @@ class AccountReconciliation(models.AbstractModel):
              {srch}
              GROUP BY line.id
         '''.format(
-            cond=not edition_mode and "AND NOT EXISTS (SELECT 1 from account_move_line aml WHERE aml.statement_line_id = line.id)" or "",
+            cond=not suspense_moves_mode and "AND NOT EXISTS (SELECT 1 from account_move_line aml WHERE aml.statement_line_id = line.id)" or "",
             srch=search_str and search_sql or "",
         )
         self.env.cr.execute(query, {'ids':tuple(bank_statement_line_ids), 'search_str':search_str})
@@ -303,11 +330,10 @@ class AccountReconciliation(models.AbstractModel):
         aml_ids = self._context.get('active_ids') and self._context.get('active_model') == 'account.move.line' and tuple(self._context.get('active_ids'))
 
         query = ("""
-            SELECT {0} account_id, account_name, account_code, max_date,
-                   to_char(last_time_entries_checked, 'YYYY-MM-DD') AS last_time_entries_checked
+            SELECT {0} account_id, account_name, account_code, max_date {10}
             FROM (
                     SELECT {1}
-                        {res_alias}.last_time_entries_checked AS last_time_entries_checked,
+                        {11}
                         a.id AS account_id,
                         a.name AS account_name,
                         a.code AS account_code,
@@ -339,10 +365,10 @@ class AccountReconciliation(models.AbstractModel):
                             AND l.amount_residual < 0
                         )
                         {8}
-                    GROUP BY {9} a.id, a.name, a.code, {res_alias}.last_time_entries_checked
-                    ORDER BY {res_alias}.last_time_entries_checked
+                    GROUP BY {9} a.id, a.name, a.code {12}
+                    {13}
                 ) as s
-            WHERE (last_time_entries_checked IS NULL OR max_date > last_time_entries_checked)
+            {14}
         """.format(
                 is_partner and 'partner_id, partner_name,' or ' ',
                 is_partner and 'p.id AS partner_id, p.name AS partner_name,' or ' ',
@@ -350,11 +376,15 @@ class AccountReconciliation(models.AbstractModel):
                 is_partner and ' ' or "AND at.type <> 'payable' AND at.type <> 'receivable'",
                 account_type and "AND at.type = %(account_type)s" or '',
                 res_ids and 'AND ' + res_alias + '.id in %(res_ids)s' or '',
-                self.env.user.company_id.id,
+                self.env.company.id,
                 is_partner and 'AND l.partner_id = p.id' or ' ',
                 aml_ids and 'AND l.id IN %(aml_ids)s' or '',
                 is_partner and 'l.partner_id, p.id,' or ' ',
-                res_alias=res_alias
+                res_type == 'partner' and ", to_char(last_time_entries_checked, 'YYYY-MM-DD') AS last_time_entries_checked" or ' ',
+                res_type == 'partner' and 'p.last_time_entries_checked AS last_time_entries_checked,' or ' ',
+                res_type == 'partner' and ', p.last_time_entries_checked' or ' ',
+                res_type == 'partner' and 'ORDER BY p.last_time_entries_checked' or 'ORDER BY a.code',
+                res_type == 'partner' and 'WHERE (last_time_entries_checked IS NULL OR max_date > last_time_entries_checked)' or ' ',
             ))
         self.env.cr.execute(query, locals())
 
@@ -409,9 +439,6 @@ class AccountReconciliation(models.AbstractModel):
             if datum['type'] == 'partner':
                 partners = Partner.browse(datum['id'])
                 partners.mark_as_reconciled()
-            if datum['type'] == 'account':
-                accounts = Account.browse(datum['id'])
-                accounts.mark_as_reconciled()
 
     ####################################################
     # Private
@@ -419,6 +446,7 @@ class AccountReconciliation(models.AbstractModel):
 
     def _str_domain_for_mv_line(self, search_str):
         return [
+            '|', ('account_id.code', 'ilike', search_str),
             '|', ('move_id.name', 'ilike', search_str),
             '|', ('move_id.ref', 'ilike', search_str),
             '|', ('date_maturity', 'like', search_str),
@@ -475,7 +503,7 @@ class AccountReconciliation(models.AbstractModel):
         AccountMoveLine = self.env['account.move.line']
 
         #Always exclude the journal items that have been marked as 'to be checked' in a former bank statement reconciliation
-        to_check_excluded = AccountMoveLine.search(AccountMoveLine._get_domain_for_edition_mode()).ids
+        to_check_excluded = AccountMoveLine.search(AccountMoveLine._get_suspense_moves_domain()).ids
         excluded_ids.extend(to_check_excluded)
 
         domain_reconciliation = [
@@ -485,21 +513,12 @@ class AccountReconciliation(models.AbstractModel):
             ('payment_id', '<>', False)
         ]
 
-        # Black lines = unreconciled & (not linked to a payment or open balance created by statement
-        domain_matching = [('reconciled', '=', False)]
-        if partner_id:
-            domain_matching = expression.AND([
-                domain_matching,
-                [('account_id.internal_type', 'in', ['payable', 'receivable'])]
-            ])
-        else:
-            # TODO : find out what use case this permits (match a check payment, registered on a journal whose account type is other instead of liquidity)
-            domain_matching = expression.AND([
-                domain_matching,
-                [('account_id.reconcile', '=', True)]
-            ])
+        # default domain matching
+        domain_matching = expression.AND([
+            [('reconciled', '=', False)],
+            [('account_id.reconcile', '=', True)]
+        ])
 
-        # Let's add what applies to both
         domain = expression.OR([domain_reconciliation, domain_matching])
         if partner_id:
             domain = expression.AND([domain, [('partner_id', '=', partner_id)]])
@@ -685,10 +704,7 @@ class AccountReconciliation(models.AbstractModel):
             'company_id': st_line.company_id.id,
         }
         if st_line.partner_id:
-            if amount > 0:
-                data['open_balance_account_id'] = st_line.partner_id.property_account_receivable_id.id
-            else:
-                data['open_balance_account_id'] = st_line.partner_id.property_account_payable_id.id
+            data['open_balance_account_id'] = amount > 0 and st_line.partner_id.property_account_receivable_id.id or st_line.partner_id.property_account_payable_id.id
 
         return data
 

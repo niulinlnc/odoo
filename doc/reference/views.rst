@@ -194,6 +194,9 @@ root can have the following attributes:
     <reference/views/form>`'s fields and buttons are thus accepted by list
     views although they may not have any meaning if the list view is
     non-editable
+
+    .. note:: if the ``edit`` attribute is set to ``false``, the ``editable`` option will be ignored.
+
 ``default_order``
     overrides the ordering of the view, replacing the model's default order.
     The value is a comma-separated list of fields, postfixed by ``desc`` to
@@ -202,12 +205,6 @@ root can have the following attributes:
     .. code-block:: xml
 
         <tree default_order="sequence,name desc">
-``colors``
-    .. deprecated:: 9.0
-        replaced by ``decoration-{$name}``
-``fonts``
-    .. deprecated:: 9.0
-        replaced by ``decoration-{$name}``
 ``decoration-{$name}``
     allow changing the style of a row's text based on the corresponding
     record's attributes.
@@ -222,25 +219,17 @@ root can have the following attributes:
     (``font-style: italic``), or any `bootstrap contextual color
     <https://getbootstrap.com/docs/3.3/components/#available-variations>`_ (``danger``,
     ``info``, ``muted``, ``primary``, ``success`` or ``warning``).
-``create``, ``edit``, ``delete``
+``create``, ``edit``, ``delete``, ``duplicate``, ``import``
     allows *dis*\ abling the corresponding action in the view by setting the
     corresponding attribute to ``false``
 ``limit``
-    the default size of a page. It should be a positive integer
-``on_write``
-    only makes sense on an ``editable`` list. Should be the name of a method
-    on the list's model. The method will be called with the ``id`` of a record
-    after having created or edited that record (in database).
-
-    The method should return a list of ids of other records to load or update.
-``string``
-    alternative translatable label for the view
-
-    .. deprecated:: 8.0
-
-        not displayed anymore
-
-.. toolbar attribute is for tree-tree views
+    the default size of a page. It must be a positive integer
+``groups_limit``
+    when the list view is grouped, the default number of groups of a page. It
+    must be a position integer
+``expand``
+    when the list view is grouped, automatically open the first level of groups
+    if set to true (default: false)
 
 Possible children elements of the list view are:
 
@@ -323,16 +312,14 @@ Possible children elements of the list view are:
         lists the groups which should be able to see the field
     ``widget``
         alternate representations for a field's display. Possible list view
-        values are:
+        values are (among others):
 
         ``progressbar``
             displays ``float`` fields as a progress bar.
-        ``many2onebutton``
-            replaces the m2o field's value by a checkmark if the field is
-            filled, and a cross if it is not
         ``handle``
-            for ``sequence`` fields, instead of displaying the field's value
-            just displays a drag&drop icon
+            for ``sequence`` (or ``integer``) fields by which records are
+            sorted, instead of displaying the field's value just displays a
+            drag&drop icon to reorder records.
     ``sum``, ``avg``
         displays the corresponding aggregate at the bottom of the column. The
         aggregation is only computed on *currently displayed* records. The
@@ -342,10 +329,46 @@ Possible children elements of the list view are:
         dynamic attributes based on record values. Only effects the current
         field, so e.g. ``invisible`` will hide the field but leave the same
         field of other records visible, it will not hide the column itself
+    ``width`` (for ``editable``)
+        when there is no data in the list, the width of a column can be forced
+        by setting this attribute. The value can be an absolute width (e.g.
+        '100px'), or a relative weight (e.g. '3', meaning that this column will
+        be 3 times larger than the others). Note that when there are records in
+        the list, we let the browser automatically adapt the column's widths
+        according to their content, and this attribute is thus ignored.
 
     .. note:: if the list view is ``editable``, any field attribute from the
               :ref:`form view <reference/views/form>` is also valid and will
               be used when setting up the inline form view
+
+    .. note:: When a list view is grouped, numeric fields are aggregated and
+              displayed for each group.  Also, if there are too many records in
+              a group, a pager will appear on the right of the group row. For
+              this reason, it is not a good practice to have a numeric field in
+              the last column, when the list view is in a situation where it can
+              be grouped (it is however fine for x2manys field in a form view:
+              they cannot be grouped).
+
+``groupby``
+  defines custom headers (with buttons) for the current view when grouping
+  records on many2one fields. It is also possible to add `field`, inside the
+  `groupby` which can be used for modifiers. These fields thus belong on the
+  many2one comodel. These extra fields will be fetched in batch.
+
+  ``name``
+      the name of a many2one field (on the current model). Custom header will be
+      displayed when grouping the view on this field name.
+
+  .. code-block:: xml
+
+    <groupby name="partner_id">
+      <field name="name"/> <!-- name of partner_id -->
+        <button type="edit" name"edit" string="Edit/>
+        <button type="object" name="my_method" string="Button1"
+          attrs="{'invisible': [('name', '=', 'Georges')]}"/>
+    </groupby>
+
+  A special button (`type="edit"`) can be defined to open the many2one form view.
 
 ``control``
   defines custom controls for the current view.
@@ -469,7 +492,10 @@ system. Available semantic components are:
 
 ``field``
   renders (and allow edition of, possibly) a single field of the current
-  record. Possible attributes are:
+  record. Using several times a field in a form view is supported and the fields
+  can receive different values for modifiers 'invisible' and 'readonly'. However,
+  the behavior is not guaranteed when several fields exist with different values
+  for modifier 'required'. Possible attributes of the field node are:
 
   ``name`` (mandatory)
     the name of the field to render
@@ -543,6 +569,9 @@ system. Available semantic components are:
   ``password``
     indicates that a :class:`~odoo.fields.Char` field stores a password and
     that its data shouldn't be displayed
+  ``kanban_view_ref``
+    for opening specific kanban view when selecting records from m2o/m2m in mobile
+    environment
 
 .. todo:: classes for forms
 
@@ -741,7 +770,7 @@ Some classes are defined to render subtotals like in invoice forms:
         <field name="amount_untaxed"/>
         <field name="amount_tax"/>
         <field name="amount_total" class="oe_subtotal_footer_separator"/>
-        <field name="residual" style="margin-top: 10px"/>
+        <field name="amount_residual" style="margin-top: 10px"/>
     </group>
 
 Placeholders and Inline Fields
@@ -1008,6 +1037,8 @@ attributes:
   the list view)
 ``class``
   adds HTML classes to the root HTML element of the Kanban view
+``examples``
+  if set to a key in the `KanbanExamplesRegistry`_, examples on column setups will be available in the grouped kanban view. `Here <https://github.com/odoo/odoo/blob/99821fdcf89aa66ac9561a972c6823135ebf65c0/addons/project/static/src/js/project_task_kanban_examples.js#L27>`_ is an example of how to define those setups.
 ``group_create``
   whether the "Add a new column" bar is visible or not. Default: true.
 ``group_delete``
@@ -1080,6 +1111,11 @@ Possible children of the view element are:
     self-explanatory
   ``read_only_mode``
     self-explanatory
+  ``selection_mode``
+    set to true when kanban view is opened in mobile environment from m2o/m2m field
+    for selecting records.
+
+    .. note:: clicking on m2o/m2m field in mobile environment opens kanban view
 
 
     .. rubric:: buttons and fields
@@ -1087,8 +1123,14 @@ Possible children of the view element are:
     While most of the Kanban templates are standard :ref:`reference/qweb`, the
     Kanban view processes ``field``, ``button`` and ``a`` elements specially:
 
-    * by default fields are replaced by their formatted value, unless they
-      match specific kanban view widgets
+    * by default fields are replaced by their formatted value, unless the
+      ``widget`` attribute is specified, in which case their rendering and
+      behavior depends on the corresponding widget. Possible values are (among
+      others):
+
+      ``handle``
+          for ``sequence`` (or ``integer``) fields by which records are
+          sorted, allows to drag&drop records to reorder them.
 
       .. todo:: list widgets?
 
@@ -1110,57 +1152,6 @@ Possible children of the view element are:
 
        * kanban-specific CSS
        * kanban structures/widgets (vignette, details, ...)
-
-``searchpanel``
-  allows to display a search panel on the left of the kanban view.
-  This tool allows to quickly filter data on the basis of given fields. The fields
-  are specified as direct children of the ``searchpanel`` with tag name ``field``,
-  and the following attributes:
-
-  * ``name`` (mandatory) the name of the field to filter on
-
-  * ``select`` determines the behavior and display. Possible values are
-
-      ``one`` (default) at most one value can be selected. Supported field types are
-        many2one and selection.
-
-      ``multi`` several values can be selected (checkboxes). Supported field
-        types are many2one, many2many and selection.
-
-  * ``groups``: restricts to specific users
-
-  * ``string``: determines the label to display
-
-  * ``icon``: specifies which icon is used
-
-  * ``color``: determines the icon color
-
-  Additional optional attributes are available in the ``multi`` case:
-
-  * ``domain``: determines conditions that the comodel records have to satisfy.
-
-  A domain might be used to express a dependency on another field (with select="one")
-  of the search panel. Consider
-
-  .. code-block:: xml
-
-    <searchpanel>
-      <field name="department_id"/>
-      <field name="manager_id" select="multi" domain="[('department_id', '=', department_id)]"/>
-    <searchpanel/>
-
-  In the above example, the range of values for manager_id (manager names) available at screen
-  will depend on the value currently selected for the field ``department_id``.
-
-  * ``groupby``: field name of the comodel (only available for many2one and many2many fields). Values will be grouped by that field.
-
-  * ``disable_counters``: default is false. If set to true the counters won't be computed.
-
-    This feature has been implemented in case performances would be too bad.
-
-    Another way to solve performance issues is to properly override the
-    ``search_panel_select_multi_range`` method.
-
 
 If you need to extend the Kanban view, see :js:class::`the JS API <KanbanRecord>`.
 
@@ -1187,8 +1178,6 @@ calendar view are:
     same color segment are allocated the same highlight color in the calendar,
     colors are allocated semi-randomly.
     Displayed the display_name/avatar of the visible record in the sidebar
-``readonly_form_view_id``
-    view to open in readonly mode
 ``form_view_id``
     view to open when the user create or edit an event. Note that if this attribute
     is not set, the calendar view will fall back to the id of the form view in the
@@ -1297,7 +1286,7 @@ take the following attributes:
   name of the field that describes if the task has to be excluded
   from the consolidation
   if set to true it displays a striped zone in the consolidation line
-``create``, ``edit``
+``create``, ``edit``, ``plan``
     allows *dis*\ abling the corresponding action in the view by setting the
     corresponding attribute to ``false``. If ``create`` is enabled, a "+" button
     will be displayed while hovering each time slot to create a new record in
@@ -1337,6 +1326,7 @@ take the following attributes:
     ``day:half``: records times snap to half hours (ex: 7:28 AM becomes 12:00 PM)
 
   * Scale ``year`` always snap to full day.
+
   Example of precision attribute: ``{"day": "hour:quarter", "week": "day:half", "month": "day"}``
 ``total_row``
   boolean to control whether the row containing the total count of records should
@@ -1370,6 +1360,34 @@ take the following attributes:
     the current :js:class:`GanttRow`, can be used to fetch some
     meta-information. The ``getColor`` method to convert in a color integer is
     also available directly in the template context without using ``widget``.
+
+  ``on_create``
+  If specified when clicking the add button on the view, instead of opening a generic dialog, launch a client action.
+  this should hold the xmlid of the action (eg: ``on_create="%(my_module.my_wizard)d"``
+
+``form_view_id``
+  view to open when the user create or edit a record. Note that if this attribute
+  is not set, the gantt view will fall back to the id of the form view in the
+  current action, if any.
+
+``thumbnails``
+  This allows to display a thumbnail next to groups name if the group is a relationnal field.
+  This expects a python dict which keys are the name of the field on the active model.
+  Values are the names of the field holding the thumbnail on the related model.
+
+  Example: tasks have a field user_id that reference res.users. The res.users model has a field image that holds the avatar,
+  then:
+.. code-block:: xml
+
+      <gantt
+        date_start="date_start"
+        date_stop="date_stop"
+        thumbnails="{'user_id': 'image_64'}"
+      >
+      </gantt>
+
+
+will display the users avatars next to their names when grouped by user_id
 
 .. _reference/views/diagram:
 
@@ -1679,25 +1697,50 @@ Activity
 
 The Activity view is used to display the activities linked to the records. The
 data are displayed in a chart with the records forming the rows and the activity
-types the columns. When clicking on a cell, a detailed description of all
-activities of the same type for the record is displayed.
+types the columns. The first cell of each row displays a (customizable, see
+``templates``, quite similarly to :ref:`reference/views/kanban`) card representing
+the corresponding record. When clicking on others cells, a detailed description
+of all activities of the same type for the record is displayed.
 
 .. warning::
 
    The Activity view is only available when the ``mail`` module is installed,
    and for the models that inherit from the ``mail.activity.mixin``.
 
-For example, here is a very simple Activity view:
-
-.. code-block:: xml
-
-    <activity string="Activities"/>
-
-The root element of the Activity view is <activity>, it accepts the following
+The root element of the Activity view is ``<activity>``, it accepts the following
 attributes:
 
 - ``string`` (mandatory)
     A title, which should describe the view
+
+Possible children of the view element are:
+
+``field``
+  declares fields to use in activity *logic*. If the field is simply displayed
+  in the activity view, it does not need to be pre-declared.
+
+  Possible attributes are:
+
+  ``name`` (required)
+    the name of the field to fetch
+
+``templates``
+  defines the :ref:`reference/qweb` templates. Cards definition may be
+  split into multiple templates for clarity, but activity views *must* define at
+  least one root template ``activity-box``, which will be rendered once for each
+  record.
+
+  The activity view uses mostly-standard :ref:`javascript qweb
+  <reference/qweb/javascript>` and provides the following context variables
+  (see :ref:`reference/views/kanban` for more details):
+
+  ``widget``
+    the current :js:class:`ActivityRecord`, can be used to fetch some
+    meta-information. These methods are also available directly in the
+    template context and don't need to be accessed via ``widget``
+  ``record``
+    an object with all the requested fields as its attributes. Each field has
+    two attributes ``value`` and ``raw_value``
 
 .. _reference/views/search:
 
@@ -1783,7 +1826,9 @@ Possible children elements of the search view are:
         the name of a field of type ``date`` or ``datetime``.
         Using this attribute has the effect to create
         a set of filters available in a submenu
-        of the filters menu.
+        of the filters menu. The filters proposed are time dependent
+        but not dynamic in the sense that their domains are evaluated
+        at the time of the control panel instantiation.
 
         Example:
 
@@ -1792,28 +1837,24 @@ Possible children elements of the search view are:
           <filter name="filter_create_date" date="create_date" string="Creation Date"/>
 
         The example above allows to easily search for records with creation date field
-        values in one of the periods below.
+        values in one of the periods below (if the current month is August 2019).
 
         .. code-block:: text
 
           Create Date >
-            Today
-            This Week
-            This Month
-            This Quarter
-            This Year
+            August
+            July
+            June
+            Q4
+            Q3
+            Q2
+            Q1
           --------------
-            Yesterday
-            Last Week
-            Last Month
-            Last Quarter
-            Last Year
-          --------------
-            Last 7 Days
-            Last 30 Days
-            Last 365 Days
+            2019
+            2018
+            2017
 
-        Note that the generated domains are dynamic and can be saved as such (via the favorites menu).
+        Muti selection of options is allowed.
 
     ``default_period`` (optional)
         only makes sense for a filter with non empty ``date`` attribute.
@@ -1822,9 +1863,9 @@ Possible children elements of the search view are:
         'this_month' is used by default.
 
         To choose among the following options:
-        today, this_week, this_month, this_quarter, this_year,
-        yesterday, last_week, last_month,
-        last_quarter, last_year, last_7_days, last_30_days, last_365_days
+        today, this_week, this_month, last_month, antepenultimate_month,
+        fourth_quarter, third_quarter, second_quarter, first_quarter,
+        this_year, last_year, antepenultimate_year.
 
         Example:
 
@@ -1838,7 +1879,7 @@ Possible children elements of the search view are:
 
         The key ``group_by`` can be used to define a groupby available in the
         'Group By' menu.
-        The 'group_by' value can be a valid field name or a list of field names.
+        The 'group_by' value can be a valid field name.
 
         .. code-block:: xml
 
@@ -1899,6 +1940,62 @@ Possible children elements of the search view are:
 ``group``
     can be used to separate groups of filters, more readable than
     ``separator`` in complex search views
+``searchpanel``
+  allows to display a search panel on the left of any multi records view.
+  By default, the list and kanban views have the searchpanel enabled.
+  The search panel can be activated on other views with the attribute:
+
+  * ``view_types`` a comma separated list of view types on which to enable the search panel
+
+      default: 'tree,kanban'
+
+  This tool allows to quickly filter data on the basis of given fields. The fields
+  are specified as direct children of the ``searchpanel`` with tag name ``field``,
+  and the following attributes:
+
+  * ``name`` (mandatory) the name of the field to filter on
+
+  * ``select`` determines the behavior and display. Possible values are
+
+      ``one`` (default) at most one value can be selected. Supported field types are
+        many2one and selection.
+
+      ``multi`` several values can be selected (checkboxes). Supported field
+        types are many2one, many2many and selection.
+
+  * ``groups``: restricts to specific users
+
+  * ``string``: determines the label to display
+
+  * ``icon``: specifies which icon is used
+
+  * ``color``: determines the icon color
+
+  Additional optional attributes are available in the ``multi`` case:
+
+  * ``domain``: determines conditions that the comodel records have to satisfy.
+
+  A domain might be used to express a dependency on another field (with select="one")
+  of the search panel. Consider
+
+  .. code-block:: xml
+
+    <searchpanel>
+      <field name="department_id"/>
+      <field name="manager_id" select="multi" domain="[('department_id', '=', department_id)]"/>
+    <searchpanel/>
+
+  In the above example, the range of values for manager_id (manager names) available at screen
+  will depend on the value currently selected for the field ``department_id``.
+
+  * ``groupby``: field name of the comodel (only available for many2one and many2many fields). Values will be grouped by that field.
+
+  * ``disable_counters``: default is false. If set to true the counters won't be computed.
+
+    This feature has been implemented in case performances would be too bad.
+
+    Another way to solve performance issues is to properly override the
+    ``search_panel_select_multi_range`` method.
 
 .. _reference/views/search/defaults:
 
@@ -1907,7 +2004,7 @@ Search defaults
 
 Search fields and filters can be configured through the action's ``context``
 using :samp:`search_default_{name}` keys. For fields, the value should be the
-value to set in the field, for filters it's a boolean value. For instance,
+value to set in the field, for filters it's a boolean value or a number. For instance,
 assuming ``foo`` is a field and ``bar`` is a filter an action context of:
 
 .. code-block:: python
@@ -1919,6 +2016,76 @@ assuming ``foo`` is a field and ``bar`` is a filter an action context of:
 
 will automatically enable the ``bar`` filter and search the ``foo`` field for
 *acro*.
+
+A numeric value (between 1 and 99) can be used to describe the order of default groupbys.
+For instance if ``foo`` and ``bar`` refer to two groupbys
+
+.. code-block:: python
+
+  {
+    'search_default_foo': 2,
+    'search_default_bar': 1
+  }
+
+has the effect to activate first ``bar`` then ``foo``.
+
+.. _reference/views/map:
+
+Map
+===
+
+This view is able to display records on a map and the routes between them. The record are represented by pins. It also allows the visualization of fields from the model in a popup tied to the record's pin.
+
+.. note::
+
+    The model on which the view is applied should contains a res.partner many2one since the view relies on the res.partner's address and coordinates fields to localize the records.
+
+.. warning::
+
+   The Map view is only available in Odoo Enterprise
+
+.. _reference/views/map/api:
+
+Api
+---
+
+The view uses location data platforms' api to fetch the tiles (the map's background), do the geoforwarding (converting addresses to a set of coordinates) and fetch the routes.
+The view implements two api, the default one, openstreet map is able to fetch `tiles`_ and do `geoforwarding`_. This api does not require a token.
+As soon as a valid `MapBox`_ token is provided in the general settings the view switches to the Mapbox api. This api is faster and allows the computation of routes. The token are available by `signing up`_ to MapBox
+
+
+
+.. _reference/views/structural components:
+
+Structural components
+---------------------
+
+The view's root element is ``<map>`` multiple attributes are allowed
+
+``res_partner``
+    Contains the res.partner many2one. If not provided the view will resort to create an empty  map.
+``default_order``
+    If a field is provided the view will override the model's default order. The field must be apart of the model on which the view is applied not from res.partner
+``routing``
+    if ``true`` the routes between the records will be shown. The view still needs a valid MapBox token and at least two located records. (i.e the records has a res.partner many2one and the partner has a address or valid coordinates)
+
+The only element allowed within the ``<map>`` element is the ``<marker-popup>``. This element is able to contain multiple ``<field>`` elements. Each of these elements will be interpreted as a line in the marker's popup. The field's attributes are the following:
+
+``name``
+    The field to display.
+``string``
+    This string will be displayed before the field's content. It Can be used as a description.
+
+No attribute or element is mandatory but as stated above if no res.partner many2one is provided the view won't be able to locate records.
+
+For example here is a map:
+    .. code-block:: xml
+
+        <map res_partner="partner_id" default_order="date_begin" routing="true">
+            <marker-popup>
+                <field name="name" string="Task: "/>
+            </marker-popup>
+        </map>
 
 .. _reference/views/qweb:
 
@@ -1976,6 +2143,10 @@ The main additions of qweb-as-view to the basic qweb-as-template are:
                        should only contain xpath elements
                        <reference/views/inheritance>`
 
+.. _geoforwarding: https://nominatim.org/release-docs/develop/
+.. _tiles: https://wiki.openstreetmap.org/wiki/Tile_data_server
+.. _MapBox: https://docs.mapbox.com/api/
+.. _signing up: https://account.mapbox.com/auth/signup/
 .. _accesskey: http://www.w3.org/TR/html5/editing.html#the-accesskey-attribute
 .. _CSS color unit: http://www.w3.org/TR/css3-color/#colorunits
 .. _floats: https://developer.mozilla.org/en-US/docs/Web/CSS/float
@@ -1983,3 +2154,4 @@ The main additions of qweb-as-view to the basic qweb-as-template are:
 .. _kanban board: http://en.wikipedia.org/wiki/Kanban_board
 .. _pivot table: http://en.wikipedia.org/wiki/Pivot_table
 .. _XPath: http://en.wikipedia.org/wiki/XPath
+.. _KanbanExamplesRegistry: https://github.com/odoo/odoo/blob/99821fdcf89aa66ac9561a972c6823135ebf65c0/addons/web/static/src/js/views/kanban/kanban_examples_registry.js

@@ -3,18 +3,22 @@
 
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
-from odoo.addons import decimal_precision as dp
 
 
 class SaleOrder(models.Model):
     _inherit = 'sale.order'
 
-    carrier_id = fields.Many2one('delivery.carrier', string="Delivery Method", help="Fill this field if you plan to invoice the shipping based on picking.")
+    carrier_id = fields.Many2one('delivery.carrier', string="Delivery Method", domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]", help="Fill this field if you plan to invoice the shipping based on picking.")
     delivery_message = fields.Char(readonly=True, copy=False)
     delivery_rating_success = fields.Boolean(copy=False)
-    invoice_shipping_on_delivery = fields.Boolean(string="Invoice Shipping on Delivery", copy=False)
     delivery_set = fields.Boolean(compute='_compute_delivery_state')
     recompute_delivery_price = fields.Boolean('Delivery cost should be recomputed')
+    is_all_service = fields.Boolean("Service Product", compute="_compute_is_service_products")
+
+    @api.depends('order_line')
+    def _compute_is_service_products(self):
+        for so in self:
+            so.is_all_service = all(line.product_id.type == 'service' for line in so.order_line)
 
     def _compute_amount_total_without_delivery(self):
         self.ensure_one()
@@ -26,6 +30,8 @@ class SaleOrder(models.Model):
         delivery_line = self.order_line.filtered('is_delivery')
         if delivery_line:
             self.delivery_set = True
+        else:
+            self.delivery_set = False
 
     @api.onchange('order_line', 'partner_id')
     def onchange_order_line(self):
@@ -33,34 +39,28 @@ class SaleOrder(models.Model):
         if delivery_line:
             self.recompute_delivery_price = True
 
-    @api.multi
-    def _action_confirm(self):
-        res = super(SaleOrder, self)._action_confirm()
-        for so in self:
-            so.invoice_shipping_on_delivery = all([not line.is_delivery for line in so.order_line])
-        return res
-
-    @api.multi
     def _remove_delivery_line(self):
         self.env['sale.order.line'].search([('order_id', 'in', self.ids), ('is_delivery', '=', True)]).unlink()
 
-    @api.multi
     def set_delivery_line(self, carrier, amount):
 
         # Remove delivery products from the sales order
         self._remove_delivery_line()
 
         for order in self:
-            if order.state not in ('draft', 'sent'):
-                raise UserError(_('You can add delivery price only on unconfirmed quotations.'))
-            else:
-                order._create_delivery_line(carrier, amount, price_unit_in_description=self.carrier_id.invoice_policy == 'real')
+            order._create_delivery_line(carrier, amount, price_unit_in_description=self.carrier_id.invoice_policy == 'real')
         return True
 
     def action_open_delivery_wizard(self):
         view_id = self.env.ref('delivery.choose_delivery_carrier_view_form').id
+        if self.env.context.get('carrier_recompute'):
+            name = _('Update shipping cost')
+            carrier = self.carrier_id
+        else:
+            name = _('Add a shipping method')
+            carrier = self.partner_id.property_delivery_carrier_id
         return {
-            'name': _('Add a shipping method'),
+            'name': name,
             'type': 'ir.actions.act_window',
             'view_mode': 'form',
             'res_model': 'choose.delivery.carrier',
@@ -69,23 +69,9 @@ class SaleOrder(models.Model):
             'target': 'new',
             'context': {
                 'default_order_id': self.id,
-                'default_carrier_id': self.partner_id.property_delivery_carrier_id.id,
+                'default_carrier_id': carrier.id,
             }
         }
-
-    def recompute_delivery_cost(self):
-        delivery_line = self.order_line.filtered('is_delivery')
-        res = self.carrier_id.rate_shipment(self)
-        if res.get('success'):
-            self.delivery_message = res.get('warning_message', False)
-        else:
-            raise UserError(res['error_message'])
-        if self.carrier_id.invoice_policy == 'real':
-            delivery_line.name = self.carrier_id.with_context(lang=self.partner_id.lang).name
-            delivery_line.name += _(' (Estimated Cost: %s )') % self._format_currency_amount(res['price'])
-        else:
-            delivery_line.price_unit = res['price']
-        self.recompute_delivery_price = False
 
     def _create_delivery_line(self, carrier, price_unit, price_unit_in_description=False):
         SaleOrderLine = self.env['sale.order.line']
@@ -100,9 +86,15 @@ class SaleOrder(models.Model):
             taxes_ids = self.fiscal_position_id.map_tax(taxes, carrier.product_id, self.partner_id).ids
 
         # Create the sales order line
+        carrier_with_partner_lang = carrier.with_context(lang=self.partner_id.lang)
+        if carrier_with_partner_lang.product_id.description_sale:
+            so_description = '%s: %s' % (carrier_with_partner_lang.name,
+                                        carrier_with_partner_lang.product_id.description_sale)
+        else:
+            so_description = carrier_with_partner_lang.name
         values = {
             'order_id': self.id,
-            'name': carrier.with_context(lang=self.partner_id.lang).name,
+            'name': so_description,
             'product_uom_qty': 1,
             'product_uom': carrier.product_id.uom_id.id,
             'product_id': carrier.product_id.id,
@@ -114,7 +106,8 @@ class SaleOrder(models.Model):
             values['name'] += _(' (Estimated Cost: %s )') % self._format_currency_amount(price_unit)
         else:
             values['price_unit'] = price_unit
-
+        if carrier.free_over and self._compute_amount_total_without_delivery() >= price_unit:
+            values['name'] += '\n' + 'Free Shipping'
         if self.order_line:
             values['sequence'] = self.order_line[-1].sequence + 1
         sol = SaleOrderLine.sudo().create(values)
@@ -142,16 +135,36 @@ class SaleOrderLine(models.Model):
     _inherit = 'sale.order.line'
 
     is_delivery = fields.Boolean(string="Is a Delivery", default=False)
-    product_qty = fields.Float(compute='_compute_product_qty', string='Quantity', digits=dp.get_precision('Product Unit of Measure'))
+    product_qty = fields.Float(compute='_compute_product_qty', string='Product Qty', digits='Product Unit of Measure')
     recompute_delivery_price = fields.Boolean(related='order_id.recompute_delivery_price')
 
     @api.depends('product_id', 'product_uom', 'product_uom_qty')
     def _compute_product_qty(self):
         for line in self:
             if not line.product_id or not line.product_uom or not line.product_uom_qty:
-                return 0.0
+                continue
             line.product_qty = line.product_uom._compute_quantity(line.product_uom_qty, line.product_id.uom_id)
+
+    def unlink(self):
+        for line in self:
+            if line.is_delivery:
+                line.order_id.carrier_id = False
+        super(SaleOrderLine, self).unlink()
 
     def _is_delivery(self):
         self.ensure_one()
         return self.is_delivery
+
+    # override to allow deletion of delivery line in a confirmed order
+    def _check_line_unlink(self):
+        """
+        Extend the allowed deletion policy of SO lines.
+
+        Lines that are delivery lines can be deleted from a confirmed order.
+
+        :rtype: recordset sale.order.line
+        :returns: set of lines that cannot be deleted
+        """
+
+        undeletable_lines = super()._check_line_unlink()
+        return undeletable_lines.filtered(lambda line: not line.is_delivery)

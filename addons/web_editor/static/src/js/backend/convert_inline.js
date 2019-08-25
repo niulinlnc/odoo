@@ -175,7 +175,7 @@ function getMatchedCSSRules(a) {
                 break;
             }
             $el = $el.parent();
-        } while (!$el.is('html'));
+        } while ($el.length && !$el.is('html'));
     }
 
     return style;
@@ -396,10 +396,7 @@ FieldHtml.include({
      * @override
      */
     commitChanges: function () {
-        if (!this.wysiwyg) {
-            return this._super();
-        }
-        if (this.nodeOptions['style-inline']) {
+        if (this.nodeOptions['style-inline'] && this.mode === "edit") {
             this._toInline();
         }
         return this._super();
@@ -455,7 +452,7 @@ FieldHtml.include({
      * @override
      */
     _onLoadWysiwyg: function () {
-        if (this.nodeOptions['style-inline']) {
+        if (this.nodeOptions['style-inline'] && this.mode === "edit") {
             this._fromInline();
         }
         this._super();

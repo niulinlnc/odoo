@@ -12,11 +12,10 @@
                 <field name="sequence" invisible="1"/>
                 <sheet>
                     <div class="oe_title" style="width: 100%;">
-                        <label for="title" string="Section name" class="oe_edit_only" attrs="{'invisible': [('is_page', '=', False)]}"/>
-                        <label for="title" string="Question name" class="oe_edit_only" attrs="{'invisible': [('is_page', '=', True)]}"/>
-                        <h1>
-                            <field name="title" colspan="4" />
-                        </h1>
+                        <label for="title" string="Section" attrs="{'invisible': [('is_page', '=', False)]}"/>
+                        <label for="title" string="Question" attrs="{'invisible': [('is_page', '=', True)]}"/>
+                        <separator />
+                        <field name="title" colspan="4"/>
                         <separator />
                         <field name="questions_selection" invisible="1"/>
                     </div>
@@ -103,6 +102,7 @@
                             <field name="survey_id" invisible="1" readonly="1"/>
                             <field name="scoring_type" invisible="1"/>
                             <separator />
+                            <label for="labels_ids" string="Columns of the Matrix" attrs="{'invisible': [('question_type', '!=', 'matrix')]}" />
                             <field name="labels_ids" string="Type of answers" context="{'default_question_id': active_id}" attrs="{'invisible': [('question_type', 'not in', ['simple_choice', 'multiple_choice', 'matrix'])]}">
                                 <tree editable="bottom">
                                     <field name="sequence" widget="handle"/>
@@ -191,7 +191,6 @@
     <record model="ir.actions.act_window" id="action_survey_question_form">
         <field name="name">Questions</field>
         <field name="res_model">survey.question</field>
-        <field name="view_type">form</field>
         <field name="view_mode">tree,form</field>
         <field name="search_view_id" ref="survey_question_search"/>
         <field name="context">{'search_default_group_by_page': True}</field>
@@ -230,7 +229,6 @@
     <record model="ir.actions.act_window" id="action_survey_label_form">
         <field name="name">Labels</field>
         <field name="res_model">survey.label</field>
-        <field name="view_type">form</field>
         <field name="view_mode">tree,form</field>
         <field name="search_view_id" ref="survey_label_search"/>
         <field name="context">{'search_default_group_by_question': True}</field>

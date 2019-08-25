@@ -20,35 +20,80 @@ class SlidePartnerRelation(models.Model):
         for record in self:
             record.survey_quizz_passed = record in passed_slide_partners
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get('survey_quizz_passed'):
+                vals['completed'] = True
+        return super(SlidePartnerRelation, self).create(vals_list)
+
+    def _write(self, vals):
+        if vals.get('survey_quizz_passed'):
+            vals['completed'] = True
+        return super(SlidePartnerRelation, self)._write(vals)
+
 
 class Slide(models.Model):
     _inherit = 'slide.slide'
 
     slide_type = fields.Selection(selection_add=[('certification', 'Certification')])
     survey_id = fields.Many2one('survey.survey', 'Certification')
+    nbr_certification = fields.Integer("Number of Certifications", compute='_compute_slides_statistics', store=True)
 
     _sql_constraints = [
         ('check_survey_id', "CHECK(slide_type != 'certification' OR survey_id IS NOT NULL)", "A slide of type 'certification' requires a certification."),
         ('check_certification_preview', "CHECK(slide_type != 'certification' OR is_preview = False)", "A slide of type certification cannot be previewed."),
     ]
 
-    def _action_set_viewed(self, target_partner):
-        """ If the slide viewed is a certification, we initialize the first survey.user_input
-        for the current partner. """
-        new_slide_partners = super(Slide, self)._action_set_viewed(target_partner)
-        certification_slides = self.search([
-            ('id', 'in', new_slide_partners.mapped('slide_id').ids),
-            ('slide_type', '=', 'certification'),
-            ('survey_id', '!=', False)
-        ])
+    @api.onchange('survey_id')
+    def _on_change_survey_id(self):
+        if self.survey_id:
+            self.slide_type = 'certification'
 
-        for new_slide_partner in new_slide_partners:
-            if new_slide_partner.slide_id in certification_slides and not new_slide_partner.user_input_ids:
-                new_slide_partner.slide_id.survey_id._create_answer(
-                    partner=target_partner,
+    @api.model
+    def create(self, values):
+        rec = super(Slide, self).create(values)
+        if rec.survey_id:
+            rec.slide_type = 'certification'
+        return rec
+
+    def _generate_certification_url(self):
+        """ get a map of certification url for certification slide from `self`. The url will come from the survey user input:
+                1/ existing and not done user_input for member of the course
+                2/ create a new user_input for member
+                3/ for no member, a test user_input is created and the url is returned
+            Note: the slide.slides.partner should already exist
+
+            We have to generate a new invite_token to differentiate pools of attempts since the
+            course can be enrolled multiple times.
+        """
+        certification_urls = {}
+        for slide in self.filtered(lambda slide: slide.slide_type == 'certification' and slide.survey_id):
+            if slide.channel_id.is_member:
+                user_membership_id_sudo = slide.user_membership_id.sudo()
+                if user_membership_id_sudo.user_input_ids:
+                    last_user_input = next(user_input for user_input in user_membership_id_sudo.user_input_ids.sorted(
+                        lambda user_input: user_input.create_date, reverse=True
+                    ))
+                    certification_urls[slide.id] = last_user_input._get_survey_url()
+                else:
+                    user_input = slide.survey_id.sudo()._create_answer(
+                        partner=self.env.user.partner_id,
+                        check_attempts=False,
+                        **{
+                            'slide_id': slide.id,
+                            'slide_partner_id': user_membership_id_sudo.id
+                        },
+                        invite_token=self.env['survey.user_input']._generate_invite_token()
+                    )
+                    certification_urls[slide.id] = user_input._get_survey_url()
+            else:
+                user_input = slide.survey_id.sudo()._create_answer(
+                    partner=self.env.user.partner_id,
                     check_attempts=False,
-                    **{
-                        'slide_id': new_slide_partner.slide_id.id,
-                        'slide_partner_id': new_slide_partner.id
+                    test_entry=True, **{
+                        'slide_id': slide.id
                     }
                 )
+                certification_urls[slide.id] = user_input._get_survey_url()
+        return certification_urls

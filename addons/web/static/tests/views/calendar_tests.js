@@ -1,13 +1,15 @@
 odoo.define('web.calendar_tests', function (require) {
 "use strict";
 
+var AbstractStorageService = require('web.AbstractStorageService');
 var CalendarView = require('web.CalendarView');
 var CalendarRenderer = require('web.CalendarRenderer');
 var Dialog = require('web.Dialog');
+var ViewDialogs = require('web.view_dialogs');
 var fieldUtils = require('web.field_utils');
 var mixins = require('web.mixins');
+var RamStorage = require('web.RamStorage');
 var testUtils = require('web.test_utils');
-var time = require('web.time');
 var session = require('web.session');
 
 var createActionManager = testUtils.createActionManager;
@@ -23,15 +25,18 @@ CalendarRenderer.include({
 });
 
 
-var createView = testUtils.createView;
-var createAsyncView = testUtils.createAsyncView;
+var createCalendarView = testUtils.createCalendarView;
 
 var initialDate = new Date(2016, 11, 12, 8, 0, 0);
 initialDate = new Date(initialDate.getTime() - initialDate.getTimezoneOffset()*60*1000);
 
+function _preventScroll(ev) {
+    ev.stopImmediatePropagation();
+}
 
 QUnit.module('Views', {
     beforeEach: function () {
+        window.addEventListener('scroll', _preventScroll, true);
         session.uid = -1; // TO CHECK
         this.data = {
             event: {
@@ -44,6 +49,7 @@ QUnit.module('Views', {
                     stop_date: {string: "stop date", type: "date"},
                     start: {string: "start datetime", type: "datetime"},
                     stop: {string: "stop datetime", type: "datetime"},
+                    delay: {string: "delay", type: "float"},
                     allday: {string: "allday", type: "boolean"},
                     partner_ids: {string: "attendees", type: "one2many", relation: 'partner', default: [[6, 0, [1]]]},
                     type: {string: "type", type: "integer"},
@@ -57,7 +63,7 @@ QUnit.module('Views', {
                     {id: 6, user_id: session.uid, partner_id: 1, name: "event 6", start: "2016-12-18 08:00:00", stop: "2016-12-18 09:00:00", allday: false, partner_ids: [3], type: 3}
                 ],
                 check_access_rights: function () {
-                    return $.when(true);
+                    return Promise.resolve(true);
                 }
             },
             user: {
@@ -98,7 +104,10 @@ QUnit.module('Views', {
                 ]
             },
         };
-    }
+    },
+    afterEach: function () {
+        window.removeEventListener('scroll', _preventScroll, true);
+    },
 }, function () {
 
     QUnit.module('CalendarView');
@@ -125,9 +134,8 @@ QUnit.module('Views', {
             '</form>',
     };
 
-    QUnit.test('simple calendar rendering', function (assert) {
-        assert.expect(25);
-        var done = assert.async();
+    QUnit.test('simple calendar rendering', async function (assert) {
+        assert.expect(24);
 
         this.data.event.records.push({
             id: 7,
@@ -141,7 +149,7 @@ QUnit.module('Views', {
             type: 1
         });
 
-        createAsyncView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -154,84 +162,80 @@ QUnit.module('Views', {
                 'mode="week" '+
                 'attendee="partner_ids" '+
                 'color="partner_id">'+
-                    '<field name="name"/>'+
                     '<filter name="user_id" avatar_field="image"/>'+
                     '<field name="partner_ids" write_model="filter_partner" write_field="partner_id"/>'+
             '</calendar>',
             archs: archs,
-
             viewOptions: {
                 initialDate: initialDate,
             },
-        }).then(function (calendar) {
-
-            assert.ok(calendar.$('.o_calendar_view').find('.fc-view-container').length, "should instance of fullcalendar");
-
-            var $sidebar = calendar.$('.o_calendar_sidebar');
-
-            assert.strictEqual($sidebar.find('.ui-state-active').text(), "12", "should highlight the target day");
-
-            // test view scales
-
-            assert.containsN(calendar, '.fc-event', 9, "should display 9 events on the week (4 event + 5 days event)");
-            assert.strictEqual($sidebar.find('.o_selected_range').length, 7, "week scale should highlight 7 days in mini calendar");
-
-            calendar.$buttons.find('.o_calendar_button_day').trigger('click'); // display only one day
-            assert.containsN(calendar, '.fc-event', 2, "should display 2 events on the day");
-            assert.strictEqual($sidebar.find('.o_selected_range').length, 1, "should highlight the target day in mini calendar");
-
-            calendar.$buttons.find('.o_calendar_button_month').trigger('click'); // display all the month
-            assert.containsN(calendar, '.fc-event', 7, "should display 7 events on the month (5 events + 2 week event - 1 'event 6' is filtered + 1 'Undefined event')");
-            assert.strictEqual($sidebar.find('.o_selected_range').length, 31, "month scale should highlight all days in mini calendar");
-
-            // test filters
-
-            assert.strictEqual($sidebar.find('.o_calendar_filter').length, 2, "should display 3 filters");
-
-            var $typeFilter =  $sidebar.find('.o_calendar_filter:has(h3:contains(user))');
-            assert.ok($typeFilter.length, "should display 'user' filter");
-            assert.strictEqual($typeFilter.find('.o_calendar_filter_item').length, 3, "should display 3 filter items for 'user'");
-
-            // filters which has no value should show with string "Undefined", should not have any user image and should show at the last
-            assert.strictEqual($typeFilter.find('.o_calendar_filter_item:last').data('value'), false, "filters having false value should be displayed at last in filter items");
-            assert.strictEqual($typeFilter.find('.o_calendar_filter_item:last span').text(), "Undefined", "filters having false value should display 'Undefined' string");
-            assert.strictEqual($typeFilter.find('.o_calendar_filter_item:last label img').length, 0, "filters having false value should not have any user image");
-
-            var $attendeesFilter =  $sidebar.find('.o_calendar_filter:has(h3:contains(attendees))');
-            assert.ok($attendeesFilter.length, "should display 'attendees' filter");
-            assert.strictEqual($attendeesFilter.find('.o_calendar_filter_item').length, 3, "should display 3 filter items for 'attendees' who use write_model (2 saved + Everything)");
-            assert.ok($attendeesFilter.find('.o_field_many2one').length, "should display one2many search bar for 'attendees' filter");
-
-            assert.containsN(calendar, '.fc-event', 7,
-                "should display 7 events ('event 5' counts for 2 because it spans two weeks and thus generate two fc-event elements)");
-            testUtils.dom.click(calendar.$('.o_calendar_filter .custom-checkbox input').first());
-            assert.containsN(calendar, '.fc-event', 4, "should now only display 4 event");
-            testUtils.dom.click(calendar.$('.o_calendar_filter .custom-checkbox input').eq(1));
-            assert.containsNone(calendar, '.fc-event', "should not display any event anymore");
-
-            // test search bar in filter
-            $sidebar.find('input[type="text"]').trigger('click');
-            assert.strictEqual($('ul.ui-autocomplete li:not(.o_m2o_dropdown_option)').length, 2, "should display 2 choices in one2many autocomplete"); // TODO: remove :not(.o_m2o_dropdown_option) because can't have "create & edit" choice
-            $('ul.ui-autocomplete li:first').trigger('click');
-            assert.strictEqual($sidebar.find('.o_calendar_filter:has(h3:contains(attendees)) .o_calendar_filter_item').length, 4, "should display 4 filter items for 'attendees'");
-            $sidebar.find('input[type="text"]').trigger('click');
-            assert.strictEqual($('ul.ui-autocomplete li:not(.o_m2o_dropdown_option)').text(), "partner 4", "should display the last choice in one2many autocomplete"); // TODO: remove :not(.o_m2o_dropdown_option) because can't have "create & edit" choice
-            $sidebar.find('.o_calendar_filter_item .o_remove').first().trigger('click');
-            assert.ok($('.modal-footer button.btn:contains(Ok)').length, "should display the confirm message");
-            $('.modal-footer button.btn:contains(Ok)').trigger('click');
-            assert.strictEqual($sidebar.find('.o_calendar_filter:has(h3:contains(attendees)) .o_calendar_filter_item').length, 3, "click on remove then should display 3 filter items for 'attendees'");
-            calendar.destroy();
-            done();
         });
+
+        assert.ok(calendar.$('.o_calendar_view').find('.fc-view-container').length,
+            "should instance of fullcalendar");
+
+        var $sidebar = calendar.$('.o_calendar_sidebar');
+
+        // test view scales
+        assert.containsN(calendar, '.fc-event', 9,
+            "should display 9 events on the week (4 event + 5 days event)");
+        assert.containsN($sidebar, 'tr:has(.ui-state-active) td', 7,
+            "week scale should highlight 7 days in mini calendar");
+
+        await testUtils.dom.click(calendar.$buttons.find('.o_calendar_button_day')); // display only one day
+        assert.containsN(calendar, '.fc-event', 2, "should display 2 events on the day");
+        assert.containsOnce($sidebar, '.o_selected_range',
+            "should highlight the target day in mini calendar");
+
+        await testUtils.dom.click(calendar.$buttons.find('.o_calendar_button_month')); // display all the month
+        assert.containsN(calendar, '.fc-event', 7,
+            "should display 7 events on the month (5 events + 2 week event - 1 'event 6' is filtered + 1 'Undefined event')");
+        assert.containsN($sidebar, 'td a', 31,
+            "month scale should highlight all days in mini calendar");
+
+        // test filters
+        assert.containsN($sidebar, '.o_calendar_filter', 2, "should display 2 filters");
+
+        var $typeFilter =  $sidebar.find('.o_calendar_filter:has(h5:contains(user))');
+        assert.ok($typeFilter.length, "should display 'user' filter");
+        assert.containsN($typeFilter, '.o_calendar_filter_item', 3, "should display 3 filter items for 'user'");
+
+        // filters which has no value should show with string "Undefined", should not have any user image and should show at the last
+        assert.strictEqual($typeFilter.find('.o_calendar_filter_item:last').data('value'), false, "filters having false value should be displayed at last in filter items");
+        assert.strictEqual($typeFilter.find('.o_calendar_filter_item:last .o_cw_filter_title').text(), "Undefined", "filters having false value should display 'Undefined' string");
+        assert.strictEqual($typeFilter.find('.o_calendar_filter_item:last label img').length, 0, "filters having false value should not have any user image");
+
+        var $attendeesFilter =  $sidebar.find('.o_calendar_filter:has(h5:contains(attendees))');
+        assert.ok($attendeesFilter.length, "should display 'attendees' filter");
+        assert.containsN($attendeesFilter, '.o_calendar_filter_item', 3, "should display 3 filter items for 'attendees' who use write_model (2 saved + Everything)");
+        assert.ok($attendeesFilter.find('.o_field_many2one').length, "should display one2many search bar for 'attendees' filter");
+
+        assert.containsN(calendar, '.fc-event', 7,
+            "should display 7 events ('event 5' counts for 2 because it spans two weeks and thus generate two fc-event elements)");
+        await testUtils.dom.click(calendar.$('.o_calendar_filter input[type="checkbox"]').first());
+        assert.containsN(calendar, '.fc-event', 4, "should now only display 4 event");
+        await testUtils.dom.click(calendar.$('.o_calendar_filter input[type="checkbox"]').eq(1));
+        assert.containsNone(calendar, '.fc-event', "should not display any event anymore");
+
+        // test search bar in filter
+        await testUtils.dom.click($sidebar.find('input[type="text"]'));
+        assert.strictEqual($('ul.ui-autocomplete li:not(.o_m2o_dropdown_option)').length, 2,"should display 2 choices in one2many autocomplete"); // TODO: remove :not(.o_m2o_dropdown_option) because can't have "create & edit" choice
+        await testUtils.dom.click($('ul.ui-autocomplete li:first'));
+        assert.containsN($sidebar, '.o_calendar_filter:has(h5:contains(attendees)) .o_calendar_filter_item', 4, "should display 4 filter items for 'attendees'");
+        await testUtils.dom.click($sidebar.find('input[type="text"]'));
+        assert.strictEqual($('ul.ui-autocomplete li:not(.o_m2o_dropdown_option)').text(), "partner 4", "should display the last choice in one2many autocomplete"); // TODO: remove :not(.o_m2o_dropdown_option) because can't have "create & edit" choice
+        await testUtils.dom.click($sidebar.find('.o_calendar_filter_item .o_remove').first(), {allowInvisible: true});
+        assert.ok($('.modal-footer button.btn:contains(Ok)').length, "should display the confirm message");
+        await testUtils.dom.click($('.modal-footer button.btn:contains(Ok)'));
+        assert.containsN($sidebar, '.o_calendar_filter:has(h5:contains(attendees)) .o_calendar_filter_item', 3, "click on remove then should display 3 filter items for 'attendees'");
+        calendar.destroy();
     });
 
-    QUnit.test('breadcrumbs are updated with the displayed period', function (assert) {
+    QUnit.test('breadcrumbs are updated with the displayed period', async function (assert) {
         assert.expect(3);
 
         var archs = {
-            'event,1,calendar': '<calendar date_start="start" date_stop="stop" all_day="allday">' +
-                '<field name="name"/>' +
-            '</calendar>',
+            'event,1,calendar': '<calendar date_start="start" date_stop="stop" all_day="allday"/>',
             'event,false,search': '<search></search>',
         };
 
@@ -246,35 +250,34 @@ QUnit.module('Views', {
             views: [[1, 'calendar']],
         }];
 
-        var actionManager = createActionManager({
+        var actionManager = await createActionManager({
             actions: actions,
             archs: archs,
             data: this.data,
         });
 
-        actionManager.doAction(1);
-
+        await actionManager.doAction(1);
         // displays month mode by default
         assert.strictEqual($('.o_control_panel .breadcrumb-item').text(),
             'Meetings Test (Dec 11 – 17, 2016)', "should display the current week");
 
         // switch to day mode
-        testUtils.dom.click($('.o_control_panel .o_calendar_button_day'));
+        await testUtils.dom.click($('.o_control_panel .o_calendar_button_day'));
         assert.strictEqual($('.o_control_panel .breadcrumb-item').text(),
             'Meetings Test (December 12, 2016)', "should display the current day");
 
         // switch to month mode
-        testUtils.dom.click($('.o_control_panel .o_calendar_button_month'));
+        await testUtils.dom.click($('.o_control_panel .o_calendar_button_month'));
         assert.strictEqual($('.o_control_panel .breadcrumb-item').text(),
             'Meetings Test (December 2016)', "should display the current month");
 
         actionManager.destroy();
     });
 
-    QUnit.test('create and change events', function (assert) {
+    QUnit.test('create and change events', async function (assert) {
         assert.expect(26);
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -285,11 +288,14 @@ QUnit.module('Views', {
                 'date_start="start" '+
                 'date_stop="stop" '+
                 'all_day="allday" '+
-                'mode="month" '+
-                'readonly_form_view_id="1">'+
-                    '<field name="name"/>'+
-            '</calendar>',
+                'mode="month"/>',
             archs: archs,
+            mockRPC: function (route, args) {
+                if (args.method === 'write') {
+                    assert.deepEqual(args.args[1], {name: 'event 4 modified'}, "should update the record");
+                }
+                return this._super.apply(this, arguments);
+            },
             viewOptions: {
                 initialDate: initialDate,
             },
@@ -299,22 +305,21 @@ QUnit.module('Views', {
 
         // click on an existing event to open the formViewDialog
 
-        calendar.$('.fc-event:contains(event 4) .fc-content').trigger('click');
+        await testUtils.dom.click(calendar.$('.fc-event:contains(event 4) .fc-content'));
+
+        assert.ok(calendar.$('.o_cw_popover').length, "should open a popover clicking on event");
+        assert.ok(calendar.$('.o_cw_popover .o_cw_popover_edit').length, "popover should have an edit button");
+        assert.ok(calendar.$('.o_cw_popover .o_cw_popover_delete').length, "popover should have a delete button");
+        assert.ok(calendar.$('.o_cw_popover .o_cw_popover_close').length, "popover should have a close button");
+
+        await testUtils.dom.click(calendar.$('.o_cw_popover .o_cw_popover_edit'));
 
         assert.ok($('.modal-body').length, "should open the form view in dialog when click on event");
-        assert.ok($('.modal-footer button.btn:contains(Edit)').length, "formViewDialog should be in readonly mode");
-        assert.ok($('.modal-footer button.btn:contains(Delete)').length, "formViewDialog should have a delete button");
 
-        $('.modal-footer button.btn:contains(Edit)').trigger('click');
-
-        assert.ok($('.modal-body').length, "should switch the modal in edit mode");
-        assert.notOk($('.modal-footer button.btn:contains(Delete)').length, "formViewDialog should not have a delete button in edit mode");
-
-        testUtils.fields.editInput($('.modal-body input:first'), 'event 4 modified');
-        $('.modal-footer button.btn:contains(Save)').trigger('click');
+        await testUtils.fields.editInput($('.modal-body input:first'), 'event 4 modified');
+        await testUtils.dom.click($('.modal-footer button.btn:contains(Save)'));
 
         assert.notOk($('.modal-body').length, "save button should close the modal");
-        assert.ok(calendar.$('.fc-event:contains(event 4 modified)').length, "should display the updated records");
 
         // create a new event, quick create only
 
@@ -322,11 +327,12 @@ QUnit.module('Views', {
 
         testUtils.dom.triggerMouseEvent($cell, "mousedown");
         testUtils.dom.triggerMouseEvent($cell, "mouseup");
+        await testUtils.nextTick();
 
         assert.ok($('.modal-sm').length, "should open the quick create dialog");
 
-        testUtils.fields.editInput($('.modal-body input:first'), 'new event in quick create');
-        $('.modal-footer button.btn:contains(Create)').trigger('click').trigger('click');
+        await testUtils.fields.editInput($('.modal-body input:first'), 'new event in quick create');
+        await testUtils.dom.click($('.modal-footer button.btn:contains(Create)'));
 
         assert.strictEqual(calendar.$('.fc-event:contains(new event in quick create)').length, 1, "should display the new record after quick create");
         assert.containsN(calendar, 'td.fc-event-container[colspan]', 2, "should the new record have only one day");
@@ -335,15 +341,19 @@ QUnit.module('Views', {
 
         testUtils.dom.triggerMouseEvent($cell, "mousedown");
         testUtils.dom.triggerMouseEvent($cell, "mouseup");
+        await testUtils.nextTick();
 
         assert.ok($('.modal-sm').length, "should open the quick create dialog");
 
+        await testUtils.fields.editInput($('.modal-body input:first'),
+            'new event in quick create validated by pressing enter key.');
         $('.modal-body input:first')
             .val('new event in quick create validated by pressing enter key.')
             .trigger($.Event('keyup', {keyCode: $.ui.keyCode.ENTER}))
             .trigger($.Event('keyup', {keyCode: $.ui.keyCode.ENTER}));
-
-        assert.strictEqual(calendar.$('.fc-event:contains(new event in quick create validated by pressing enter key.)').length, 1, "should display the new record by pressing enter key");
+        await testUtils.nextTick();
+        assert.containsOnce(calendar, '.fc-event:contains(new event in quick create validated by pressing enter key.)',
+            "should display the new record by pressing enter key");
 
 
         // create a new event and edit it
@@ -352,11 +362,12 @@ QUnit.module('Views', {
 
         testUtils.dom.triggerMouseEvent($cell, "mousedown");
         testUtils.dom.triggerMouseEvent($cell, "mouseup");
+        await testUtils.nextTick();
 
         assert.strictEqual($('.modal-sm').length, 1, "should open the quick create dialog");
 
         testUtils.fields.editInput($('.modal-body input:first'), 'coucou');
-        $('.modal-footer button.btn:contains(Edit)').trigger('click');
+        await testUtils.dom.click($('.modal-footer button.btn:contains(Edit)'));
 
         assert.strictEqual($('.modal-lg .o_form_view').length, 1, "should open the slow create dialog");
         assert.strictEqual($('.modal-lg .modal-title').text(), "Create: Events",
@@ -364,9 +375,10 @@ QUnit.module('Views', {
         assert.strictEqual($('.modal-lg .o_form_view input[name="name"]').val(), "coucou",
             "should have set the name from the quick create dialog");
 
-        $('.modal-lg button.btn:contains(Save)').trigger('click');
+        await testUtils.dom.click($('.modal-lg button.btn:contains(Save)'));
 
-        assert.strictEqual(calendar.$('.fc-event:contains(coucou)').length, 1, "should display the new record with string attribute");
+        assert.strictEqual(calendar.$('.fc-event:contains(coucou)').length, 1,
+            "should display the new record with string attribute");
 
         // create a new event with 2 days
 
@@ -375,41 +387,44 @@ QUnit.module('Views', {
         testUtils.dom.triggerMouseEvent($cell, "mousedown");
         testUtils.dom.triggerMouseEvent($cell.next(), "mousemove");
         testUtils.dom.triggerMouseEvent($cell.next(), "mouseup");
+        await testUtils.nextTick();
 
         testUtils.fields.editInput($('.modal-dialog input:first'), 'new event in quick create 2');
-        $('.modal-footer button.btn:contains(Edit)').trigger('click');
+        await testUtils.dom.click($('.modal-footer button.btn:contains(Edit)'));
 
-        assert.strictEqual($('.modal-lg input:first').val(), 'new event in quick create 2', "should open the formViewDialog with default values");
+        assert.strictEqual($('.modal-lg input:first').val(),'new event in quick create 2',
+            "should open the formViewDialog with default values");
 
-        $('.modal-lg button.btn:contains(Save)').trigger('click');
+        await testUtils.dom.click($('.modal-lg button.btn:contains(Save)'));
 
         assert.notOk($('.modal').length, "should close dialogs");
         var $newevent2 = calendar.$('.fc-event:contains(new event in quick create 2)');
         assert.ok($newevent2.length, "should display the 2 days new record");
-        assert.hasAttrValue($newevent2.closest('.fc-event-container'), 'colspan', "2", "the new record should have 2 days");
+        assert.hasAttrValue($newevent2.closest('.fc-event-container'),
+            'colspan', "2","the new record should have 2 days");
 
         // delete the a record
 
-        calendar.$('.fc-event:contains(event 4) .fc-content').trigger('click');
-        $('.modal-footer button.btn:contains(Delete)').trigger('click');
+        await testUtils.dom.click(calendar.$('.fc-event:contains(event 4) .fc-content'));
+        await testUtils.dom.click(calendar.$('.o_cw_popover .o_cw_popover_delete'));
         assert.ok($('.modal-footer button.btn:contains(Ok)').length, "should display the confirm message");
-        $('.modal-footer button.btn:contains(Ok)').trigger('click');
+        await testUtils.dom.click($('.modal-footer button.btn:contains(Ok)'));
         assert.notOk(calendar.$('.fc-event:contains(event 4) .fc-content').length, "the record should be deleted");
 
         assert.containsN(calendar, '.fc-event-container .fc-event', 10, "should display 10 events");
         // move to next month
-        testUtils.dom.click(calendar.$buttons.find('.o_calendar_button_next'));
+        await testUtils.dom.click(calendar.$buttons.find('.o_calendar_button_next'));
 
         assert.containsNone(calendar, '.fc-event-container .fc-event', "should display 0 events");
 
         calendar.destroy();
     });
 
-    QUnit.test('quickcreate switching to actual create for required fields', function (assert) {
+    QUnit.test('quickcreate switching to actual create for required fields', async function (assert) {
         assert.expect(4);
 
         var event = $.Event();
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -420,21 +435,21 @@ QUnit.module('Views', {
                 'date_start="start" '+
                 'date_stop="stop" '+
                 'all_day="allday" '+
-                'mode="month" '+
-                'readonly_form_view_id="1">'+
-                    '<field name="name"/>'+
-            '</calendar>',
+                'mode="month"/>',
             archs: archs,
             viewOptions: {
                 initialDate: initialDate,
             },
             mockRPC: function (route, args) {
                 if (args.method === "create") {
-                    return $.Deferred().reject({
-                        code: 200,
-                        data: {},
-                        message: "Odoo server error",
-                    }, event);
+                    return Promise.reject({
+                        message: {
+                            code: 200,
+                            data: {},
+                            message: "Odoo server error",
+                        },
+                        event: event
+                    });
                 }
                 return this._super(route, args);
             },
@@ -444,12 +459,14 @@ QUnit.module('Views', {
         var $cell = calendar.$('.fc-day-grid .fc-row:eq(2) .fc-day:eq(2)');
         testUtils.dom.triggerMouseEvent($cell, "mousedown");
         testUtils.dom.triggerMouseEvent($cell, "mouseup");
+        await testUtils.nextTick();
 
         assert.strictEqual($('.modal-sm .modal-title').text(), 'Create: Events',
             "should open the quick create dialog");
 
-        testUtils.fields.editInput($('.modal-body input:first'), 'new event in quick create');
-        $('.modal-footer button.btn:contains(Create)').trigger('click').trigger('click');
+        await testUtils.fields.editInput($('.modal-body input:first'), 'new event in quick create');
+        await testUtils.dom.click($('.modal-footer button.btn:contains(Create)'));
+        await testUtils.nextTick();
 
         // If the event is not default-prevented, a traceback will be raised, which we do not want
         assert.ok(event.isDefaultPrevented(), "fail deferred event should have been default-prevented");
@@ -462,12 +479,69 @@ QUnit.module('Views', {
         calendar.destroy();
     });
 
-    QUnit.test('create event with timezone in week mode European locale', function (assert) {
+    QUnit.test('open multiple event form at the same time', async function (assert) {
+        assert.expect(2);
+
+        var prom = testUtils.makeTestPromise();
+        var counter = 0;
+        testUtils.mock.patch(ViewDialogs.FormViewDialog, {
+            open: function () {
+                counter++;
+                this.options = _.omit(this.options, 'fields_view');  // force loadFieldView
+                return this._super.apply(this, arguments);
+            },
+            loadFieldView: function () {
+                var self = this;
+                var args = arguments;
+                var _super = this._super;
+                return prom.then(function () {
+                    return _super.apply(self, args);
+                });
+            },
+        });
+
+        var event = $.Event();
+        var calendar = await createCalendarView({
+            View: CalendarView,
+            model: 'event',
+            data: this.data,
+            arch:
+            '<calendar class="o_calendar_test" '+
+                'string="Events" ' +
+                'event_open_popup="true" '+
+                'date_start="start" '+
+                'quick_add="False" '+
+                'date_stop="stop" '+
+                'all_day="allday" '+
+                'mode="month" '+
+                'readonly_form_view_id="1">'+
+                    '<field name="name"/>'+
+            '</calendar>',
+            archs: archs,
+            viewOptions: {
+                initialDate: initialDate,
+            },
+        });
+
+        var $cell = calendar.$('.fc-day-grid .fc-row:eq(2) .fc-day:eq(2)');
+        for (var i = 0; i < 5; i++) {
+            await testUtils.dom.triggerMouseEvent($cell, "mousedown");
+            await testUtils.dom.triggerMouseEvent($cell, "mouseup");
+        }
+        prom.resolve();
+        await testUtils.nextTick();
+        assert.equal(counter, 5, "there should had been 5 attemps to open a modal");
+        assert.containsOnce($('body'), '.modal', "there should be only one open modal");
+
+        calendar.destroy();
+    });
+
+    QUnit.test('create event with timezone in week mode European locale', async function (assert) {
         assert.expect(5);
 
         this.data.event.records = [];
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -477,8 +551,7 @@ QUnit.module('Views', {
                 'date_start="start" '+
                 'date_stop="stop" '+
                 'all_day="allday" '+
-                'mode="week" '+
-                'readonly_form_view_id="1">'+
+                'mode="week">'+
                     '<field name="name"/>'+
                     '<field name="start"/>'+
                     '<field name="allday"/>'+
@@ -507,11 +580,7 @@ QUnit.module('Views', {
                 }
                 return this._super(route, args);
             },
-        });
-
-
-        var $view = $('#qunit-fixture').contents();
-        $view.prependTo('body'); // => select with click position
+        }, {positionalClicks: true});
 
         var top = calendar.$('.fc-axis:contains(8:00)').offset().top + 5;
         var left = calendar.$('.fc-day:eq(2)').offset().left + 5;
@@ -520,22 +589,22 @@ QUnit.module('Views', {
             testUtils.dom.triggerPositionalMouseEvent(left, top, "mousedown");
         } catch (e) {
             calendar.destroy();
-            $view.remove();
             throw new Error('The test fails to simulate a click in the screen. Your screen is probably too small or your dev tools is open.');
         }
 
         testUtils.dom.triggerPositionalMouseEvent(left, top + 60, "mousemove");
 
-        assert.strictEqual(calendar.$('.fc-content .fc-time').text(), "08:00 - 10:00",
+        assert.strictEqual(calendar.$('.fc-content .fc-time').text(), "8:00 - 10:00",
             "should display the time in the calendar sticker");
 
-        testUtils.dom.triggerPositionalMouseEvent(left, top + 60, "mouseup");
-        testUtils.fields.editInput($('.modal input:first'), 'new event');
-        $('.modal button.btn:contains(Create)').trigger('click');
+        await testUtils.dom.triggerPositionalMouseEvent(left, top + 60, "mouseup");
+        await testUtils.nextTick();
+        await testUtils.fields.editInput($('.modal input:first'), 'new event');
+        await testUtils.dom.click($('.modal button.btn:contains(Create)'));
         var $newevent = calendar.$('.fc-event:contains(new event)');
 
-        assert.strictEqual($newevent.text().replace(/[\s\n\r]+/g, ''), "08:00-10:00newevent12/13/201608:00:00False",
-            "should display the new event with time, title and additional fields");
+        assert.strictEqual($newevent.find('.o_event_title').text(), "new event",
+            "should display the new event with title");
 
         assert.deepEqual($newevent.data('fcSeg').event.record,
             {
@@ -550,13 +619,12 @@ QUnit.module('Views', {
 
         // delete record
 
-        $newevent.trigger('click');
-        $('.modal button.btn-secondary:contains(Delete)').trigger('click');
-        $('.modal button.btn-primary:contains(Ok)').trigger('click');
+        await testUtils.dom.click($newevent);
+        await testUtils.dom.click(calendar.$('.o_cw_popover .o_cw_popover_delete'));
+        await testUtils.dom.click($('.modal button.btn-primary:contains(Ok)'));
         assert.containsNone(calendar, '.fc-content', "should delete the record");
 
         calendar.destroy();
-        $view.remove();
     });
 
     QUnit.test('default week start (US)', function (assert) {
@@ -564,7 +632,7 @@ QUnit.module('Views', {
         assert.expect(1);
         var done = assert.async();
 
-        createAsyncView({
+        createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -580,7 +648,7 @@ QUnit.module('Views', {
                 initialDate: initialDate,
             },
         }).then(function (calendar) {
-            assert.strictEqual(calendar.$('.fc-day-header').first().text(), "Sun 12/11",
+            assert.strictEqual(calendar.$('.fc-day-header').first().text(), "Sun 11",
                 "The first day of the week should be Sunday");
             calendar.destroy();
             done();
@@ -592,7 +660,7 @@ QUnit.module('Views', {
         assert.expect(1);
         var done = assert.async();
 
-        createAsyncView({
+        createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -611,7 +679,7 @@ QUnit.module('Views', {
                 week_start: 1,
             },
         }).then(function (calendar) {
-            assert.strictEqual(calendar.$('.fc-day-header').first().text(), "Mon 12/12",
+            assert.strictEqual(calendar.$('.fc-day-header').first().text(), "Mon 12",
                 "The first day of the week should be Monday");
             calendar.destroy();
             done();
@@ -625,7 +693,7 @@ QUnit.module('Views', {
         assert.expect(1);
         var done = assert.async();
 
-        createAsyncView({
+        createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -644,15 +712,89 @@ QUnit.module('Views', {
                 week_start: 7,
             },
         }).then(function (calendar) {
-            assert.strictEqual(calendar.$('.fc-week-number').text(), "W51",
+            assert.strictEqual(calendar.$('.fc-week-number').text(), "Week 51",
                 "We should be on the 51st week");
             calendar.destroy();
             done();
         });
     });
 
-    QUnit.test('create event with timezone in week mode with formViewDialog European locale', function (assert) {
-        assert.expect(8);
+    QUnit.test('render popover', async function (assert) {
+        assert.expect(14);
+
+        var calendar = await createCalendarView({
+            View: CalendarView,
+            model: 'event',
+            data: this.data,
+            arch:
+            '<calendar class="o_calendar_test" '+
+                'date_start="start" '+
+                'date_stop="stop" '+
+                'all_day="allday" '+
+                'mode="week">'+
+                    '<field name="name" string="Custom Name"/>'+
+                    '<field name="partner_id"/>'+
+            '</calendar>',
+            archs: archs,
+            viewOptions: {
+                initialDate: initialDate,
+            },
+        });
+
+        await testUtils.dom.click($('.fc-event:contains(event 4)'));
+
+        assert.containsOnce(calendar, '.o_cw_popover', "should open a popover clicking on event");
+        assert.strictEqual(calendar.$('.o_cw_popover .popover-header').text(), 'event 4', "popover should have a title 'event 4'");
+        assert.containsOnce(calendar, '.o_cw_popover .o_cw_popover_edit', "popover should have an edit button");
+        assert.containsOnce(calendar, '.o_cw_popover .o_cw_popover_delete', "popover should have a delete button");
+        assert.containsOnce(calendar, '.o_cw_popover .o_cw_popover_close', "popover should have a close button");
+
+        assert.strictEqual(calendar.$('.o_cw_popover .list-group-item:first b.text-capitalize').text(), 'Wednesday, December 14, 2016', "should display date 'Wednesday, December 14, 2016'");
+        assert.containsN(calendar, '.o_cw_popover .o_cw_popover_fields_secondary .list-group-item', 2, "popover should have a two fields");
+
+        assert.containsOnce(calendar, '.o_cw_popover .o_cw_popover_fields_secondary .list-group-item:first .o_field_char', "should apply char widget");
+        assert.strictEqual(calendar.$('.o_cw_popover .o_cw_popover_fields_secondary .list-group-item:first strong').text(), 'Custom Name : ', "label should be a 'Custom Name'");
+        assert.strictEqual(calendar.$('.o_cw_popover .o_cw_popover_fields_secondary .list-group-item:first .o_field_char').text(), 'event 4', "value should be a 'event 4'");
+
+        assert.containsOnce(calendar, '.o_cw_popover .o_cw_popover_fields_secondary .list-group-item:last .o_form_uri', "should apply m20 widget");
+        assert.strictEqual(calendar.$('.o_cw_popover .o_cw_popover_fields_secondary .list-group-item:last strong').text(), 'user : ', "label should be a 'user'");
+        assert.strictEqual(calendar.$('.o_cw_popover .o_cw_popover_fields_secondary .list-group-item:last .o_form_uri').text(), 'partner 1', "value should be a 'partner 1'");
+
+        await testUtils.dom.click($('.o_cw_popover .o_cw_popover_close'));
+        assert.containsNone(calendar, '.o_cw_popover', "should close a popover");
+
+        calendar.destroy();
+    });
+
+    QUnit.test('attributes hide_date and hide_time', async function (assert) {
+        assert.expect(1);
+
+        var calendar = await createCalendarView({
+            View: CalendarView,
+            model: 'event',
+            data: this.data,
+            arch:
+            '<calendar class="o_calendar_test" '+
+                'date_start="start" '+
+                'date_stop="stop" '+
+                'hide_date="true" '+
+                'hide_time="true" '+
+                'mode="month">'+
+            '</calendar>',
+            archs: archs,
+            viewOptions: {
+                initialDate: initialDate,
+            },
+        });
+
+        await testUtils.dom.click($('.fc-event:contains(event 4)'));
+        assert.containsNone(calendar, '.o_cw_popover .list-group-item', "popover should not contain date/time");
+
+        calendar.destroy();
+    });
+
+    QUnit.test('create event with timezone in week mode with formViewDialog European locale', async function (assert) {
+        assert.expect(7);
 
         this.data.event.records = [];
         this.data.event.onchanges = {
@@ -667,7 +809,7 @@ QUnit.module('Views', {
             }
         };
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -677,8 +819,7 @@ QUnit.module('Views', {
                 'date_start="start" '+
                 'date_stop="stop" '+
                 'all_day="allday" '+
-                'mode="week" '+
-                'readonly_form_view_id="1">'+
+                'mode="week">'+
                     '<field name="name"/>'+
             '</calendar>',
             archs: archs,
@@ -709,10 +850,7 @@ QUnit.module('Views', {
                 }
                 return this._super(route, args);
             },
-        });
-
-        var $view = $('#qunit-fixture').contents();
-        $view.prependTo('body'); // => select with click position
+        }, {positionalClicks: true});
 
         var top = calendar.$('.fc-axis:contains(8:00)').offset().top + 5;
         var left = calendar.$('.fc-day:eq(2)').offset().left + 5;
@@ -721,46 +859,46 @@ QUnit.module('Views', {
             testUtils.dom.triggerPositionalMouseEvent(left, top, "mousedown");
         } catch (e) {
             calendar.destroy();
-            $view.remove();
             throw new Error('The test fails to simulate a click in the screen. Your screen is probably too small or your dev tools is open.');
         }
         testUtils.dom.triggerPositionalMouseEvent(left, top + 60, "mousemove");
         testUtils.dom.triggerPositionalMouseEvent(left, top + 60, "mouseup");
-        testUtils.fields.editInput($('.modal input:first'), 'new event');
-        $('.modal button.btn:contains(Edit)').trigger('click');
+        await testUtils.nextTick();
+        await testUtils.fields.editInput($('.modal input:first'), 'new event');
+        await testUtils.dom.click($('.modal button.btn:contains(Edit)'));
 
-        assert.strictEqual($('.o_field_widget[name="start"] input').val(), "12/13/2016 08:00:00",
-            "should display the datetime");
+        assert.strictEqual($('.o_field_widget[name="start"] input').val(),
+            "12/13/2016 08:00:00", "should display the datetime");
 
-        $('.modal-lg .o_field_boolean[name="allday"] input').trigger('click');
+        await testUtils.dom.click($('.modal-lg .o_field_boolean[name="allday"] input'));
+        await testUtils.nextTick();
+        assert.strictEqual($('input[name="start_date"]').val(),
+            "12/13/2016", "should display the date");
 
-        assert.strictEqual($('.o_field_widget[name="start_date"] input').val(), "12/13/2016",
-            "should display the date");
+        await testUtils.dom.click($('.modal-lg .o_field_boolean[name="allday"] input'));
 
-        $('.modal-lg .o_field_boolean[name="allday"] input').trigger('click');
-
-        assert.strictEqual($('.o_field_widget[name="start"] input').val(), "12/13/2016 02:00:00",
-            "should display the datetime from the date with the timezone");
+        assert.strictEqual($('.o_field_widget[name="start"] input').val(),
+            "12/13/2016 02:00:00", "should display the datetime from the date with the timezone");
 
         // use datepicker to enter a date: 12/13/2016 08:00:00
         testUtils.dom.openDatepicker($('.o_field_widget[name="start"].o_datepicker'));
-        $('.bootstrap-datetimepicker-widget .picker-switch a[data-action="togglePicker"]').trigger('click');
-        $('.bootstrap-datetimepicker-widget .timepicker .timepicker-hour').trigger('click');
-        $('.bootstrap-datetimepicker-widget .timepicker-hours td.hour:contains(08)').trigger('click');
-        $('.bootstrap-datetimepicker-widget .picker-switch a[data-action="close"]').trigger('click');
+        await testUtils.dom.click($('.bootstrap-datetimepicker-widget .picker-switch a[data-action="togglePicker"]'));
+        await testUtils.dom.click($('.bootstrap-datetimepicker-widget .timepicker .timepicker-hour'));
+        await testUtils.dom.click($('.bootstrap-datetimepicker-widget .timepicker-hours td.hour:contains(08)'));
+        await testUtils.dom.click($('.bootstrap-datetimepicker-widget .picker-switch a[data-action="close"]'));
 
         // use datepicker to enter a date: 12/13/2016 10:00:00
         testUtils.dom.openDatepicker($('.o_field_widget[name="stop"].o_datepicker'));
-        $('.bootstrap-datetimepicker-widget .picker-switch a[data-action="togglePicker"]').trigger('click');
-        $('.bootstrap-datetimepicker-widget .timepicker .timepicker-hour').trigger('click');
-        $('.bootstrap-datetimepicker-widget .timepicker-hours td.hour:contains(10)').trigger('click');
-        $('.bootstrap-datetimepicker-widget .picker-switch a[data-action="close"]').trigger('click');
+        await testUtils.dom.click($('.bootstrap-datetimepicker-widget .picker-switch a[data-action="togglePicker"]'));
+        await testUtils.dom.click($('.bootstrap-datetimepicker-widget .timepicker .timepicker-hour'));
+        await testUtils.dom.click($('.bootstrap-datetimepicker-widget .timepicker-hours td.hour:contains(10)'));
+        await testUtils.dom.click($('.bootstrap-datetimepicker-widget .picker-switch a[data-action="close"]'));
 
-        $('.modal-lg button.btn:contains(Save)').trigger('click');
+        await testUtils.dom.click($('.modal-lg button.btn:contains(Save)'));
         var $newevent = calendar.$('.fc-event:contains(new event)');
 
-        assert.strictEqual($newevent.text().replace(/[\s\n\r]+/g, ''), "08:00-10:00newevent",
-            "should display the new event with time and title");
+        assert.strictEqual($newevent.find('.o_event_title').text(), "new event",
+            "should display the new event with title");
 
         assert.deepEqual($newevent.data('fcSeg').event.record,
             {
@@ -787,6 +925,7 @@ QUnit.module('Views', {
         left = calendar.$('.fc-day:eq(1)').offset().left + 5;
         testUtils.dom.triggerPositionalMouseEvent(left, top, "mousemove");
         testUtils.dom.triggerPositionalMouseEvent(left, top, "mouseup");
+        await testUtils.nextTick();
 
         // Move to "All day"
         expectedEvent = {
@@ -798,17 +937,17 @@ QUnit.module('Views', {
         top = calendar.$('.fc-day:eq(1)').offset().top + 5;
         testUtils.dom.triggerPositionalMouseEvent(left, top, "mousemove");
         testUtils.dom.triggerPositionalMouseEvent(left, top, "mouseup");
+        await testUtils.nextTick();
 
         calendar.destroy();
-        $view.remove();
     });
 
-    QUnit.test('create event with timezone in week mode American locale', function (assert) {
+    QUnit.test('create event with timezone in week mode American locale', async function (assert) {
         assert.expect(5);
 
         this.data.event.records = [];
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -818,8 +957,7 @@ QUnit.module('Views', {
                 'date_start="start" '+
                 'date_stop="stop" '+
                 'all_day="allday" '+
-                'mode="week" '+
-                'readonly_form_view_id="1">'+
+                'mode="week">'+
                     '<field name="name"/>'+
                     '<field name="start"/>'+
                     '<field name="allday"/>'+
@@ -848,11 +986,7 @@ QUnit.module('Views', {
                 }
                 return this._super(route, args);
             },
-        });
-
-
-        var $view = $('#qunit-fixture').contents();
-        $view.prependTo('body'); // => select with click position
+        }, {positionalClicks: true});
 
         var top = calendar.$('.fc-axis:contains(8am)').offset().top + 5;
         var left = calendar.$('.fc-day:eq(2)').offset().left + 5;
@@ -861,22 +995,22 @@ QUnit.module('Views', {
             testUtils.dom.triggerPositionalMouseEvent(left, top, "mousedown");
         } catch (e) {
             calendar.destroy();
-            $view.remove();
             throw new Error('The test fails to simulate a click in the screen. Your screen is probably too small or your dev tools is open.');
         }
 
         testUtils.dom.triggerPositionalMouseEvent(left, top + 60, "mousemove");
 
-        assert.strictEqual(calendar.$('.fc-content .fc-time').text(), "8:00am - 10:00am",
+        assert.strictEqual(calendar.$('.fc-content .fc-time').text(), "8:00 - 10:00",
             "should display the time in the calendar sticker");
 
         testUtils.dom.triggerPositionalMouseEvent(left, top + 60, "mouseup");
+        await testUtils.nextTick();
         testUtils.fields.editInput($('.modal input:first'), 'new event');
-        $('.modal button.btn:contains(Create)').trigger('click');
+        await testUtils.dom.click($('.modal button.btn:contains(Create)'));
         var $newevent = calendar.$('.fc-event:contains(new event)');
 
-        assert.strictEqual($newevent.text().replace(/[\s\n\r]+/g, ''), "8:00am-10:00amnewevent12/13/201608:00:00False",
-            "should display the new event with time, title and additional fields");
+        assert.strictEqual($newevent.find('.o_event_title').text(), "new event",
+            "should display the new event with title");
 
         assert.deepEqual($newevent.data('fcSeg').event.record,
             {
@@ -891,17 +1025,16 @@ QUnit.module('Views', {
 
         // delete record
 
-        $newevent.trigger('click');
-        $('.modal button.btn-secondary:contains(Delete)').trigger('click');
-        $('.modal button.btn-primary:contains(Ok)').trigger('click');
+        await testUtils.dom.click($newevent);
+        await testUtils.dom.click(calendar.$('.o_cw_popover .o_cw_popover_delete'));
+        await testUtils.dom.click($('.modal button.btn-primary:contains(Ok)'));
         assert.containsNone(calendar, '.fc-content', "should delete the record");
 
         calendar.destroy();
-        $view.remove();
     });
 
-    QUnit.test('create event with timezone in week mode with formViewDialog American locale', function (assert) {
-        assert.expect(8);
+    QUnit.test('create event with timezone in week mode with formViewDialog American locale', async function (assert) {
+        assert.expect(7);
 
         this.data.event.records = [];
         this.data.event.onchanges = {
@@ -916,7 +1049,7 @@ QUnit.module('Views', {
             }
         };
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -926,8 +1059,7 @@ QUnit.module('Views', {
                 'date_start="start" '+
                 'date_stop="stop" '+
                 'all_day="allday" '+
-                'mode="week" '+
-                'readonly_form_view_id="1">'+
+                'mode="week">'+
                     '<field name="name"/>'+
             '</calendar>',
             archs: archs,
@@ -958,10 +1090,7 @@ QUnit.module('Views', {
                 }
                 return this._super(route, args);
             },
-        });
-
-        var $view = $('#qunit-fixture').contents();
-        $view.prependTo('body'); // => select with click position
+        }, {positionalClicks: true});
 
         var top = calendar.$('.fc-axis:contains(8am)').offset().top + 5;
         var left = calendar.$('.fc-day:eq(2)').offset().left + 5;
@@ -970,46 +1099,46 @@ QUnit.module('Views', {
             testUtils.dom.triggerPositionalMouseEvent(left, top, "mousedown");
         } catch (e) {
             calendar.destroy();
-            $view.remove();
             throw new Error('The test fails to simulate a click in the screen. Your screen is probably too small or your dev tools is open.');
         }
         testUtils.dom.triggerPositionalMouseEvent(left, top + 60, "mousemove");
         testUtils.dom.triggerPositionalMouseEvent(left, top + 60, "mouseup");
+        await testUtils.nextTick();
         testUtils.fields.editInput($('.modal input:first'), 'new event');
-        $('.modal button.btn:contains(Edit)').trigger('click');
+        await testUtils.dom.click($('.modal button.btn:contains(Edit)'));
 
         assert.strictEqual($('.o_field_widget[name="start"] input').val(), "12/13/2016 08:00:00",
             "should display the datetime");
 
-        $('.modal-lg .o_field_boolean[name="allday"] input').trigger('click');
+        await testUtils.dom.click($('.modal-lg .o_field_boolean[name="allday"] input'));
 
         assert.strictEqual($('.o_field_widget[name="start_date"] input').val(), "12/13/2016",
             "should display the date");
 
-        $('.modal-lg .o_field_boolean[name="allday"] input').trigger('click');
+        await testUtils.dom.click($('.modal-lg .o_field_boolean[name="allday"] input'));
 
         assert.strictEqual($('.o_field_widget[name="start"] input').val(), "12/13/2016 02:00:00",
             "should display the datetime from the date with the timezone");
 
         // use datepicker to enter a date: 12/13/2016 08:00:00
         testUtils.dom.openDatepicker($('.o_field_widget[name="start"].o_datepicker'));
-        $('.bootstrap-datetimepicker-widget .picker-switch a[data-action="togglePicker"]').trigger('click');
-        $('.bootstrap-datetimepicker-widget .timepicker .timepicker-hour').trigger('click');
-        $('.bootstrap-datetimepicker-widget .timepicker-hours td.hour:contains(08)').trigger('click');
-        $('.bootstrap-datetimepicker-widget .picker-switch a[data-action="close"]').trigger('click');
+        await testUtils.dom.click($('.bootstrap-datetimepicker-widget .picker-switch a[data-action="togglePicker"]'));
+        await testUtils.dom.click($('.bootstrap-datetimepicker-widget .timepicker .timepicker-hour'));
+        await testUtils.dom.click($('.bootstrap-datetimepicker-widget .timepicker-hours td.hour:contains(08)'));
+        await testUtils.dom.click($('.bootstrap-datetimepicker-widget .picker-switch a[data-action="close"]'));
 
         // use datepicker to enter a date: 12/13/2016 10:00:00
         testUtils.dom.openDatepicker($('.o_field_widget[name="stop"].o_datepicker'));
-        $('.bootstrap-datetimepicker-widget .picker-switch a[data-action="togglePicker"]').trigger('click');
-        $('.bootstrap-datetimepicker-widget .timepicker .timepicker-hour').trigger('click');
-        $('.bootstrap-datetimepicker-widget .timepicker-hours td.hour:contains(10)').trigger('click');
-        $('.bootstrap-datetimepicker-widget .picker-switch a[data-action="close"]').trigger('click');
+        await testUtils.dom.click($('.bootstrap-datetimepicker-widget .picker-switch a[data-action="togglePicker"]'));
+        await testUtils.dom.click($('.bootstrap-datetimepicker-widget .timepicker .timepicker-hour'));
+        await testUtils.dom.click($('.bootstrap-datetimepicker-widget .timepicker-hours td.hour:contains(10)'));
+        await testUtils.dom.click($('.bootstrap-datetimepicker-widget .picker-switch a[data-action="close"]'));
 
-        $('.modal-lg button.btn:contains(Save)').trigger('click');
+        await testUtils.dom.click($('.modal-lg button.btn:contains(Save)'));
         var $newevent = calendar.$('.fc-event:contains(new event)');
 
-        assert.strictEqual($newevent.text().replace(/[\s\n\r]+/g, ''), "8:00am-10:00amnewevent",
-            "should display the new event with time and title");
+        assert.strictEqual($newevent.find('.o_event_title').text(), "new event",
+            "should display the new event with title");
 
         assert.deepEqual($newevent.data('fcSeg').event.record,
             {
@@ -1036,6 +1165,7 @@ QUnit.module('Views', {
         left = calendar.$('.fc-day:eq(1)').offset().left + 5;
         testUtils.dom.triggerPositionalMouseEvent(left, top, "mousemove");
         testUtils.dom.triggerPositionalMouseEvent(left, top, "mouseup");
+        await testUtils.nextTick();
 
         // Move to "All day"
         expectedEvent = {
@@ -1047,22 +1177,20 @@ QUnit.module('Views', {
         top = calendar.$('.fc-day:eq(1)').offset().top + 5;
         testUtils.dom.triggerPositionalMouseEvent(left, top, "mousemove");
         testUtils.dom.triggerPositionalMouseEvent(left, top, "mouseup");
+        await testUtils.nextTick();
 
         calendar.destroy();
-        $view.remove();
     });
 
-    QUnit.test('check calendar week column timeformat and event content timeformat', function (assert) {
+    QUnit.test('check calendar week column timeformat', async function (assert) {
         assert.expect(2);
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
             arch:
-            '<calendar date_start="start">'+
-                    '<field name="name"/>'+
-            '</calendar>',
+            '<calendar date_start="start"/>',
             archs: archs,
             viewOptions: {
                 initialDate: initialDate,
@@ -1073,18 +1201,18 @@ QUnit.module('Views', {
         });
 
         assert.strictEqual(calendar.$('.fc-axis:contains(8am)').length, 1, "calendar should show according to timeformat");
-        assert.strictEqual(calendar.$('.fc-event:first:contains(12:00am)').length, 1,
+        assert.strictEqual(calendar.$('.fc-axis:contains(11pm)').length, 1,
             "event time format should 12 hour");
 
         calendar.destroy();
     });
 
-    QUnit.test('create all day event in week mode', function (assert) {
+    QUnit.test('create all day event in week mode', async function (assert) {
         assert.expect(3);
 
         this.data.event.records = [];
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -1094,8 +1222,7 @@ QUnit.module('Views', {
                 'date_start="start" '+
                 'date_stop="stop" '+
                 'all_day="allday" '+
-                'mode="week" '+
-                'readonly_form_view_id="1">'+
+                'mode="week">'+
                     '<field name="name"/>'+
             '</calendar>',
             archs: archs,
@@ -1107,26 +1234,22 @@ QUnit.module('Views', {
                     return 120;
                 },
             },
-        });
-
-        var $view = $('#qunit-fixture').contents();
-        $view.prependTo('body'); // => select with click position
-
+        }, {positionalClicks: true});
 
         var pos = calendar.$('.fc-bg td:eq(4)').offset();
         try {
             testUtils.dom.triggerPositionalMouseEvent(pos.left+15, pos.top+15, "mousedown");
         } catch (e) {
             calendar.destroy();
-            $view.remove();
             throw new Error('The test fails to simulate a click in the screen. Your screen is probably too small or your dev tools is open.');
         }
         pos = calendar.$('.fc-bg td:eq(5)').offset();
         testUtils.dom.triggerPositionalMouseEvent(pos.left+15, pos.top+15, "mousemove");
         testUtils.dom.triggerPositionalMouseEvent(pos.left+15, pos.top+15, "mouseup");
+        await testUtils.nextTick();
 
         testUtils.fields.editInput($('.modal input:first'), 'new event');
-        $('.modal button.btn:contains(Create)').trigger('click');
+        await testUtils.dom.click($('.modal button.btn:contains(Create)'));
         var $newevent = calendar.$('.fc-event:contains(new event)');
 
         assert.strictEqual($newevent.text().replace(/[\s\n\r]+/g, ''), "newevent",
@@ -1146,15 +1269,14 @@ QUnit.module('Views', {
             "the new record should have the utc datetime (quickCreate)");
 
         calendar.destroy();
-        $view.remove();
     });
 
-    QUnit.test('create all day event in week mode (no quickCreate)', function (assert) {
+    QUnit.test('create all day event in week mode (no quickCreate)', async function (assert) {
         assert.expect(1);
 
         this.data.event.records = [];
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -1163,10 +1285,7 @@ QUnit.module('Views', {
                 'date_start="start" '+
                 'date_stop="stop" '+
                 'mode="week" '+
-                'quick_add="False" '+
-                'readonly_form_view_id="1">'+
-                    '<field name="name"/>'+
-            '</calendar>',
+                'quick_add="False"/>',
             archs: archs,
             viewOptions: {
                 initialDate: initialDate,
@@ -1186,18 +1305,13 @@ QUnit.module('Views', {
                     "should send the correct data to create events");
                 },
             },
-        });
-
-        var $view = $('#qunit-fixture').contents();
-        $view.prependTo('body'); // => select with click position
-
+        }, {positionalClicks: true});
 
         var pos = calendar.$('.fc-bg td:eq(4)').offset();
         try {
             testUtils.dom.triggerPositionalMouseEvent(pos.left+15, pos.top+15, "mousedown");
         } catch (e) {
             calendar.destroy();
-            $view.remove();
             throw new Error('The test fails to simulate a click in the screen. Your screen is probably too small or your dev tools is open.');
         }
         pos = calendar.$('.fc-bg td:eq(5)').offset();
@@ -1205,15 +1319,14 @@ QUnit.module('Views', {
         testUtils.dom.triggerPositionalMouseEvent(pos.left+15, pos.top+15, "mouseup");
 
         calendar.destroy();
-        $view.remove();
     });
 
-    QUnit.test('create event in month mode', function (assert) {
+    QUnit.test('create event in month mode', async function (assert) {
         assert.expect(4);
 
         this.data.event.records = [];
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -1222,8 +1335,7 @@ QUnit.module('Views', {
                 'event_open_popup="true" '+
                 'date_start="start" '+
                 'date_stop="stop" '+
-                'mode="month" '+
-                'readonly_form_view_id="1">'+
+                'mode="month">'+
                     '<field name="name"/>'+
             '</calendar>',
             archs: archs,
@@ -1246,25 +1358,22 @@ QUnit.module('Views', {
                 }
                 return this._super(route, args);
             },
-        });
+        }, {positionalClicks: true});
 
-        var $view = $('#qunit-fixture').contents();
-        $view.prependTo('body'); // => select with click position
-
-        var pos = calendar.$('.fc-bg td:eq(20)').offset();
+        var pos = calendar.$('.fc-bg td:eq(17)').offset();
         try {
             testUtils.dom.triggerPositionalMouseEvent(pos.left+15, pos.top+15, "mousedown");
         } catch (e) {
             calendar.destroy();
-            $view.remove();
             throw new Error('The test fails to simulate a click in the screen. Your screen is probably too small or your dev tools is open.');
         }
-        pos = calendar.$('.fc-bg td:eq(21)').offset();
+        pos = calendar.$('.fc-bg td:eq(18)').offset();
         testUtils.dom.triggerPositionalMouseEvent(pos.left+15, pos.top+15, "mousemove");
         testUtils.dom.triggerPositionalMouseEvent(pos.left+15, pos.top+15, "mouseup");
+        await testUtils.nextTick();
 
         testUtils.fields.editInput($('.modal input:first'), 'new event');
-        $('.modal button.btn:contains(Create)').trigger('click');
+        await testUtils.dom.click($('.modal button.btn:contains(Create)'));
         var $newevent = calendar.$('.fc-event:contains(new event)');
 
         assert.strictEqual($newevent.text().replace(/[\s\n\r]+/g, ''), "newevent",
@@ -1281,13 +1390,12 @@ QUnit.module('Views', {
         }, "the new record should have the utc datetime (quickCreate)");
 
         calendar.destroy();
-        $view.remove();
     });
 
-    QUnit.test('use mini calendar', function (assert) {
+    QUnit.test('use mini calendar', async function (assert) {
         assert.expect(12);
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -1297,10 +1405,7 @@ QUnit.module('Views', {
                 'date_start="start" '+
                 'date_stop="stop" '+
                 'all_day="allday" '+
-                'mode="week" '+
-                'readonly_form_view_id="1">'+
-                    '<field name="name"/>'+
-            '</calendar>',
+                'mode="week"/>',
             archs: archs,
             viewOptions: {
                 initialDate: initialDate,
@@ -1314,36 +1419,36 @@ QUnit.module('Views', {
 
         assert.containsOnce(calendar, '.fc-agendaWeek-view', "should be in week mode");
         assert.containsN(calendar, '.fc-event', 9, "should display 9 events on the week (4 event + 5 days event)");
-        testUtils.dom.click(calendar.$('.o_calendar_mini a:contains(19)'));
+        await testUtils.dom.click(calendar.$('.o_calendar_mini a:contains(19)'));
         // Clicking on a day in another week should switch to the other week view
         assert.containsOnce(calendar, '.fc-agendaWeek-view', "should be in week mode");
         assert.containsN(calendar, '.fc-event', 4, "should display 4 events on the week (1 event + 3 days event)");
         // Clicking on a day in the same week should switch to that particular day view
-        testUtils.dom.click(calendar.$('.o_calendar_mini a:contains(18)'));
+        await testUtils.dom.click(calendar.$('.o_calendar_mini a:contains(18)'));
         assert.containsOnce(calendar, '.fc-agendaDay-view', "should be in day mode");
         assert.containsN(calendar, '.fc-event', 2, "should display 2 events on the day");
         // Clicking on the same day should toggle between day, month and week views
-        testUtils.dom.click(calendar.$('.o_calendar_mini a:contains(18)'));
+        await testUtils.dom.click(calendar.$('.o_calendar_mini a:contains(18)'));
         assert.containsOnce(calendar, '.fc-month-view', "should be in month mode");
         assert.containsN(calendar, '.fc-event', 7, "should display 7 events on the month (event 5 is on multiple weeks and generates to .fc-event)");
-        testUtils.dom.click(calendar.$('.o_calendar_mini a:contains(18)'));
+        await testUtils.dom.click(calendar.$('.o_calendar_mini a:contains(18)'));
         assert.containsOnce(calendar, '.fc-agendaWeek-view', "should be in week mode");
         assert.containsN(calendar, '.fc-event', 4, "should display 4 events on the week (1 event + 3 days event)");
-        testUtils.dom.click(calendar.$('.o_calendar_mini a:contains(18)'));
+        await testUtils.dom.click(calendar.$('.o_calendar_mini a:contains(18)'));
         assert.containsOnce(calendar, '.fc-agendaDay-view', "should be in day mode");
         assert.containsN(calendar, '.fc-event', 2, "should display 2 events on the day");
 
         calendar.destroy();
     });
 
-    QUnit.test('rendering, with many2many', function (assert) {
+    QUnit.test('rendering, with many2many', async function (assert) {
         assert.expect(5);
 
         this.data.event.fields.partner_ids.type = 'many2many';
         this.data.event.records[0].partner_ids = [1,2,3,4,5];
         this.data.partner.records.push({id: 5, display_name: "partner 5", image: 'EEE'});
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -1353,7 +1458,7 @@ QUnit.module('Views', {
                 'date_start="start" '+
                 'date_stop="stop" '+
                 'all_day="allday"> '+
-                    '<field name="partner_ids" avatar_field="image" write_model="filter_partner" write_field="partner_id"/>'+
+                    '<field name="partner_ids" widget="many2many_tags_avatar" avatar_field="image" write_model="filter_partner" write_field="partner_id"/>'+
             '</calendar>',
             archs: archs,
             viewOptions: {
@@ -1361,25 +1466,26 @@ QUnit.module('Views', {
             },
         });
 
-        assert.containsN(calendar, '.o_calendar_filter_items .o_cal_avatar', 3,
+        assert.containsN(calendar, '.o_calendar_filter_items .o_cw_filter_avatar', 3,
             "should have 3 avatars in the side bar");
 
-        var $event1Avatars = calendar.$('.fc-event .o_calendar_avatars').first();
-        assert.strictEqual($event1Avatars.find('img').length, 1, "should have 1 avatar");
-        assert.strictEqual($event1Avatars.find('span').length, 0,
-            "should not have a span for more attendees since there is only one");
+        // Event 1
+        await testUtils.dom.click(calendar.$('.fc-event:first'));
+        assert.ok(calendar.$('.o_cw_popover').length, "should open a popover clicking on event");
+        assert.strictEqual(calendar.$('.o_cw_popover').find('img').length, 1, "should have 1 avatar");
 
-        var $event2Avatars = calendar.$('.fc-event:contains(All day) .o_calendar_avatars');
-        assert.strictEqual($event2Avatars.find('img').length, 3, "should have 3 avatars");
-        assert.strictEqual($event2Avatars.find('span').text(), '+2',
-            "should indicate there are 2 more attendees that we don't show");
+        // Event 2
+        await testUtils.dom.click(calendar.$('.fc-event:eq(1)'));
+        assert.ok(calendar.$('.o_cw_popover').length, "should open a popover clicking on event");
+        assert.strictEqual(calendar.$('.o_cw_popover').find('img').length, 5, "should have 5 avatar");
+
         calendar.destroy();
     });
 
-    QUnit.test('open form view', function (assert) {
+    QUnit.test('open form view', async function (assert) {
         assert.expect(3);
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -1389,17 +1495,14 @@ QUnit.module('Views', {
                 'date_start="start" '+
                 'date_stop="stop" '+
                 'all_day="allday" '+
-                'mode="month" '+
-                'readonly_form_view_id="1">'+
-                    '<field name="name"/>'+
-            '</calendar>',
+                'mode="month"/>',
             archs: archs,
             viewOptions: {
                 initialDate: initialDate,
             },
             mockRPC: function (route, args) {
                 if (args.method === "get_formview_id") {
-                    return $.Deferred().resolve('A view');
+                    return Promise.resolve('A view');
                 }
                 return this._super(route, args);
             },
@@ -1419,13 +1522,15 @@ QUnit.module('Views', {
                 },
                 "should open the form view");
         });
-        calendar.$('.fc-event:contains(event 4) .fc-content').trigger('click');
+        await testUtils.dom.click(calendar.$('.fc-event:contains(event 4) .fc-content'));
+        await testUtils.dom.click(calendar.$('.o_cw_popover .o_cw_popover_edit'));
 
         // create a new event and edit it
 
         var $cell = calendar.$('.fc-day-grid .fc-row:eq(4) .fc-day:eq(2)');
         testUtils.dom.triggerMouseEvent($cell, "mousedown");
         testUtils.dom.triggerMouseEvent($cell, "mouseup");
+        await testUtils.nextTick();
         testUtils.fields.editInput($('.modal-body input:first'), 'coucou');
 
         testUtils.mock.intercept(calendar, 'do_action', function (event) {
@@ -1445,17 +1550,17 @@ QUnit.module('Views', {
                 "should open the form view with the context default values");
         });
 
-        $('.modal button.btn:contains(Edit)').trigger('click');
+        testUtils.dom.click($('.modal button.btn:contains(Edit)'));
 
         calendar.destroy();
 
         assert.strictEqual($('#ui-datepicker-div:empty').length, 0, "should have a clean body");
     });
 
-    QUnit.test('create and edit event in month mode (all_day: false)', function (assert) {
+    QUnit.test('create and edit event in month mode (all_day: false)', async function (assert) {
         assert.expect(2);
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -1464,10 +1569,7 @@ QUnit.module('Views', {
                 'string="Events" ' +
                 'date_start="start" '+
                 'date_stop="stop" '+
-                'mode="month" '+
-                'readonly_form_view_id="1">'+
-                    '<field name="name"/>'+
-            '</calendar>',
+                'mode="month"/>',
             archs: archs,
             viewOptions: {
                 initialDate: initialDate,
@@ -1483,7 +1585,8 @@ QUnit.module('Views', {
         var $cell = calendar.$('.fc-day-grid .fc-row:eq(4) .fc-day:eq(2)');
         testUtils.dom.triggerMouseEvent($cell, "mousedown");
         testUtils.dom.triggerMouseEvent($cell, "mouseup");
-        testUtils.fields.editInput($('.modal-body input:first'), 'coucou');
+        await testUtils.nextTick();
+        await testUtils.fields.editInput($('.modal-body input:first'), 'coucou');
 
         testUtils.mock.intercept(calendar, 'do_action', function (event) {
             assert.deepEqual(event.data.action,
@@ -1501,18 +1604,18 @@ QUnit.module('Views', {
                 "should open the form view with the context default values");
         });
 
-        $('.modal button.btn:contains(Edit)').trigger('click');
+        await testUtils.dom.click($('.modal button.btn:contains(Edit)'));
 
         calendar.destroy();
         assert.strictEqual($('#ui-datepicker-div:empty').length, 0, "should have a clean body");
     });
 
-    QUnit.test('readonly date_start field', function (assert) {
+    QUnit.test('readonly date_start field', async function (assert) {
         assert.expect(4);
 
         this.data.event.fields.start.readonly = true;
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -1522,17 +1625,14 @@ QUnit.module('Views', {
                 'date_start="start" '+
                 'date_stop="stop" '+
                 'all_day="allday" '+
-                'mode="month" '+
-                'readonly_form_view_id="1">'+
-                    '<field name="name"/>'+
-            '</calendar>',
+                'mode="month"/>',
             archs: archs,
             viewOptions: {
                 initialDate: initialDate,
             },
             mockRPC: function (route, args) {
                 if (args.method === "get_formview_id") {
-                    return $.when(false);
+                    return Promise.resolve(false);
                 }
                 return this._super(route, args);
             },
@@ -1554,14 +1654,16 @@ QUnit.module('Views', {
                 },
                 "should open the form view");
         });
-        calendar.$('.fc-event:contains(event 4) .fc-content').trigger('click');
+        await testUtils.dom.click(calendar.$('.fc-event:contains(event 4) .fc-content'));
+        await testUtils.dom.click(calendar.$('.o_cw_popover .o_cw_popover_edit'));
 
         // create a new event and edit it
 
         var $cell = calendar.$('.fc-day-grid .fc-row:eq(4) .fc-day:eq(2)');
         testUtils.dom.triggerMouseEvent($cell, "mousedown");
         testUtils.dom.triggerMouseEvent($cell, "mouseup");
-        testUtils.fields.editInput($('.modal-body input:first'), 'coucou');
+        await testUtils.nextTick();
+        await testUtils.fields.editInput($('.modal-body input:first'), 'coucou');
 
         testUtils.mock.intercept(calendar, 'do_action', function (event) {
             assert.deepEqual(event.data.action,
@@ -1580,14 +1682,14 @@ QUnit.module('Views', {
                 "should open the form view with the context default values");
         });
 
-        $('.modal button.btn:contains(Edit)').trigger('click');
+        await testUtils.dom.click($('.modal button.btn:contains(Edit)'));
 
         calendar.destroy();
 
         assert.strictEqual($('#ui-datepicker-div:empty').length, 0, "should have a clean body");
     });
 
-    QUnit.test('"all" filter', function (assert) {
+    QUnit.test('"all" filter', async function (assert) {
         assert.expect(6);
 
         var interval = [
@@ -1603,7 +1705,7 @@ QUnit.module('Views', {
 
         var i = 0;
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -1616,7 +1718,6 @@ QUnit.module('Views', {
                 'mode="week" '+
                 'attendee="partner_ids" '+
                 'color="partner_id">'+
-                    '<field name="name"/>'+
                     '<filter name="user_id" avatar_field="image"/>'+
                     '<field name="partner_ids" write_model="filter_partner" write_field="partner_id"/>'+
             '</calendar>',
@@ -1636,26 +1737,26 @@ QUnit.module('Views', {
             "should display 9 events on the week");
 
         // Select the events only associated with partner 2
-        testUtils.dom.click(calendar.$('.o_calendar_filter_item[data-id=2] input'));
+        await testUtils.dom.click(calendar.$('.o_calendar_filter_item[data-id=2] input'));
         assert.containsN(calendar, '.fc-event', 4,
             "should display 4 events on the week");
 
         // Click on the 'all' filter to reload all events
-        testUtils.dom.click(calendar.$('.o_calendar_filter_item[data-value=all] input'));
+        await testUtils.dom.click(calendar.$('.o_calendar_filter_item[data-value=all] input'));
         assert.containsN(calendar, '.fc-event', 9,
             "should display 9 events on the week");
 
         calendar.destroy();
     });
 
-    QUnit.test('create event with filters', function (assert) {
+    QUnit.test('create event with filters', async function (assert) {
         assert.expect(7);
 
         this.data.event.fields.user_id.default = 5;
         this.data.event.fields.partner_id.default = 3;
         this.data.user.records.push({id: 5, display_name: "user 5", partner_id: 3});
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -1668,41 +1769,38 @@ QUnit.module('Views', {
                 'mode="week" '+
                 'attendee="partner_ids" '+
                 'color="partner_id">'+
-                    '<field name="name"/>'+
                     '<filter name="user_id" avatar_field="image"/>'+
                     '<field name="partner_ids" write_model="filter_partner" write_field="partner_id"/>'+
             '</calendar>',
             viewOptions: {
                 initialDate: initialDate,
             },
-        });
+        }, {positionalClicks: true});
 
-        var $view = $('#qunit-fixture').contents();
-        $view.prependTo('body'); // => select with click position
-
-        testUtils.dom.click(calendar.$('.o_calendar_filter_item[data-value=4] input'));
+        await testUtils.dom.click(calendar.$('.o_calendar_filter_item[data-value=4] input'));
 
         assert.containsN(calendar, '.o_calendar_filter_item', 5, "should display 5 filter items");
         assert.containsN(calendar, '.fc-event', 3, "should display 3 events");
 
         // quick create a record
         var left = calendar.$('.fc-bg td:eq(4)').offset().left+15;
-        var top = calendar.$('.fc-slats tr:eq(4) td:first').offset().top+15;
+        var top = calendar.$('.fc-slats tr:eq(12) td:first').offset().top+15;
         try {
             testUtils.dom.triggerPositionalMouseEvent(left, top, "mousedown");
         } catch (e) {
             calendar.destroy();
-            $view.remove();
             throw new Error('The test fails to simulate a click in the screen. Your screen is probably too small or your dev tools is open.');
         }
         testUtils.dom.triggerPositionalMouseEvent(left, top + 200, "mousemove");
         testUtils.dom.triggerPositionalMouseEvent(left, top + 200, "mouseup");
+        await testUtils.nextTick();
 
-        testUtils.fields.editInput($('.modal-body input:first'), 'coucou');
-        $('.modal-footer button.btn:contains(Create)').trigger('click');
+        await testUtils.fields.editInput($('.modal-body input:first'), 'coucou');
+        await testUtils.dom.click($('.modal-footer button.btn:contains(Create)'));
 
         assert.containsN(calendar, '.o_calendar_filter_item', 6, "should add the missing filter (active)");
         assert.containsN(calendar, '.fc-event', 4, "should display the created item");
+        await testUtils.nextTick();
 
         // change default value for quick create an hide record
         this.data.event.fields.user_id.default = 4;
@@ -1710,26 +1808,26 @@ QUnit.module('Views', {
 
         // quick create and other record
         left = calendar.$('.fc-bg td:eq(3)').offset().left+15;
-        top = calendar.$('.fc-slats tr:eq(4) td:first').offset().top+15;
+        top = calendar.$('.fc-slats tr:eq(12) td:first').offset().top+15;
         testUtils.dom.triggerPositionalMouseEvent(left, top, "mousedown");
         testUtils.dom.triggerPositionalMouseEvent(left, top + 200, "mousemove");
         testUtils.dom.triggerPositionalMouseEvent(left, top + 200, "mouseup");
+        await testUtils.nextTick();
 
         testUtils.fields.editInput($('.modal-body input:first'), 'coucou 2');
-        $('.modal-footer button.btn:contains(Create)').trigger('click');
+        await testUtils.dom.click($('.modal-footer button.btn:contains(Create)'));
 
         assert.containsN(calendar, '.o_calendar_filter_item', 6, "should have the same filters");
         assert.containsN(calendar, '.fc-event', 4, "should not display the created item");
 
-        testUtils.dom.click(calendar.$('.o_calendar_filter_item[data-value=4] input'));
+        await testUtils.dom.click(calendar.$('.o_calendar_filter_item[data-value=4] input'));
 
         assert.containsN(calendar, '.fc-event', 11, "should display all records");
 
         calendar.destroy();
-        $view.remove();
     });
 
-    QUnit.test('create event with filters (no quickCreate)', function (assert) {
+    QUnit.test('create event with filters (no quickCreate)', async function (assert) {
         assert.expect(4);
 
         this.data.event.fields.user_id.default = 5;
@@ -1740,7 +1838,7 @@ QUnit.module('Views', {
             partner_id: 3
         });
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -1753,7 +1851,6 @@ QUnit.module('Views', {
                 'mode="week" '+
                 'attendee="partner_ids" '+
                 'color="partner_id">'+
-                    '<field name="name"/>'+
                     '<filter name="user_id" avatar_field="image"/>'+
                     '<field name="partner_ids" write_model="filter_partner" write_field="partner_id"/>'+
             '</calendar>',
@@ -1772,43 +1869,40 @@ QUnit.module('Views', {
             viewOptions: {
                 initialDate: initialDate,
             },
-        });
+        }, {positionalClicks: true});
 
-        var $view = $('#qunit-fixture').contents();
-        $view.prependTo('body'); // => select with click position
-
-        testUtils.dom.click(calendar.$('.o_calendar_filter_item[data-value=4] input'));
+        await testUtils.dom.click(calendar.$('.o_calendar_filter_item[data-value=4] input'));
 
         assert.containsN(calendar, '.o_calendar_filter_item', 5, "should display 5 filter items");
         assert.containsN(calendar, '.fc-event', 3, "should display 3 events");
+        await testUtils.nextTick();
 
         // quick create a record
         var left = calendar.$('.fc-bg td:eq(4)').offset().left+15;
-        var top = calendar.$('.fc-slats tr:eq(4) td:first').offset().top+15;
+        var top = calendar.$('.fc-slats tr:eq(12) td:first').offset().top+15;
         try {
             testUtils.dom.triggerPositionalMouseEvent(left, top, "mousedown");
         } catch (e) {
             calendar.destroy();
-            $view.remove();
             throw new Error('The test fails to simulate a click in the screen. Your screen is probably too small or your dev tools is open.');
         }
         testUtils.dom.triggerPositionalMouseEvent(left, top + 200, "mousemove");
         testUtils.dom.triggerPositionalMouseEvent(left, top + 200, "mouseup");
+        await testUtils.nextTick();
 
-        testUtils.fields.editInput($('.modal-body input:first'), 'coucou');
+        await testUtils.fields.editInput($('.modal-body input:first'), 'coucou');
 
-        $('.modal-footer button.btn:contains(Edit)').trigger('click');
-        $('.modal-footer button.btn:contains(Save)').trigger('click');
+        await testUtils.dom.click($('.modal-footer button.btn:contains(Edit)'));
+        await testUtils.dom.click($('.modal-footer button.btn:contains(Save)'));
 
         assert.containsN(calendar, '.o_calendar_filter_item', 6, "should add the missing filter (active)");
         assert.containsN(calendar, '.fc-event', 4, "should display the created item");
 
         calendar.destroy();
-        $view.remove();
     });
 
-    QUnit.test('Update event with filters', function (assert) {
-        assert.expect(4);
+    QUnit.test('Update event with filters', async function (assert) {
+        assert.expect(5);
 
         var records = this.data.user.records;
         records.push({
@@ -1823,7 +1917,7 @@ QUnit.module('Views', {
             }
         };
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -1836,7 +1930,6 @@ QUnit.module('Views', {
                 'mode="week" '+
                 'attendee="partner_ids" '+
                 'color="partner_id">'+
-                    '<field name="name"/>'+
                     '<filter name="user_id" avatar_field="image"/>'+
                     '<field name="partner_ids" write_model="filter_partner" write_field="partner_id"/>'+
             '</calendar>',
@@ -1857,16 +1950,17 @@ QUnit.module('Views', {
             },
         });
 
-        testUtils.dom.click(calendar.$('.o_calendar_filter_item[data-value=4] input'));
+        await testUtils.dom.click(calendar.$('.o_calendar_filter_item[data-value=4] input'));
 
         assert.containsN(calendar, '.o_calendar_filter_item', 5, "should display 5 filter items");
         assert.containsN(calendar, '.fc-event', 3, "should display 3 events");
 
-        calendar.$('.fc-event:contains(event 2) .fc-content').trigger('click');
-        $('.modal button.btn:contains(Edit)').trigger('click');
-        $('.modal .o_field_widget[name="user_id"] input').trigger('click');
-        $('.ui-menu-item a:contains(user 5)').trigger('mouseenter').trigger('click');
-        $('.modal button.btn:contains(Save)').trigger('click');
+        await testUtils.dom.click(calendar.$('.fc-event:contains(event 2) .fc-content'));
+        assert.ok(calendar.$('.o_cw_popover').length, "should open a popover clicking on event");
+        await testUtils.dom.click(calendar.$('.o_cw_popover .o_cw_popover_edit'));
+        await testUtils.dom.click($('.modal .o_field_widget[name="user_id"] input'));
+        await testUtils.dom.click($('.ui-menu-item a:contains(user 5)').trigger('mouseenter'));
+        await testUtils.dom.click($('.modal button.btn:contains(Save)'));
 
         assert.containsN(calendar, '.o_calendar_filter_item', 6, "should add the missing filter (active)");
         assert.containsN(calendar, '.fc-event', 3, "should display the updated item");
@@ -1874,7 +1968,7 @@ QUnit.module('Views', {
         calendar.destroy();
     });
 
-    QUnit.test('change pager with filters', function (assert) {
+    QUnit.test('change pager with filters', async function (assert) {
         assert.expect(3);
 
         this.data.user.records.push({
@@ -1914,7 +2008,7 @@ QUnit.module('Views', {
             type: 1
         });
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -1927,7 +2021,6 @@ QUnit.module('Views', {
                 'mode="week" '+
                 'attendee="partner_ids" '+
                 'color="partner_id">'+
-                    '<field name="name"/>'+
                     '<filter name="user_id" avatar_field="image"/>'+
                     '<field name="partner_ids" write_model="filter_partner" write_field="partner_id"/>'+
             '</calendar>',
@@ -1936,21 +2029,21 @@ QUnit.module('Views', {
             },
         });
 
-        testUtils.dom.click(calendar.$('.o_calendar_filter_item[data-value=4] input'));
-        testUtils.dom.click($('.o_calendar_button_prev'));
+        await testUtils.dom.click(calendar.$('.o_calendar_filter_item[data-value=4] input'));
+        await testUtils.dom.click($('.o_calendar_button_prev'));
 
         assert.containsN(calendar, '.o_calendar_filter_item', 6, "should display 6 filter items");
         assert.containsN(calendar, '.fc-event', 2, "should display 2 events");
-        assert.strictEqual(calendar.$('.fc-event .o_field_name').text().replace(/\s/g, ''), "event7event8",
+        assert.strictEqual(calendar.$('.fc-event .o_event_title').text().replace(/\s/g, ''), "event7event8",
             "should display 2 events");
 
         calendar.destroy();
     });
 
-    QUnit.test('ensure events are still shown if filters give an empty domain', function (assert) {
+    QUnit.test('ensure events are still shown if filters give an empty domain', async function (assert) {
         assert.expect(2);
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -1964,16 +2057,16 @@ QUnit.module('Views', {
 
         assert.containsN(calendar, '.fc-event', 5,
             "should display 5 events");
-        testUtils.dom.click(calendar.$('.o_calendar_filter_item[data-value=all] input[type=checkbox]'));
+        await testUtils.dom.click(calendar.$('.o_calendar_filter_item[data-value=all] input[type=checkbox]'));
         assert.containsN(calendar, '.fc-event', 5,
             "should display 5 events");
         calendar.destroy();
     });
 
-    QUnit.test('events starting at midnight', function (assert) {
-        assert.expect(2);
+    QUnit.test('events starting at midnight', async function (assert) {
+        assert.expect(3);
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -1984,19 +2077,22 @@ QUnit.module('Views', {
             translateParameters: { // Avoid issues due to localization formats
                 time_format: "%H:%M:%S",
             },
-        });
+        }, {positionalClicks: true});
+
+        // Reset the scroll to 0 as we want to create an event from midnight
+        assert.ok(calendar.$('.fc-scroller')[0].scrollTop > 0,
+            "should scroll to 6:00 by default (this is true at least for resolutions up to 1900x1600)");
+        calendar.$('.fc-scroller')[0].scrollTop = 0;
 
         // Click on Tuesday 12am
-        var $view = $('#qunit-fixture').contents();
-        $view.prependTo('body');
         var top = calendar.$('.fc-axis:contains(0:00)').offset().top + 5;
         var left = calendar.$('.fc-day:eq(2)').offset().left + 5;
         try {
             testUtils.dom.triggerPositionalMouseEvent(left, top, "mousedown");
             testUtils.dom.triggerPositionalMouseEvent(left, top, "mouseup");
+            await testUtils.nextTick();
         } catch (e) {
             calendar.destroy();
-            $view.remove();
             throw new Error('The test failed to simulate a click on the screen.' +
                 'Your screen is probably too small or your dev tools are open.');
         }
@@ -2005,20 +2101,19 @@ QUnit.module('Views', {
 
         // Creating the event
         testUtils.fields.editInput($('.modal-body input:first'), 'new event in quick create');
-        $('.modal-footer button.btn:contains(Create)').trigger('click').trigger('click');
+        await testUtils.dom.click($('.modal-footer button.btn:contains(Create)'));
         assert.strictEqual(calendar.$('.fc-event:contains(new event in quick create)').length, 1,
             "should display the new record after quick create dialog");
 
         calendar.destroy();
-        $view.remove();
     });
 
-    QUnit.test('set event as all day when field is date', function (assert) {
+    QUnit.test('set event as all day when field is date', async function (assert) {
         assert.expect(2);
 
         this.data.event.records[0].start_date = "2016-12-14";
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -2030,7 +2125,6 @@ QUnit.module('Views', {
                 'mode="week" '+
                 'attendee="partner_ids" '+
                 'color="partner_id">'+
-                    '<field name="name"/>'+
                     '<filter name="user_id" avatar_field="image"/>'+
                     '<field name="partner_ids" write_model="filter_partner" write_field="partner_id"/>'+
             '</calendar>',
@@ -2051,11 +2145,11 @@ QUnit.module('Views', {
         calendar.destroy();
     });
 
-    QUnit.test('quickcreate avoid double event creation', function (assert) {
+    QUnit.test('quickcreate avoid double event creation', async function (assert) {
         assert.expect(1);
         var createCount = 0;
-        var def = $.Deferred();
-        var calendar = createView({
+        var prom = testUtils.makeTestPromise();
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -2065,10 +2159,7 @@ QUnit.module('Views', {
                 'date_start="start" '+
                 'date_stop="stop" '+
                 'all_day="allday" '+
-                'mode="month" '+
-                'readonly_form_view_id="1">'+
-                    '<field name="name"/>'+
-            '</calendar>',
+                'mode="month"/>',
             archs: archs,
             viewOptions: {
                 initialDate: initialDate,
@@ -2077,7 +2168,7 @@ QUnit.module('Views', {
                 var result = this._super(route, args);
                 if (args.method === "create") {
                     createCount++;
-                    return def.then(_.constant(result));
+                    return prom.then(_.constant(result));
                 }
                 return result;
             },
@@ -2087,22 +2178,26 @@ QUnit.module('Views', {
         var $cell = calendar.$('.fc-day-grid .fc-row:eq(2) .fc-day:eq(2)');
         testUtils.dom.triggerMouseEvent($cell, "mousedown");
         testUtils.dom.triggerMouseEvent($cell, "mouseup");
+        await testUtils.nextTick();
+
         var $input = $('.modal input:first');
-        testUtils.fields.editInput($input, 'new event in quick create');
+        await testUtils.fields.editInput($input, 'new event in quick create');
         // Simulate ENTER pressed on Create button (after a TAB)
         $input.trigger($.Event('keyup', {
             which: $.ui.keyCode.ENTER,
             keyCode: $.ui.keyCode.ENTER,
         }));
-        testUtils.dom.click($('.modal-footer button:first'));
-        def.resolve();
+        await testUtils.nextTick();
+        await testUtils.dom.click($('.modal-footer button:first'));
+        prom.resolve();
+        await testUtils.nextTick();
         assert.strictEqual(createCount, 1,
             "should create only one event");
 
         calendar.destroy();
     });
 
-    QUnit.test('check if the view destroys all widgets and instances', function (assert) {
+    QUnit.test('check if the view destroys all widgets and instances', async function (assert) {
         assert.expect(1);
 
         var instanceNumber = 0;
@@ -2131,7 +2226,6 @@ QUnit.module('Views', {
                 'mode="week" '+
                 'attendee="partner_ids" '+
                 'color="partner_id">'+
-                    '<field name="name"/>'+
                     '<filter name="user_id" avatar_field="image"/>'+
                     '<field name="partner_ids" write_model="filter_partner" write_field="partner_id"/>'+
             '</calendar>',
@@ -2141,13 +2235,13 @@ QUnit.module('Views', {
             },
         };
 
-        var calendar = createView(params);
+        var calendar = await createCalendarView(params);
         calendar.destroy();
 
         var initialInstanceNumber = instanceNumber;
         instanceNumber = 0;
 
-        calendar = createView(params);
+        calendar = await createCalendarView(params);
 
         // call destroy function of controller to ensure that it correctly destroys everything
         calendar.__destroy();
@@ -2161,18 +2255,18 @@ QUnit.module('Views', {
         testUtils.mock.unpatch(mixins.ParentedMixin);
     });
 
-    QUnit.test('create an event (async dialog) [REQUIRE FOCUS]', function (assert) {
+    QUnit.test('create an event (async dialog) [REQUIRE FOCUS]', async function (assert) {
         assert.expect(3);
 
-        var def = $.Deferred();
+        var prom = testUtils.makeTestPromise();
         testUtils.mock.patch(Dialog, {
             open: function () {
                 var _super = this._super.bind(this);
-                def.then(_super);
+                prom.then(_super);
                 return this;
             },
         });
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -2183,10 +2277,7 @@ QUnit.module('Views', {
                 'date_start="start" '+
                 'date_stop="stop" '+
                 'all_day="allday" '+
-                'mode="month" '+
-                'readonly_form_view_id="1">'+
-                    '<field name="name"/>'+
-            '</calendar>',
+                'mode="month"/>',
             archs: archs,
             viewOptions: {
                 initialDate: initialDate,
@@ -2197,11 +2288,13 @@ QUnit.module('Views', {
         var $cell = calendar.$('.fc-day-grid .fc-row:eq(2) .fc-day:eq(2)');
         testUtils.dom.triggerMouseEvent($cell, "mousedown");
         testUtils.dom.triggerMouseEvent($cell, "mouseup");
+        await testUtils.nextTick();
 
         assert.strictEqual($('.modal').length, 0,
             "should not have opened the dialog yet");
 
-        def.resolve();
+        prom.resolve();
+        await testUtils.nextTick();
 
         assert.strictEqual($('.modal').length, 1,
             "should have opened the dialog");
@@ -2212,16 +2305,14 @@ QUnit.module('Views', {
         testUtils.mock.unpatch(Dialog);
     });
 
-    QUnit.test('calendar is configured to have no groupBy menu', function (assert) {
+    QUnit.test('calendar is configured to have no groupBy menu', async function (assert) {
         assert.expect(1);
 
         var archs = {
             'event,1,calendar': '<calendar class="o_calendar_test" '+
                 'date_start="start" '+
                 'date_stop="stop" '+
-                'all_day="allday"> '+
-                    '<field name="name"/>'+
-            '</calendar>',
+                'all_day="allday"/>',
             'event,false,search': '<search></search>',
         };
 
@@ -2233,29 +2324,27 @@ QUnit.module('Views', {
             views: [[1, 'calendar']]
         }];
 
-        var actionManager = createActionManager({
+        var actionManager = await createActionManager({
             actions: actions,
             archs: archs,
             data: this.data,
         });
 
-        actionManager.doAction(1);
+        await actionManager.doAction(1);
         assert.containsNone(actionManager.$('.o_control_panel .o_search_options span.fa.fa-bars'),
             "the control panel has no groupBy menu");
         actionManager.destroy();
     });
 
-    QUnit.test('timezone does not affect current day', function (assert) {
+    QUnit.test('timezone does not affect current day', async function (assert) {
         assert.expect(2);
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
             arch:
-            '<calendar date_start="start_date">'+
-                    '<field name="name"/>'+
-            '</calendar>',
+            '<calendar date_start="start_date"/>',
             archs: archs,
             viewOptions: {
                 initialDate: initialDate,
@@ -2273,17 +2362,189 @@ QUnit.module('Views', {
         assert.strictEqual($sidebar.find('.ui-datepicker-current-day').text(), "12", "should highlight the target day");
 
         // go to previous day
-        testUtils.dom.click($sidebar.find('.ui-datepicker-current-day').prev());
+        await testUtils.dom.click($sidebar.find('.ui-datepicker-current-day').prev());
 
         assert.strictEqual($sidebar.find('.ui-datepicker-current-day').text(), "11", "should highlight the selected day");
 
         calendar.destroy();
     });
 
-    QUnit.test('form_view_id attribute works (for creating events)', function (assert) {
+    QUnit.test('timezone does not affect drag and drop', async function (assert) {
+        assert.expect(10);
+
+        var calendar = await createCalendarView({
+            View: CalendarView,
+            model: 'event',
+            data: this.data,
+            arch:
+            '<calendar date_start="start" mode="month">'+
+                '<field name="name"/>'+
+                '<field name="start"/>'+
+            '</calendar>',
+            archs: archs,
+            viewOptions: {
+                initialDate: initialDate,
+            },
+            mockRPC: function (route, args) {
+                if (args.method === "write") {
+                    assert.deepEqual(args.args[0], [6], "event 6 is moved")
+                    assert.deepEqual(args.args[1].start, "2016-11-29 08:00:00",
+                        "event moved to 27th nov 16h00 +40 hours timezone")
+                }
+                return this._super(route, args);
+            },
+            session: {
+                getTZOffset: function () {
+                    return -2400; // 40 hours timezone
+                },
+            },
+        });
+
+        assert.strictEqual(calendar.$('.fc-event:eq(0)').text().trim(), "event 1");
+        await testUtils.dom.click(calendar.$('.fc-event:eq(0)'));
+        assert.strictEqual(calendar.$('.o_field_widget[name="start"]').text(), "12/09/2016 08:00:00");
+
+        assert.strictEqual(calendar.$('.fc-event:eq(5)').text().trim(), "event 6");
+        await testUtils.dom.click(calendar.$('.fc-event:eq(5)'));
+        assert.strictEqual(calendar.$('.o_field_widget[name="start"]').text(), "12/16/2016 16:00:00");
+
+        // Move event 6 as on first day of month view (27th november 2016)
+        await testUtils.dragAndDrop(
+            calendar.$('.fc-event').eq(5),
+            calendar.$('.fc-day-top').first()
+        );
+        await testUtils.nextTick();
+
+        assert.strictEqual(calendar.$('.fc-event:eq(0)').text().trim(), "event 6");
+        await testUtils.dom.click(calendar.$('.fc-event:eq(0)'));
+        assert.strictEqual(calendar.$('.o_field_widget[name="start"]').text(), "11/27/2016 16:00:00");
+
+        assert.strictEqual(calendar.$('.fc-event:eq(1)').text().trim(), "event 1");
+        await testUtils.dom.click(calendar.$('.fc-event:eq(1)'));
+        assert.strictEqual(calendar.$('.o_field_widget[name="start"]').text(), "12/09/2016 08:00:00");
+
+        calendar.destroy();
+    });
+
+    QUnit.test('timzeone does not affect calendar with date field', async function (assert) {
+        assert.expect(11);
+
+        var calendar = await createCalendarView({
+            View: CalendarView,
+            model: 'event',
+            data: this.data,
+            arch:
+            '<calendar date_start="start_date" mode="month">'+
+                '<field name="name"/>'+
+                '<field name="start_date"/>'+
+            '</calendar>',
+            archs: archs,
+            viewOptions: {
+                initialDate: initialDate,
+            },
+            mockRPC: function (route, args) {
+                if (args.method === "create") {
+                    assert.strictEqual(args.args[0].start_date, "2016-12-20 00:00:00");
+                }
+                if (args.method === "write") {
+                    assert.step(args.args[1].start_date);
+                }
+                return this._super(route, args);
+            },
+            session: {
+                getTZOffset: function () {
+                    return 120; // 2 hours timezone
+                },
+            },
+        });
+
+        // Create event (on 20 december)
+        var $cell = calendar.$('.fc-day-grid .fc-row:eq(3) .fc-day:eq(2)');
+        testUtils.triggerMouseEvent($cell, "mousedown");
+        testUtils.triggerMouseEvent($cell, "mouseup");
+        await testUtils.nextTick();
+        var $input = $('.modal-body input:first');
+        await testUtils.fields.editInput($input, "An event");
+        await testUtils.dom.click($('.modal button.btn:contains(Create)'));
+        await testUtils.nextTick();
+
+        await testUtils.dom.click(calendar.$('.fc-event:contains(An event)'));
+        assert.ok(calendar.$('.o_cw_popover').length, "should open a popover clicking on event");
+        assert.strictEqual(calendar.$('.o_cw_popover .o_cw_popover_fields_secondary .list-group-item:last .o_field_date').text(), '12/20/2016', "should have correct start date");
+
+        // Move event to another day (on 27 november)
+        await testUtils.dragAndDrop(
+            calendar.$('.fc-event').first(),
+            calendar.$('.fc-day-top').first()
+        );
+        await testUtils.nextTick();
+        assert.verifySteps(["2016-11-27 00:00:00"]);
+        await testUtils.dom.click(calendar.$('.fc-event:contains(An event)'));
+        assert.ok(calendar.$('.o_cw_popover').length, "should open a popover clicking on event");
+        assert.strictEqual(calendar.$('.o_cw_popover .o_cw_popover_fields_secondary .list-group-item:last .o_field_date').text(), '11/27/2016', "should have correct start date");
+
+        // Move event to last day (on 7 january)
+        await testUtils.dragAndDrop(
+            calendar.$('.fc-event').first(),
+            calendar.$('.fc-day-top').last()
+        );
+        await testUtils.nextTick();
+        assert.verifySteps(["2017-01-07 00:00:00"]);
+        await testUtils.dom.click(calendar.$('.fc-event:contains(An event)'));
+        assert.ok(calendar.$('.o_cw_popover').length, "should open a popover clicking on event");
+        assert.strictEqual(calendar.$('.o_cw_popover .o_cw_popover_fields_secondary .list-group-item:last .o_field_date').text(), '01/07/2017', "should have correct start date");
+        calendar.destroy();
+    });
+
+    QUnit.test('drag and drop on month mode with date_start and date_delay', async function (assert) {
         assert.expect(1);
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
+            View: CalendarView,
+            model: 'event',
+            data: this.data,
+            arch:
+            '<calendar date_start="start" date_delay="delay" mode="month">'+
+                '<field name="name"/>'+
+                '<field name="start"/>'+
+                '<field name="delay"/>'+
+            '</calendar>',
+            archs: archs,
+            viewOptions: {
+                initialDate: initialDate,
+            },
+            mockRPC: function (route, args) {
+                if (args.method === "write") {
+                    // delay should not be written at drag and drop
+                    assert.equal(args.args[1].delay, undefined)
+                }
+                return this._super(route, args);
+            },
+        });
+
+        // Create event (on 20 december)
+        var $cell = calendar.$('.fc-day-grid .fc-row:eq(3) .fc-day:eq(2)');
+        testUtils.triggerMouseEvent($cell, "mousedown");
+        testUtils.triggerMouseEvent($cell, "mouseup");
+        await testUtils.nextTick();
+        var $input = $('.modal-body input:first');
+        await testUtils.fields.editInput($input, "An event");
+        await testUtils.dom.click($('.modal button.btn:contains(Create)'));
+        await testUtils.nextTick();
+
+        // Move event to another day (on 27 november)
+        await testUtils.dragAndDrop(
+            calendar.$('.fc-event').first(),
+            calendar.$('.fc-day-top').first()
+        );
+
+        calendar.destroy();
+    });
+
+    QUnit.test('form_view_id attribute works (for creating events)', async function (assert) {
+        assert.expect(1);
+
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
@@ -2291,9 +2552,7 @@ QUnit.module('Views', {
                 'date_start="start" '+
                 'date_stop="stop" '+
                 'mode="month" '+
-                'form_view_id="42">'+
-                    '<field name="name"/>'+
-            '</calendar>',
+                'form_view_id="42"/>',
             archs: archs,
             viewOptions: {
                 initialDate: initialDate,
@@ -2305,7 +2564,7 @@ QUnit.module('Views', {
                     // reject the create rpc (quick create), then the web client
                     // fall back to a form view. This happens typically when a
                     // model has required fields
-                    return $.Deferred().reject('None shall pass!');
+                    return Promise.reject('None shall pass!');
                 }
                 return this._super(route, args);
             },
@@ -2320,26 +2579,62 @@ QUnit.module('Views', {
         var $cell = calendar.$('.fc-day-grid .fc-row:eq(2) .fc-day:eq(2)');
         testUtils.dom.triggerMouseEvent($cell, "mousedown");
         testUtils.dom.triggerMouseEvent($cell, "mouseup");
-        var $input = $('.modal-body input:first');
-        testUtils.fields.editInput($input, "It's just a fleshwound");
-        $('.modal button.btn:contains(Create)').trigger('click');
+        await testUtils.nextTick();
 
+        var $input = $('.modal-body input:first');
+        await testUtils.fields.editInput($input, "It's just a fleshwound");
+        await testUtils.dom.click($('.modal button.btn:contains(Create)'));
+        await testUtils.nextTick(); // wait a little before to finish the test
         calendar.destroy();
     });
 
-    QUnit.test('calendar fallback to form view id in action if necessary', function (assert) {
+    QUnit.test('form_view_id attribute works with popup (for creating events)', async function (assert) {
         assert.expect(1);
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
             arch: '<calendar class="o_calendar_test" '+
                 'date_start="start" '+
                 'date_stop="stop" '+
-                'mode="month"> '+
+                'mode="month" '+
+                'event_open_popup="true" ' +
+                'quick_add="false" ' +
+                'form_view_id="1">'+
                     '<field name="name"/>'+
             '</calendar>',
+            archs: archs,
+            viewOptions: {
+                initialDate: initialDate,
+            },
+            mockRPC: function (route, args) {
+                if (args.method === "load_views") {
+                    assert.strictEqual(args.kwargs.views[0][0], 1,
+                        "should load view with id 1");
+                }
+                return this._super(route, args);
+            },
+        });
+
+        var $cell = calendar.$('.fc-day-grid .fc-row:eq(2) .fc-day:eq(2)');
+        testUtils.dom.triggerMouseEvent($cell, "mousedown");
+        testUtils.dom.triggerMouseEvent($cell, "mouseup");
+        await testUtils.nextTick();
+        calendar.destroy();
+    });
+
+    QUnit.test('calendar fallback to form view id in action if necessary', async function (assert) {
+        assert.expect(1);
+
+        var calendar = await createCalendarView({
+            View: CalendarView,
+            model: 'event',
+            data: this.data,
+            arch: '<calendar class="o_calendar_test" '+
+                'date_start="start" '+
+                'date_stop="stop" '+
+                'mode="month"/>',
             archs: archs,
             viewOptions: {
                 initialDate: initialDate,
@@ -2352,7 +2647,7 @@ QUnit.module('Views', {
                     // reject the create rpc (quick create), then the web client
                     // fall back to a form view. This happens typically when a
                     // model has required fields
-                    return $.Deferred().reject('None shall pass!');
+                    return Promise.reject('None shall pass!');
                 }
                 return this._super(route, args);
             },
@@ -2367,14 +2662,15 @@ QUnit.module('Views', {
         var $cell = calendar.$('.fc-day-grid .fc-row:eq(2) .fc-day:eq(2)');
         testUtils.dom.triggerMouseEvent($cell, "mousedown");
         testUtils.dom.triggerMouseEvent($cell, "mouseup");
-        var $input = $('.modal-body input:first');
-        testUtils.fields.editInput($input, "It's just a fleshwound");
-        $('.modal button.btn:contains(Create)').trigger('click');
+        await testUtils.nextTick();
 
+        var $input = $('.modal-body input:first');
+        await testUtils.fields.editInput($input, "It's just a fleshwound");
+        await testUtils.dom.click($('.modal button.btn:contains(Create)'));
         calendar.destroy();
     });
 
-    QUnit.test('fullcalendar initializes with right locale', function (assert) {
+    QUnit.test('fullcalendar initializes with right locale', async function (assert) {
         assert.expect(1);
 
         var initialLocale = moment.locale();
@@ -2386,16 +2682,14 @@ QUnit.module('Views', {
             weekdaysShort: ["zz1.", "zz2.", "zz3.", "zz4.", "zz5.", "zz6.", "zz7."],
         });
 
-        var calendar = createView({
+        var calendar = await createCalendarView({
             View: CalendarView,
             model: 'event',
             data: this.data,
             arch: '<calendar class="o_calendar_test" '+
                 'date_start="start" '+
                 'date_stop="stop" '+
-                'mode="week"> '+
-                    '<field name="name"/>'+
-            '</calendar>',
+                'mode="week"/>',
             archs: archs,
             viewOptions: {
                 initialDate: initialDate,
@@ -2404,7 +2698,7 @@ QUnit.module('Views', {
 
         });
 
-        assert.strictEqual(calendar.$('.fc-day-header:first').text(), "zz1. 11/12",
+        assert.strictEqual(calendar.$('.fc-day-header:first').text(), "zz1. 11",
             'The day should be in the given locale specific format');
 
         moment.locale(initialLocale);

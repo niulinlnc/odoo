@@ -69,7 +69,7 @@ var StatementRenderer = Widget.extend(FieldManagerMixin, {
         if (this.model.context && this.model.context.args && this.model.context.args.search) {
             this.$('.reconciliation_search_input').val(self.model.context.args.search);
         }
-        return $.when.apply($, defs);
+        return Promise.all(defs);
     },
     /**
      * @override
@@ -198,7 +198,6 @@ var StatementRenderer = Widget.extend(FieldManagerMixin, {
             domain: [['id', 'in', ids]],
             views: [[false, 'list'], [false, 'form']],
             type: 'ir.actions.act_window',
-            view_type: "list",
             view_mode: "list"
         });
     },
@@ -217,8 +216,7 @@ var StatementRenderer = Widget.extend(FieldManagerMixin, {
             res_model: 'account.bank.statement',
             views: [[false, 'list'], [false, 'form']],
             type: 'ir.actions.act_window',
-            context: {search_default_journal_id: journalId},
-            view_type: 'list',
+            context: {search_default_journal_id: journalId, 'journal_type':'bank'},
             view_mode: 'form',
         });
     },
@@ -277,6 +275,7 @@ var LineRenderer = Widget.extend(FieldManagerMixin, {
         'field_changed': '_onFieldChanged',
     }),
     _avoidFieldUpdate: {},
+    MV_LINE_DEBOUNCE: 200,
 
     /**
      * create partner_id field in editable mode
@@ -289,6 +288,11 @@ var LineRenderer = Widget.extend(FieldManagerMixin, {
 
         this.model = model;
         this._initialState = state;
+        if (this.MV_LINE_DEBOUNCE) {
+            this._onSelectMoveLine = _.debounce(this._onSelectMoveLine, this.MV_LINE_DEBOUNCE, true);
+        } else {
+            this._onSelectMoveLine = this._onSelectMoveLine;
+        }
     },
     /**
      * @override
@@ -317,12 +321,15 @@ var LineRenderer = Widget.extend(FieldManagerMixin, {
             'placement': 'left',
             'container': this.$el,
             'html': true,
+            // disable bootstrap sanitizer because we use a table that has been 
+            // rendered using qweb.render so it is safe and also because sanitizer escape table by default.
+            'sanitize': false,
             'trigger': 'hover',
             'animation': false,
             'toggle': 'popover'
         });
         var def2 = this._super.apply(this, arguments);
-        return $.when(def1, def2);
+        return Promise.all([def1, def2]);
     },
 
     //--------------------------------------------------------------------------
@@ -337,7 +344,7 @@ var LineRenderer = Widget.extend(FieldManagerMixin, {
     update: function (state) {
         var self = this;
         // isValid
-        var to_check_checked = !!(state.reconciliation_proposition[0] && state.reconciliation_proposition[0].to_check);
+        var to_check_checked = !!(state.to_check);
         this.$('caption .o_buttons button.o_validate').toggleClass('d-none', !!state.balance.type && !to_check_checked);
         this.$('caption .o_buttons button.o_reconcile').toggleClass('d-none', state.balance.type <= 0 || to_check_checked);
         this.$('caption .o_buttons .o_no_valid').toggleClass('d-none', state.balance.type >= 0);
@@ -419,18 +426,35 @@ var LineRenderer = Widget.extend(FieldManagerMixin, {
 
         // create form
         if (state.createForm) {
+            var createPromise;
             if (!this.fields.account_id) {
-                this._renderCreate(state);
+                createPromise = this._renderCreate(state);
             }
-            var data = this.model.get(this.handleCreateRecord).data;
-            this.model.notifyChanges(this.handleCreateRecord, state.createForm).then(function () {
-                // FIXME can't it directly written REPLACE_WITH ids=state.createForm.analytic_tag_ids
-                self.model.notifyChanges(self.handleCreateRecord, {analytic_tag_ids: {operation: 'REPLACE_WITH', ids: []}}).then(function (){
-                    var defs = [];
-                    _.each(state.createForm.analytic_tag_ids, function (tag) {
-                        defs.push(self.model.notifyChanges(self.handleCreateRecord, {analytic_tag_ids: {operation: 'ADD_M2M', ids: tag}}));
-                    });
-                    $.when.apply($, defs).then(function () {
+            Promise.resolve(createPromise).then(function(){
+                var data = self.model.get(self.handleCreateRecord).data;
+                return self.model.notifyChanges(self.handleCreateRecord, state.createForm)
+                    .then(function () {
+                    // FIXME can't it directly written REPLACE_WITH ids=state.createForm.analytic_tag_ids
+                        return self.model.notifyChanges(self.handleCreateRecord, {analytic_tag_ids: {operation: 'REPLACE_WITH', ids: []}})
+                    })
+                    .then(function (){
+                        var defs = [];
+                        _.each(state.createForm.analytic_tag_ids, function (tag) {
+                            defs.push(self.model.notifyChanges(self.handleCreateRecord, {analytic_tag_ids: {operation: 'ADD_M2M', ids: tag}}));
+                        });
+                        return Promise.all(defs);
+                    })
+                    .then(function () {
+                        return self.model.notifyChanges(self.handleCreateRecord, {tax_ids: {operation: 'REPLACE_WITH', ids: []}})
+                    })
+                    .then(function (){
+                        var defs = [];
+                        _.each(state.createForm.tax_ids, function (tag) {
+                            defs.push(self.model.notifyChanges(self.handleCreateRecord, {tax_ids: {operation: 'ADD_M2M', ids: tag}}));
+                        });
+                        return Promise.all(defs);
+                    })
+                    .then(function () {
                         var record = self.model.get(self.handleCreateRecord);
                         _.each(self.fields, function (field, fieldName) {
                             if (self._avoidFieldUpdate[fieldName]) return;
@@ -438,22 +462,25 @@ var LineRenderer = Widget.extend(FieldManagerMixin, {
                             if ((data[fieldName] || state.createForm[fieldName]) && !_.isEqual(state.createForm[fieldName], data[fieldName])) {
                                 field.reset(record);
                             }
-                            if (fieldName === 'tax_id') {
-                                if (!state.createForm[fieldName] || state.createForm[fieldName].amount_type === "group") {
+                            if (fieldName === 'tax_ids') {
+                                if (!state.createForm[fieldName].length || state.createForm[fieldName].length > 1) {
                                     $('.create_force_tax_included').addClass('d-none');
                                 }
                                 else {
                                     $('.create_force_tax_included').removeClass('d-none');
+                                    var price_include = state.createForm[fieldName][0].price_include;
+                                    self.$('.create_force_tax_included input').prop('checked', price_include);
+                                    self.$('.create_force_tax_included input').prop('disabled', price_include);
                                 }
-                            } 
+                            }
                         });
+                        if (state.to_check) {
+                            // Set the to_check field to true if global to_check is set
+                            self.$('.create_to_check input').prop('checked', state.to_check).change();
+                        }
+                        return true;
                     });
-                });
             });
-            if(state.createForm.tax_id){
-                // Set the 'Tax Include' field editable or not depending of the 'price_include' value.
-                this.$('.create_force_tax_included input').attr('disabled', state.createForm.tax_id.price_include);
-            }
         }
         this.$('.create .add_line').toggle(!!state.balance.amount_currency);
     },
@@ -498,7 +525,7 @@ var LineRenderer = Widget.extend(FieldManagerMixin, {
         }
         return this.model.makeRecord('account.bank.statement.line', [field], {
             partner_id: {
-                domain: ["|", ["is_company", "=", true], ["parent_id", "=", false], "|", ["customer", "=", true], ["supplier", "=", true]],
+                domain: ["|", ["is_company", "=", true], ["parent_id", "=", false]],
                 options: {
                     no_open: true
                 }
@@ -507,14 +534,15 @@ var LineRenderer = Widget.extend(FieldManagerMixin, {
     },
 
     /**
-     * create account_id, tax_id, analytic_account_id, analytic_tag_ids, label and amount fields
+     * create account_id, tax_ids, analytic_account_id, analytic_tag_ids, label and amount fields
      *
      * @private
      * @param {object} state - statement line
+     * @returns {Promise}
      */
     _renderCreate: function (state) {
         var self = this;
-        this.model.makeRecord('account.bank.statement.line', [{
+        return this.model.makeRecord('account.bank.statement.line', [{
             relation: 'account.account',
             type: 'many2one',
             name: 'account_id',
@@ -526,8 +554,8 @@ var LineRenderer = Widget.extend(FieldManagerMixin, {
             domain: [['company_id', '=', state.st_line.company_id]],
         }, {
             relation: 'account.tax',
-            type: 'many2one',
-            name: 'tax_id',
+            type: 'many2many',
+            name: 'tax_ids',
             domain: [['company_id', '=', state.st_line.company_id]],
         }, {
             relation: 'account.analytic.account',
@@ -553,7 +581,10 @@ var LineRenderer = Widget.extend(FieldManagerMixin, {
             type: 'boolean',
             name: 'to_check',
         }], {
-            account_id: {string: _t("Account")},
+            account_id: {
+                string: _t("Account"),
+                domain: [['deprecated', '=', false]],
+            },
             label: {string: _t("Label")},
             amount: {string: _t("Account")},
         }).then(function (recordID) {
@@ -566,8 +597,8 @@ var LineRenderer = Widget.extend(FieldManagerMixin, {
             self.fields.journal_id = new relational_fields.FieldMany2One(self,
                 'journal_id', record, {mode: 'edit'});
 
-            self.fields.tax_id = new relational_fields.FieldMany2One(self,
-                'tax_id', record, {mode: 'edit', additionalContext: {append_type_to_tax_name: true}});
+            self.fields.tax_ids = new relational_fields.FieldMany2ManyTags(self,
+                'tax_ids', record, {mode: 'edit', additionalContext: {append_type_to_tax_name: true}});
 
             self.fields.analytic_account_id = new relational_fields.FieldMany2One(self,
                 'analytic_account_id', record, {mode: 'edit'});
@@ -583,7 +614,7 @@ var LineRenderer = Widget.extend(FieldManagerMixin, {
 
             self.fields.amount = new basic_fields.FieldFloat(self,
                 'amount', record, {mode: 'edit'});
-            
+
             self.fields.date = new basic_fields.FieldDate(self,
                 'date', record, {mode: 'edit'});
 
@@ -594,16 +625,16 @@ var LineRenderer = Widget.extend(FieldManagerMixin, {
             self.fields.account_id.appendTo($create.find('.create_account_id .o_td_field'))
                 .then(addRequiredStyle.bind(self, self.fields.account_id));
             self.fields.journal_id.appendTo($create.find('.create_journal_id .o_td_field'));
-            self.fields.tax_id.appendTo($create.find('.create_tax_id .o_td_field'));
+            self.fields.tax_ids.appendTo($create.find('.create_tax_id .o_td_field'));
             self.fields.analytic_account_id.appendTo($create.find('.create_analytic_account_id .o_td_field'));
             self.fields.analytic_tag_ids.appendTo($create.find('.create_analytic_tag_ids .o_td_field'));
-            self.fields.force_tax_included.appendTo($create.find('.create_force_tax_included .o_td_field'))
+            self.fields.force_tax_included.appendTo($create.find('.create_force_tax_included .o_td_field'));
             self.fields.label.appendTo($create.find('.create_label .o_td_field'))
                 .then(addRequiredStyle.bind(self, self.fields.label));
             self.fields.amount.appendTo($create.find('.create_amount .o_td_field'))
                 .then(addRequiredStyle.bind(self, self.fields.amount));
-            self.fields.date.appendTo($create.find('.create_date .o_td_field'))
-            self.fields.to_check.appendTo($create.find('.create_to_check .o_td_field'))
+            self.fields.date.appendTo($create.find('.create_date .o_td_field'));
+            self.fields.to_check.appendTo($create.find('.create_to_check .o_td_field'));
             self.$('.create').append($create);
 
             function addRequiredStyle(widget) {
@@ -628,7 +659,7 @@ var LineRenderer = Widget.extend(FieldManagerMixin, {
             res_model: 'account.reconcile.model',
             views: [[false, 'form']],
             target: 'current'
-        }, 
+        },
         {
             on_reverse_breadcrumb: function() {self.trigger_up('reload');},
         });
@@ -659,7 +690,6 @@ var LineRenderer = Widget.extend(FieldManagerMixin, {
             type: 'ir.actions.act_window',
             res_model: 'account.reconcile.model',
             views: [[false, 'list'], [false, 'form']],
-            view_type: "list",
             view_mode: "list",
             target: 'current'
         },
@@ -761,6 +791,7 @@ var LineRenderer = Widget.extend(FieldManagerMixin, {
      */
     _onSelectMoveLine: function (event) {
         var $el = $(event.target);
+        $el.prop('disabled', true);
         this._destroyPopover($el);
         var moveLineId = $el.closest('.mv_line').data('line-id');
         this.trigger_up('add_proposition', {'data': moveLineId});
@@ -836,11 +867,11 @@ var ManualLineRenderer = LineRenderer.extend({
      * @override
      * @param {string} handle
      * @param {number} proposition id (move line id)
-     * @returns {Deferred}
+     * @returns {Promise}
      */
     removeProposition: function (handle, id) {
         if (!id) {
-            return $.when();
+            return Promise.resolve();
         }
         return this._super(handle, id);
     },
@@ -879,7 +910,7 @@ var ManualLineRenderer = LineRenderer.extend({
                 defs.push(def);
             }
 
-            return $.when.apply($, defs).then(function () {
+            return Promise.all(defs).then(function () {
                 if (!self.fields.title_account_id) {
                     return self.fields.partner_id.prependTo(self.$('.accounting_view thead td:eq(1) span:first'));
                 } else {
@@ -909,10 +940,13 @@ var ManualLineRenderer = LineRenderer.extend({
      * @override
      */
     _renderCreate: function (state) {
-        this._super(state);
-        this.$('.create .create_journal_id').show();
-        this.$('.create .create_date').removeClass('d-none')
-        this.$('.create .create_journal_id .o_input').addClass('o_required_modifier');
+        var self = this;
+        var parentPromise = this._super(state).then(function() {
+            self.$('.create .create_journal_id').show();
+            self.$('.create .create_date').removeClass('d-none');
+            self.$('.create .create_journal_id .o_input').addClass('o_required_modifier');
+        });
+        return parentPromise;
     },
 
 });

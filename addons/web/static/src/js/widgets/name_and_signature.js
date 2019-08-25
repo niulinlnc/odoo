@@ -2,6 +2,7 @@ odoo.define('web.name_and_signature', function (require) {
 'use strict';
 
 var core = require('web.core');
+var utils = require('web.utils');
 var Widget = require('web.Widget');
 
 var _t = core._t;
@@ -80,14 +81,12 @@ var NameAndSignature = Widget.extend({
      */
     willStart: function () {
         var self = this;
-
-        return $.when(
+        return Promise.all([
             this._super.apply(this, arguments),
             this._rpc({route: '/web/sign/get_fonts/' + self.defaultFont}).then(function (data) {
                 self.fonts = data;
             })
-        );
-
+        ]);
     },
     /**
      * Finds the DOM elements, initializes the signature area,
@@ -145,10 +144,7 @@ var NameAndSignature = Widget.extend({
             self.resetSignature();
         }, 250));
 
-        return this._super.apply(this, arguments).then(function () {
-            // initialize the signature area
-            return self.resetSignature();
-        });
+        return this._super.apply(this, arguments);
     },
     /**
      * @override
@@ -217,7 +213,7 @@ var NameAndSignature = Widget.extend({
     resetSignature: function () {
         if (!this.$signatureField) {
             // no action if called before start
-            return $.Deferred().reject();
+            return Promise.reject();
         }
         // recompute size based on the current width
         this.$signatureField.css({width: 'unset'});
@@ -248,7 +244,7 @@ var NameAndSignature = Widget.extend({
 
         this.focusName();
 
-        return $.Deferred().resolve();
+        return Promise.resolve();
     },
     /**
      * Changes the signature mode. Toggles the display of the relevant
@@ -599,11 +595,9 @@ var NameAndSignature = Widget.extend({
         }
         this.$loadInvalid.addClass('d-none');
 
-        var reader = new FileReader();
-        reader.onload = function (ev) {
-            self._printImage(reader.result);
-        };
-        reader.readAsDataURL(f);
+        utils.getDataURLFromFile(f).then(function (result) {
+            self._printImage(result);
+        });
     },
     /**
      * Handles input on name field: if the @see mode is 'auto', redraws the

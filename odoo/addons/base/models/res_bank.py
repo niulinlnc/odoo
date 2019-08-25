@@ -32,7 +32,6 @@ class Bank(models.Model):
     active = fields.Boolean(default=True)
     bic = fields.Char('Bank Identifier Code', index=True, help="Sometimes called BIC or Swift.")
 
-    @api.multi
     def name_get(self):
         result = []
         for bank in self:
@@ -66,7 +65,7 @@ class ResPartnerBank(models.Model):
     _name = 'res.partner.bank'
     _rec_name = 'acc_number'
     _description = 'Bank Accounts'
-    _order = 'sequence'
+    _order = 'sequence, id'
 
     @api.model
     def get_supported_account_types(self):
@@ -84,9 +83,9 @@ class ResPartnerBank(models.Model):
     bank_id = fields.Many2one('res.bank', string='Bank')
     bank_name = fields.Char(related='bank_id.name', readonly=False)
     bank_bic = fields.Char(related='bank_id.bic', readonly=False)
-    sequence = fields.Integer()
+    sequence = fields.Integer(default=10)
     currency_id = fields.Many2one('res.currency', string='Currency')
-    company_id = fields.Many2one('res.company', 'Company', default=lambda self: self.env.user.company_id, ondelete='cascade')
+    company_id = fields.Many2one('res.company', 'Company', default=lambda self: self.env.company, ondelete='cascade')
     qr_code_valid = fields.Boolean(string="Has all required arguments", compute="_validate_qr_code_arguments")
 
     _sql_constraints = [
@@ -113,6 +112,7 @@ class ResPartnerBank(models.Model):
     def _search(self, args, offset=0, limit=None, order=None, count=False, access_rights_uid=None):
         pos = 0
         while pos < len(args):
+            # DLE P14
             if args[pos][0] == 'acc_number':
                 op = args[pos][1]
                 value = args[pos][2]
@@ -135,7 +135,6 @@ class ResPartnerBank(models.Model):
         qr_code_url = '/report/barcode/?type=%s&value=%s&width=%s&height=%s&humanreadable=1' % ('QR', werkzeug.url_quote_plus(qr_code_string), 128, 128)
         return qr_code_url
 
-    @api.multi
     def _validate_qr_code_arguments(self):
         for bank in self:
             if bank.currency_id.name == False:

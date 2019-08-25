@@ -1,25 +1,29 @@
 odoo.define('website_slides.upload_modal', function (require) {
 'use strict';
 
-var sAnimations = require('website.content.snippets.animation');
 var core = require('web.core');
 var Dialog = require('web.Dialog');
+var publicWidget = require('web.public.widget');
+var utils = require('web.utils');
 
 var QWeb = core.qweb;
 var _t = core._t;
 
-
 var SlideUploadDialog = Dialog.extend({
     template: 'website.slide.upload.modal',
     events: _.extend({}, Dialog.prototype.events, {
+        'click .o_wslides_js_upload_install_button': '_onClickInstallModule',
         'click .o_wslides_select_type': '_onClickSlideTypeIcon',
         'change input#upload': '_onChangeSlideUpload',
         'change input#url': '_onChangeSlideUrl',
     }),
+
     /**
      * @override
      * @param {Object} parent
      * @param {Object} options holding channelId and optionally upload and publish control parameters
+     * @param {Object} options.modulesToInstall: list of additional modules to
+     *      install {id: module ID, name: module short description}
      */
     init: function (parent, options) {
         options = _.defaults(options || {}, {
@@ -30,9 +34,11 @@ var SlideUploadDialog = Dialog.extend({
         this._setup();
 
         this.channelID = parseInt(options.channelId, 10);
-        this.defaultCategoryID = parseInt(options.categoryId,10)
+        this.defaultCategoryID = parseInt(options.categoryId,10);
         this.canUpload = options.canUpload === 'True';
         this.canPublish = options.canPublish === 'True';
+        this.modulesToInstall = options.modulesToInstall ? JSON.parse(options.modulesToInstall.replace(/'/g, '"')) : null;
+        this.modulesToInstallStatus = null;
 
         this.set('state', '_select');
         this.on('change:state', this, this._onChangeType);
@@ -128,9 +134,8 @@ var SlideUploadDialog = Dialog.extend({
             'name': this._formGetFieldValue('name'),
             'url': this._formGetFieldValue('url'),
             'description': this._formGetFieldValue('description'),
-            'index_content': this._formGetFieldValue('index_content'),
-            'is_preview': this.$('#is_preview').is(':checked'),
-            'website_published': forcePublished,
+            'duration': this._formGetFieldValue('duration'),
+            'is_published': forcePublished,
         }, this._getSelect2DropdownValues()); // add tags and category
 
         // default slide_type (for webpage for instance)
@@ -179,11 +184,16 @@ var SlideUploadDialog = Dialog.extend({
         var state = this.get('state');
         if (state === '_select') {
             btnList.push({text: _t("Cancel"), classes: 'o_w_slide_cancel', close: true});
+        } else if (state === '_import') {
+            if (! this.modulesToInstallStatus.installing) {
+                btnList.push({text: this.modulesToInstallStatus.failed ? _t("Retry") : _t("Install"), classes: 'btn-primary', click: this._onClickInstallModuleConfirm.bind(this)});
+            }
+            btnList.push({text: _t("Go Back"), classes: 'o_w_slide_go_back', click: this._onClickGoBack.bind(this)});
         } else if (state !== '_upload') { // no button when uploading
             if (this.canUpload) {
                 if (this.canPublish) {
-                    btnList.push({text: _t("Save as Draft"), classes: 'o_w_slide_upload', click: this._onClickFormSubmit.bind(this)});
                     btnList.push({text: _t("Publish"), classes: 'btn-primary o_w_slide_upload o_w_slide_upload_published', click: this._onClickFormSubmit.bind(this)});
+                    btnList.push({text: _t("Save as Draft"), classes: 'o_w_slide_upload', click: this._onClickFormSubmit.bind(this)});
                 } else {
                     btnList.push({text: _t("Save as Draft"), classes: 'btn-primary o_w_slide_upload', click: this._onClickFormSubmit.bind(this)});
                 }
@@ -213,7 +223,7 @@ var SlideUploadDialog = Dialog.extend({
             result['tag_ids'] = tagValues;
         }
         // category
-        if(!self.defaultCategoryID){
+        if (!self.defaultCategoryID){
             var categoryValue = this.$('#category_id').select2('data');
             if (categoryValue && categoryValue.create) {
                 result['category_id'] = [0, {'name': categoryValue.text}];
@@ -241,7 +251,7 @@ var SlideUploadDialog = Dialog.extend({
      * @private
      * @param {String} Placeholder for element.
      * @param {bool}  true for multiple selection box, false for single selection
-     * @param {Function} Function to fetch data from remote location should return $.deferred object
+     * @param {Function} Function to fetch data from remote location should return a Promise
      * resolved data should be array of object with id and name. eg. [{'id': id, 'name': 'text'}, ...]
      * @param {String} [nameKey='name'] (optional) the name key of the returned record
      *   ('name' if not provided)
@@ -311,25 +321,6 @@ var SlideUploadDialog = Dialog.extend({
 
         return values;
     },
-    _reorderSlidesSequence: function(){
-        var self = this;
-        var slidesElement = $('li.content-slide');
-        var slides = [];
-        for(var i = 0; i < slidesElement.length;i++){
-            slides.push({
-                id: parseInt($(slidesElement[i]).attr('slide_id')),
-                category_id: parseInt($(slidesElement[i]).attr('category_id')),
-                sequence: i
-            })
-        }
-        self._rpc({
-            route: '/slides/resequence_slides',
-            params: {
-                slides_data: slides
-            }
-        }).then(function(){
-        })
-    },
     /**
      * Init the data relative to the support slide type to upload
      *
@@ -339,7 +330,7 @@ var SlideUploadDialog = Dialog.extend({
         this.slide_type_data = {
             presentation: {
                 icon: 'fa-file-pdf-o',
-                label: _t('Presentation (PDF)'),
+                label: _t('Presentation'),
                 template: 'website.slide.upload.modal.presentation',
             },
             webpage: {
@@ -383,6 +374,8 @@ var SlideUploadDialog = Dialog.extend({
             tmpl = 'website.slide.upload.modal.select';
         } else if (currentType === '_upload') {
             tmpl = 'website.slide.upload.modal.uploading';
+        } else if (currentType === '_import') {
+            tmpl = 'website.slide.upload.modal.import';
         } else {
             tmpl = this.slide_type_data[currentType]['template'];
         }
@@ -390,6 +383,12 @@ var SlideUploadDialog = Dialog.extend({
         this.$('.o_w_slide_upload_modal_container').append(QWeb.render(tmpl, {widget: this}));
 
         this._resetModalButton();
+
+        if (currentType === '_import') {
+            this.set_title(_t("New Certification"));
+        } else {
+            this.set_title(_t("Upload a document"));
+        }
     },
     _onChangeCanSubmitForm: function (ev) {
         if (this.get('can_submit_form')) {
@@ -420,17 +419,14 @@ var SlideUploadDialog = Dialog.extend({
             this._fileReset();
             return;
         }
-        var BinaryReader = new FileReader();
-        // file read as DataURL
-        BinaryReader.readAsDataURL(file);
-        BinaryReader.onloadend = function (upload) {
-            var buffer = upload.target.result;
+
+        utils.getDataURLFromFile(file).then(function (buffer) {
             if (isImage) {
                 self.$('#slide-image').attr('src', buffer);
             }
             buffer = buffer.split(',')[1];
             self.file.data = buffer;
-        };
+        });
 
         if (file.type === 'application/pdf') {
             var ArrayReader = new FileReader();
@@ -444,7 +440,26 @@ var SlideUploadDialog = Dialog.extend({
                     self._fileReset();
                     self.set('can_submit_form', true);
                 };
+                /**
+                 * The following line fixes PDFJS 'Util' global variable.
+                 * This is (most likely) related to #32181 which lazy loads most assets.
+                 *
+                 * That caused an issue where the global 'Util' variable from PDFJS can be
+                 * (depending of which libraries load first) overridden by the global 'Util'
+                 * variable of bootstrap.
+                 * (See 'lib/bootstrap/js/util.js' and 'lib/pdfjs/src/shared/util.js')
+                 *
+                 * This commit ensures that the global 'Util' variable is set to the one of PDFJS
+                 * right before it's used.
+                 *
+                 * Eventually, we should update or get rid of one of the two libraries since they're
+                 * not compatible together, or make a wrapper that makes them compatible.
+                 * In the mean time, this small fix allows not refactoring all of this and can not
+                 * cause much harm.
+                 */
+                Util = PDFJS.Util;
                 PDFJS.getDocument(new Uint8Array(buffer), null, passwordNeeded).then(function getPdf(pdf) {
+                    self._formSetFieldValue('duration', (pdf.pdfInfo.numPages || 0) * 5);
                     pdf.getPage(1).then(function getFirstPage(page) {
                         var scale = 1;
                         var viewport = page.getViewport(scale);
@@ -465,32 +480,6 @@ var SlideUploadDialog = Dialog.extend({
                             loaded = true;
                         });
                     });
-                    var maxPages = pdf.pdfInfo.numPages;
-                    var page, j;
-                    self.index_content = '';
-                    for (j = 1; j <= maxPages; j += 1) {
-                        page = pdf.getPage(j);
-                        page.then(function (pageObj) {
-                            var pageNumber = pageObj.pageIndex + 1;
-                            pageObj.getTextContent().then(function (data) {
-                                var pageContent = '';
-                                _.each(data.items, function (obj) {
-                                    pageContent = pageContent + obj.str + ' ';
-                                });
-                                // page_content may contain null characters
-                                pageContent = pageContent.replace(/\0/g, '');
-                                var indexContent = self._formGetFieldValue('index_content') + pageNumber + '. ' + pageContent + '\n';
-                                self._formSetFieldValue('index_content', indexContent);
-
-                                if (maxPages === pageNumber) {
-                                    if (loaded) {
-                                        self.set('can_submit_form', false);
-                                    }
-                                    loaded = true;
-                                }
-                            });
-                        });
-                    }
                 });
             };
         }
@@ -512,6 +501,10 @@ var SlideUploadDialog = Dialog.extend({
             if (data.error) {
                 self._alertDisplay(data.error);
             } else {
+                if (data.completion_time) {
+                    // hours to minutes conversion
+                    self._formSetFieldValue('duration', Math.round(data.completion_time * 60));
+                }
                 self.$('#slide-image').attr('src', data.url_src);
                 self._formSetFieldValue('name', data.title);
                 self._formSetFieldValue('description', data.description);
@@ -520,9 +513,53 @@ var SlideUploadDialog = Dialog.extend({
             }
         });
     },
-    _onClickGoBack: function (ev) {
+
+    _onClickInstallModule: function (ev) {
+        var $btn = $(ev.currentTarget);
+        var moduleId = $btn.data('moduleId');
+        if (this.modulesToInstallStatus) {
+            this.set('state', '_import');
+            if (this.modulesToInstallStatus.installing) {
+                this.$('#o_wslides_install_module_text')
+                    .text(_.str.sprintf(_t('Already installing "%s".'), this.modulesToInstallStatus.name));
+            } else if (this.modulesToInstallStatus.failed) {
+                this.$('#o_wslides_install_module_text')
+                    .text(_.str.sprintf(_t('Failed to install "%s".'), this.modulesToInstallStatus.name));
+            }
+        } else {
+            this.modulesToInstallStatus = _.extend({}, _.find(this.modulesToInstall, function (item) { return item.id == moduleId; }));
+            this.set('state', '_import');
+            this.$('#o_wslides_install_module_text')
+                .text(_.str.sprintf(_t('Do you want to install the "%s" app?'), this.modulesToInstallStatus.name));
+        }
+    },
+
+    _onClickInstallModuleConfirm: function () {
+        var self = this;
+        var $el = this.$('#o_wslides_install_module_text');
+        $el.text(_.str.sprintf(_t('Installing "%s".'), this.modulesToInstallStatus.name));
+        this.modulesToInstallStatus.installing = true;
+        this._resetModalButton();
+        this._rpc({
+            model: 'ir.module.module',
+            method: 'button_immediate_install',
+            args: [[this.modulesToInstallStatus.id]],
+        }).then(function () {
+            window.location.href = window.location.origin + window.location.pathname + '?enable_slide_upload';
+        }, function () {
+            $el.text(_.str.sprintf(_t('Failed to install "%s".'), self.modulesToInstallStatus.name));
+            self.modulesToInstallStatus.installing = false;
+            self.modulesToInstallStatus.failed = true;
+            self._resetModalButton();
+        });
+    },
+
+    _onClickGoBack: function () {
         this.set('state', '_select');
         this.isValidUrl = true;
+        if (this.modulesToInstallStatus && !this.modulesToInstallStatus.installing) {
+            this.modulesToInstallStatus = null;
+        }
     },
     _onClickFormSubmit: function (ev) {
         var self = this;
@@ -539,12 +576,6 @@ var SlideUploadDialog = Dialog.extend({
                     self.set('state', oldType);
                     self._alertDisplay(data.error);
                 } else {
-                    //Quick and really dirty fix for reordering issues
-                    if(data.channel_type == 'training' && self.categoryID){
-                        var categoryElement = $('ul[category_id='+self.categoryID+']');
-                        $('<li hidden class="content-slide" slide_id="'+data.slide_id+'" category_id="'+self.categoryID+'">temp</li>').appendTo(categoryElement)
-                        self._reorderSlidesSequence();
-                    }
                     window.location = data.url;
                 }
             });
@@ -559,11 +590,10 @@ var SlideUploadDialog = Dialog.extend({
     },
 });
 
-
-sAnimations.registry.websiteSlidesUpload = sAnimations.Class.extend({
-    selector: '.oe_slide_js_upload',
+publicWidget.registry.websiteSlidesUpload = publicWidget.Widget.extend({
+    selector: '.o_wslides_js_slide_upload',
     xmlDependencies: ['/website_slides/static/src/xml/website_slides_upload.xml'],
-    read_events: {
+    events: {
         'click': '_onUploadClick',
     },
 
@@ -572,7 +602,8 @@ sAnimations.registry.websiteSlidesUpload = sAnimations.Class.extend({
      */
     start: function () {
         // Automatically open the upload dialog if requested from query string
-        if ($.deparam.querystring().enable_slide_upload !== undefined) {
+        if (this.$el.attr('data-open-modal')) {
+            this.$el.removeAttr('data-open-modal');
             this._openDialog(this.$el);
         }
         return this._super.apply(this, arguments);
@@ -584,9 +615,7 @@ sAnimations.registry.websiteSlidesUpload = sAnimations.Class.extend({
 
     _openDialog: function ($element) {
         var data = $element.data();
-        var dialog = new SlideUploadDialog(this, data)
-        dialog.appendTo(document.body);
-        return dialog.open();
+        return new SlideUploadDialog(this, data).open();
     },
 
     //--------------------------------------------------------------------------
@@ -598,13 +627,14 @@ sAnimations.registry.websiteSlidesUpload = sAnimations.Class.extend({
      * @param {Event} ev
      */
     _onUploadClick: function (ev) {
+        ev.preventDefault();
         this._openDialog($(ev.currentTarget));
     },
 });
 
 return {
     SlideUploadDialog: SlideUploadDialog,
-    websiteSlidesUpload: sAnimations.registry.websiteSlidesUpload
+    websiteSlidesUpload: publicWidget.registry.websiteSlidesUpload
 };
 
 });

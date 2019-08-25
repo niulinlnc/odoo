@@ -2,6 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import base64
+import codecs
 import collections
 import unicodedata
 
@@ -32,6 +33,12 @@ DEFAULT_IMAGE_REGEX = r"(?:http|https)://.*(?:png|jpe?g|tiff?|gif|bmp)"
 DEFAULT_IMAGE_CHUNK_SIZE = 32768
 IMAGE_FIELDS = ["icon", "image", "logo", "picture"]
 _logger = logging.getLogger(__name__)
+BOM_MAP = {
+    'utf-16le': codecs.BOM_UTF16_LE,
+    'utf-16be': codecs.BOM_UTF16_BE,
+    'utf-32le': codecs.BOM_UTF32_LE,
+    'utf-32be': codecs.BOM_UTF32_BE,
+}
 
 try:
     import xlrd
@@ -216,7 +223,6 @@ class Import(models.TransientModel):
         # TODO: cache on model?
         return importable_fields
 
-    @api.multi
     def _read_file(self, options):
         """ Dispatch to specific method to read file content, according to its mimetype or file type
             :param options : dict of reading options (quoting, separator, ...)
@@ -254,7 +260,6 @@ class Import(models.TransientModel):
             raise ImportError(_("Unable to load \"{extension}\" file: requires Python module \"{modname}\"").format(extension=file_extension, modname=req))
         raise ValueError(_("Unsupported file format \"{}\", import only supports CSV, ODS, XLS and XLSX").format(self.file_type))
 
-    @api.multi
     def _read_xls(self, options):
         """ Read file content, using xlrd lib """
         book = xlrd.open_workbook(file_contents=self.file or b'')
@@ -263,9 +268,9 @@ class Import(models.TransientModel):
     def _read_xls_book(self, book):
         sheet = book.sheet_by_index(0)
         # emulate Sheet.get_rows for pre-0.9.4
-        for row in map(sheet.row, range(sheet.nrows)):
+        for rowx, row in enumerate(map(sheet.row, range(sheet.nrows)), 1):
             values = []
-            for cell in row:
+            for colx, cell in enumerate(row, 1):
                 if cell.ctype is xlrd.XL_CELL_NUMBER:
                     is_float = cell.value % 1 != 0.0
                     values.append(
@@ -286,9 +291,11 @@ class Import(models.TransientModel):
                     values.append(u'True' if cell.value else u'False')
                 elif cell.ctype is xlrd.XL_CELL_ERROR:
                     raise ValueError(
-                        _("Error cell found while reading XLS/XLSX file: %s") %
-                        xlrd.error_text_from_code.get(
-                            cell.value, "unknown error code %s" % cell.value)
+                        _("Invalid cell value at row %(row)s, column %(col)s: %(cell_value)s") % {
+                            'row': rowx,
+                            'col': colx,
+                            'cell_value': xlrd.error_text_from_code.get(cell.value, _("unknown error code %s") % cell.value)
+                        }
                     )
                 else:
                     values.append(cell.value)
@@ -298,7 +305,6 @@ class Import(models.TransientModel):
     # use the same method for xlsx and xls files
     _read_xlsx = _read_xls
 
-    @api.multi
     def _read_ods(self, options):
         """ Read file content using ODSReader custom lib """
         doc = odf_ods_reader.ODSReader(file=io.BytesIO(self.file or b''))
@@ -309,7 +315,6 @@ class Import(models.TransientModel):
             if any(x for x in row if x.strip())
         )
 
-    @api.multi
     def _read_csv(self, options):
         """ Returns a CSV-parsed iterator of all non-empty lines in the file
             :throws csv.Error: if an error is detected during CSV parsing
@@ -321,6 +326,13 @@ class Import(models.TransientModel):
         encoding = options.get('encoding')
         if not encoding:
             encoding = options['encoding'] = chardet.detect(csv_data)['encoding'].lower()
+            # some versions of chardet (e.g. 2.3.0 but not 3.x) will return
+            # utf-(16|32)(le|be), which for python means "ignore / don't strip
+            # BOM". We don't want that, so rectify the encoding to non-marked
+            # IFF the guessed encoding is LE/BE and csv_data starts with a BOM
+            bom = BOM_MAP.get(encoding)
+            if bom and csv_data.startswith(bom):
+                encoding = options['encoding'] = encoding[:-2]
 
         if encoding != 'utf-8':
             csv_data = csv_data.decode(encoding).encode('utf-8')
@@ -430,6 +442,9 @@ class Import(models.TransientModel):
         # Or a date/datetime if it matches the pattern
         date_patterns = [options['date_format']] if options.get(
             'date_format') else []
+        user_date_format = self.env['res.lang']._lang_get(self.env.user.lang).date_format
+        if user_date_format:
+            date_patterns.append(user_date_format)
         date_patterns.extend(DATE_PATTERNS)
         match = check_patterns(date_patterns, preview_values)
         if match:
@@ -545,7 +560,6 @@ class Import(models.TransientModel):
             matches[index] = match_field or None
         return headers, matches
 
-    @api.multi
     def parse_preview(self, options, count=10):
         """ Generates a preview of the uploaded files, and performs
             fields-matching between the import's file data and the model's
@@ -721,7 +735,6 @@ class Import(models.TransientModel):
         decimal_separator = options.get('float_decimal_separator', '.')
         return thousand_separator, decimal_separator
 
-    @api.multi
     def _parse_import_data(self, data, import_fields, options):
         """ Lauch first call to _parse_import_data_recursive with an
         empty prefix. _parse_import_data_recursive will be run
@@ -729,7 +742,6 @@ class Import(models.TransientModel):
         """
         return self._parse_import_data_recursive(self.res_model, '', data, import_fields, options)
 
-    @api.multi
     def _parse_import_data_recursive(self, model, prefix, data, import_fields, options):
         # Get fields of type date/datetime
         all_fields = self.env[model].fields_get()
@@ -829,7 +841,6 @@ class Import(models.TransientModel):
                 'error': e
             })
 
-    @api.multi
     def do(self, fields, columns, options, dryrun=False):
         """ Actual execution of the import
 
@@ -907,6 +918,11 @@ class Import(models.TransientModel):
                             'column_name': column_name,
                             'field_name': fields[index]
                         })
+        if 'name' in import_fields:
+            index_of_name = import_fields.index('name')
+            import_result['name'] = [x[index_of_name] for x in data]
+        else:
+            import_result['name'] = []
 
         return import_result
 

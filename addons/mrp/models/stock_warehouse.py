@@ -13,6 +13,8 @@ class StockWarehouse(models.Model):
         help="When products are manufactured, they can be manufactured in this warehouse.")
     manufacture_pull_id = fields.Many2one(
         'stock.rule', 'Manufacture Rule')
+    manufacture_mto_pull_id = fields.Many2one(
+        'stock.rule', 'Manufacture MTO Rule')
     pbm_mto_pull_id = fields.Many2one(
         'stock.rule', 'Picking Before Manufacturing MTO Rule')
     sam_rule_id = fields.Many2one(
@@ -29,9 +31,9 @@ class StockWarehouse(models.Model):
         ('pbm', 'Pick components and then manufacture (2 steps)'),
         ('pbm_sam', 'Pick components, manufacture and then store products (3 steps)')],
         'Manufacture', default='mrp_one_step', required=True,
-        help="Produce : Move the raw materials to the production location\
+        help="Produce : Move the components to the production location\
         directly and start the manufacturing process.\nPick / Produce : Unload\
-        the raw materials from the Stock to Input location first, and then\
+        the components from the Stock to Input location first, and then\
         transfer it to the Production location.")
 
     pbm_route_id = fields.Many2one('stock.location.route', 'Picking Before Manufacturing Route', ondelete='restrict')
@@ -101,6 +103,8 @@ class StockWarehouse(models.Model):
 
     def _get_global_route_rules_values(self):
         rules = super(StockWarehouse, self)._get_global_route_rules_values()
+        location_src = self.manufacture_steps == 'mrp_one_step' and self.lot_stock_id or self.pbm_loc_id
+        production_location = self._get_production_location()
         location_id = self.manufacture_steps == 'pbm_sam' and self.sam_loc_id or self.lot_stock_id
         rules.update({
             'manufacture_pull_id': {
@@ -116,7 +120,25 @@ class StockWarehouse(models.Model):
                     'active': self.manufacture_to_resupply,
                     'name': self._format_rulename(location_id, False, 'Production'),
                     'location_id': location_id.id,
-                }
+                    'propagate_cancel': self.manufacture_steps == 'pbm_sam'
+                },
+            },
+            'manufacture_mto_pull_id': {
+                'depends': ['manufacture_steps', 'manufacture_to_resupply'],
+                'create_values': {
+                    'procure_method': 'make_to_order',
+                    'company_id': self.company_id.id,
+                    'action': 'pull',
+                    'auto': 'manual',
+                    'route_id': self._find_global_route('stock.route_warehouse0_mto', _('Make To Order')).id,
+                    'location_id': production_location.id,
+                    'location_src_id': location_src.id,
+                    'picking_type_id': self.manu_type_id.id
+                },
+                'update_values': {
+                    'name': self._format_rulename(location_src, production_location, 'MTO'),
+                    'active': self.manufacture_to_resupply,
+                },
             },
             'pbm_mto_pull_id': {
                 'depends': ['manufacture_steps', 'manufacture_to_resupply'],
@@ -125,7 +147,6 @@ class StockWarehouse(models.Model):
                     'company_id': self.company_id.id,
                     'action': 'pull',
                     'auto': 'manual',
-                    'propagate': True,
                     'route_id': self._find_global_route('stock.route_warehouse0_mto', _('Make To Order')).id,
                     'name': self._format_rulename(self.lot_stock_id, self.pbm_loc_id, 'MTO'),
                     'location_id': self.pbm_loc_id.id,
@@ -149,7 +170,6 @@ class StockWarehouse(models.Model):
                     'company_id': self.company_id.id,
                     'action': 'pull',
                     'auto': 'manual',
-                    'propagate': True,
                     'route_id': self._find_global_route('mrp.route_warehouse0_manufacture', _('Manufacture')).id,
                     'name': self._format_rulename(self.sam_loc_id, self.lot_stock_id, False),
                     'location_id': self.lot_stock_id.id,
@@ -164,13 +184,26 @@ class StockWarehouse(models.Model):
         })
         return rules
 
-    def _get_locations_values(self, vals):
-        values = super(StockWarehouse, self)._get_locations_values(vals)
+    def _get_locations_values(self, vals, code=False):
+        values = super(StockWarehouse, self)._get_locations_values(vals, code=code)
         def_values = self.default_get(['manufacture_steps'])
         manufacture_steps = vals.get('manufacture_steps', def_values['manufacture_steps'])
+        code = vals.get('code') or code
+        code = code.replace(' ', '').upper()
+        company_id = vals.get('company_id', self.company_id.id)
         values.update({
-            'pbm_loc_id': {'name': _('Pre-Production'), 'active': manufacture_steps in ('pbm', 'pbm_sam'), 'usage': 'internal'},
-            'sam_loc_id': {'name': _('Post-Production'), 'active': manufacture_steps == 'pbm_sam', 'usage': 'internal'},
+            'pbm_loc_id': {
+                'name': _('Pre-Production'),
+                'active': manufacture_steps in ('pbm', 'pbm_sam'),
+                'usage': 'internal',
+                'barcode': self._valid_barcode(code + '-PREPRODUCTION', company_id)
+            },
+            'sam_loc_id': {
+                'name': _('Post-Production'),
+                'active': manufacture_steps == 'pbm_sam',
+                'usage': 'internal',
+                'barcode': self._valid_barcode(code + '-POSTPRODUCTION', company_id)
+            },
         })
         return values
 
@@ -193,7 +226,8 @@ class StockWarehouse(models.Model):
                 'use_existing_lots': True,
                 'default_location_src_id': self.lot_stock_id.id,
                 'default_location_dest_id': self.pbm_loc_id.id,
-                'sequence': next_sequence + 1
+                'sequence': next_sequence + 1,
+                'sequence_code': 'PC',
             },
             'sam_type_id': {
                 'name': _('Store Finished Product'),
@@ -202,14 +236,16 @@ class StockWarehouse(models.Model):
                 'use_existing_lots': True,
                 'default_location_src_id': self.sam_loc_id.id,
                 'default_location_dest_id': self.lot_stock_id.id,
-                'sequence': next_sequence + 3
+                'sequence': next_sequence + 3,
+                'sequence_code': 'SFP',
             },
             'manu_type_id': {
                 'name': _('Manufacturing'),
                 'code': 'mrp_operation',
                 'use_create_lots': True,
                 'use_existing_lots': True,
-                'sequence': next_sequence + 2
+                'sequence': next_sequence + 2,
+                'sequence_code': 'MO',
             },
         })
         return data, max_sequence + 4
@@ -227,16 +263,14 @@ class StockWarehouse(models.Model):
         })
         return data
 
-    @api.multi
     def write(self, vals):
         if any(field in vals for field in ('manufacture_steps', 'manufacture_to_resupply')):
             for warehouse in self:
                 warehouse._update_location_manufacture(vals.get('manufacture_steps', warehouse.manufacture_steps))
         return super(StockWarehouse, self).write(vals)
 
-    @api.multi
     def _get_all_routes(self):
-        routes = super(StockWarehouse, self).get_all_routes_for_wh()
+        routes = super(StockWarehouse, self)._get_all_routes()
         routes |= self.filtered(lambda self: self.manufacture_to_resupply and self.manufacture_pull_id and self.manufacture_pull_id.route_id).mapped('manufacture_pull_id').mapped('route_id')
         return routes
 
@@ -244,7 +278,6 @@ class StockWarehouse(models.Model):
         self.mapped('pbm_loc_id').write({'active': new_manufacture_step != 'mrp_one_step'})
         self.mapped('sam_loc_id').write({'active': new_manufacture_step == 'pbm_sam'})
 
-    @api.multi
     def _update_name_and_code(self, name=False, code=False):
         res = super(StockWarehouse, self)._update_name_and_code(name, code)
         # change the manufacture stock rule name

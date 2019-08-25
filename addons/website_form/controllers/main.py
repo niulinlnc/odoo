@@ -8,7 +8,7 @@ import pytz
 from datetime import datetime
 from psycopg2 import IntegrityError
 
-from odoo import http
+from odoo import http, SUPERUSER_ID
 from odoo.http import request
 from odoo.tools import DEFAULT_SERVER_DATE_FORMAT, DEFAULT_SERVER_DATETIME_FORMAT
 from odoo.tools.translate import _
@@ -49,9 +49,8 @@ class WebsiteForm(http.Controller):
 
         return json.dumps({'id': id_record})
 
-    # Constants string to make custom info and metadata readable on a text field
+    # Constants string to make metadata readable on a text field
 
-    _custom_label = "%s\n___________\n\n" % _("Custom infos")  # Title for custom fields
     _meta_label = "%s\n________\n\n" % _("Metadata")  # Title for meta data
 
     # Dict of dynamically called filters following type of field to be fault tolerent
@@ -129,6 +128,8 @@ class WebsiteForm(http.Controller):
                 # If it's not, we'll use attachments instead
                 if field_name in authorized_fields and authorized_fields[field_name]['type'] == 'binary':
                     data['record'][field_name] = base64.b64encode(field_value.read())
+                    if authorized_fields[field_name]['manual']:
+                        data['record'][field_name + "_filename"] = field_value.filename
                 else:
                     field_value.field_name = field_name
                     data['attachments'].append(field_value)
@@ -176,10 +177,13 @@ class WebsiteForm(http.Controller):
         record = request.env[model_name].sudo().with_context(mail_create_nosubscribe=True).create(values)
 
         if custom or meta:
+            _custom_label = "%s\n___________\n\n" % _("Other Information:")  # Title for custom fields
+            if model_name == 'mail.mail':
+                _custom_label = "%s\n___________\n\n" % _("This message has been posted on your website!")
             default_field = model.website_form_default_field_id
             default_field_data = values.get(default_field.name, '')
             custom_content = (default_field_data + "\n\n" if default_field_data else '') \
-                           + (self._custom_label + custom + "\n\n" if custom else '') \
+                           + (_custom_label + custom + "\n\n" if custom else '') \
                            + (self._meta_label + meta if meta else '')
 
             # If there is a default field configured for this model, use it.
@@ -211,7 +215,6 @@ class WebsiteForm(http.Controller):
             attachment_value = {
                 'name': file.filename,
                 'datas': base64.encodestring(file.read()),
-                'datas_fname': file.filename,
                 'res_model': model_name,
                 'res_id': record.id,
             }
@@ -233,7 +236,7 @@ class WebsiteForm(http.Controller):
                     'res_id': id_record,
                     'attachment_ids': [(6, 0, orphan_attachment_ids)],
                 }
-                mail_id = request.env['mail.message'].sudo().create(values)
+                mail_id = request.env['mail.message'].with_user(SUPERUSER_ID).create(values)
         else:
             # If the model is mail.mail then we have no other choice but to
             # attach the custom binary field files on the attachment_ids field.

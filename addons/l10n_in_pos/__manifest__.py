@@ -12,5 +12,8 @@
     ],
     'data': [
     ],
+    'demo': [
+        'data/product_demo.xml',
+    ],
     'auto_install': True,
 }

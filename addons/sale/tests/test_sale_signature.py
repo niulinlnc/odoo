@@ -15,6 +15,7 @@ class TestSaleSignature(odoo.tests.HttpCase):
             'name': 'test SO',
             'partner_id': portal_user.id,
             'state': 'sent',
+            'require_payment': False,
         })
         self.env['sale.order.line'].create({
             'order_id': sales_order.id,
@@ -22,6 +23,8 @@ class TestSaleSignature(odoo.tests.HttpCase):
         })
 
         # must be sent to the user so he can see it
-        sales_order.force_quotation_send()
+        email_act = sales_order.action_quotation_send()
+        email_ctx = email_act.get('context', {})
+        sales_order.with_context(**email_ctx).message_post_with_template(email_ctx.get('default_template_id'))
 
-        self.browser_js("/", "odoo.__DEBUG__.services['web_tour.tour'].run('sale_signature')", "odoo.__DEBUG__.services['web_tour.tour'].tours.sale_signature.ready", login="portal")
+        self.start_tour("/", 'sale_signature', login="portal")
