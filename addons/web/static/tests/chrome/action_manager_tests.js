@@ -2205,6 +2205,46 @@ QUnit.module('ActionManager', {
         testUtils.mock.unpatch(ReportClientAction);
     });
 
+    QUnit.test('crashmanager service called on failed report download actions', async function (assert) {
+        assert.expect(1);
+
+        var actionManager = await createActionManager({
+            data: this.data,
+            actions: this.actions,
+            services: {
+                report: ReportService,
+            },
+            mockRPC: function (route) {
+                if (route === '/report/check_wkhtmltopdf') {
+                    return Promise.resolve('ok');
+                }
+                return this._super.apply(this, arguments);
+            },
+            session: {
+                get_file: function (params) {
+                    params.error({
+                        data: {
+                            name: 'error',
+                            exception_type: 'warning',
+                            arguments: ['could not download file'],
+                        }
+                    });
+                    params.complete();
+                },
+            },
+        });
+
+        try {
+            await actionManager.doAction(11);
+        } catch (e) {
+            // e is undefined if we land here because of a rejected promise,
+            // otherwise, it is an Error, which is not what we expect
+            assert.strictEqual(e, undefined);
+        }
+
+        actionManager.destroy();
+    });
+
     QUnit.module('Window Actions');
 
     QUnit.test('can execute act_window actions from db ID', async function (assert) {
@@ -3478,7 +3518,7 @@ QUnit.module('ActionManager', {
                 active_ids: [1],
             },
             flags: {
-                withSearchPanel: false,
+                searchPanelDefaultNoFilter: true,
             },
         });
         var checkSessionStorage = false;
@@ -4184,6 +4224,45 @@ QUnit.module('ActionManager', {
         await testUtils.fields.triggerKeydown($searchInput, 'enter');
 
         assert.verifySteps(["search_read |,foo,ilike,m,foo,ilike,o"]);
+
+        actionManager.destroy();
+    });
+
+    QUnit.test('Call twice clearUncommittedChanges in a row does not display twice the discard warning', async function (assert) {
+        assert.expect(4);
+
+        var actionManager = await createActionManager({
+            actions: this.actions,
+            archs: this.archs,
+            data: this.data,
+            intercepts: {
+                clear_uncommitted_changes: function () {
+                    actionManager.clearUncommittedChanges();
+                },
+            },
+        });
+
+        // execute an action and edit existing record
+        await actionManager.doAction(3);
+
+        await testUtils.dom.click(actionManager.$('.o_list_view .o_data_row:first'));
+        assert.containsOnce(actionManager, '.o_form_view.o_form_readonly');
+
+        await testUtils.dom.click($('.o_control_panel .o_form_button_edit'));
+        assert.containsOnce(actionManager, '.o_form_view.o_form_editable');
+
+        await testUtils.fields.editInput(actionManager.$('input[name=foo]'), 'val');
+        actionManager.trigger_up('clear_uncommitted_changes');
+        await testUtils.nextTick();
+
+        assert.containsOnce($('body'), '.modal'); // confirm discard dialog
+        // confirm discard changes
+        await testUtils.dom.click($('.modal .modal-footer .btn-primary'));
+
+        actionManager.trigger_up('clear_uncommitted_changes');
+        await testUtils.nextTick();
+
+        assert.containsNone($('body'), '.modal');
 
         actionManager.destroy();
     });

@@ -21,7 +21,16 @@ class SendSMS(models.TransientModel):
             return result
 
         result['res_model'] = result.get('res_model') or self.env.context.get('active_model')
-        result['composition_mode'] = result.get('composition_mode') or 'comment'
+        result['composition_mode'] = result.get('composition_mode')
+
+        # guess the composition mode, if multiples ids => mass composition else comment
+        if self.env.context.get('default_composition_mode') and self.env.context.get('default_composition_mode') == "guess":
+            if self.env.context.get('active_ids') and len(self.env.context.get('active_ids')) > 1:
+                result['composition_mode'] = 'mass'
+                result['res_id'] = False
+            else:
+                result['composition_mode'] = 'comment'
+                result['res_ids'] = False
 
         if not result.get('active_domain'):
             result['active_domain'] = repr(self.env.context.get('active_domain', []))
@@ -51,25 +60,25 @@ class SendSMS(models.TransientModel):
     res_id = fields.Integer('Document ID')
     res_ids = fields.Char('Document IDs')
     res_ids_count = fields.Integer(
-        'Visible records count', compute='_compute_recipients_count',
+        'Visible records count', compute='_compute_recipients_count', compute_sudo=False,
         help='UX field computing the number of recipients in mass mode without active domain')
     use_active_domain = fields.Boolean('Use active domain')
     active_domain = fields.Text('Active domain', readonly=True)
     active_domain_count = fields.Integer(
-        'Active records count', compute='_compute_recipients_count',
+        'Active records count', compute='_compute_recipients_count', compute_sudo=False,
         help='UX field computing the number of recipients in mass mode based on given active domain')
     # options for comment and mass mode
     mass_keep_log = fields.Boolean('Keep a note on document', default=True)
     mass_force_send = fields.Boolean('Send directly', default=False)
     mass_use_blacklist = fields.Boolean('Use blacklist', default=True)
     # recipients
-    recipient_description = fields.Text('Recipients (Partners)', compute='_compute_recipients')
-    recipient_count = fields.Integer('# Valid recipients', compute='_compute_recipients')
-    recipient_invalid_count = fields.Integer('# Invalid recipients', compute='_compute_recipients')
+    recipient_description = fields.Text('Recipients (Partners)', compute='_compute_recipients', compute_sudo=False)
+    recipient_count = fields.Integer('# Valid recipients', compute='_compute_recipients', compute_sudo=False)
+    recipient_invalid_count = fields.Integer('# Invalid recipients', compute='_compute_recipients', compute_sudo=False)
     number_field_name = fields.Char(string='Field holding number')
     partner_ids = fields.Many2many('res.partner')
     numbers = fields.Char('Recipients (Numbers)')
-    sanitized_numbers = fields.Char('Sanitized Number', compute='_compute_sanitized_numbers')
+    sanitized_numbers = fields.Char('Sanitized Number', compute='_compute_sanitized_numbers', compute_sudo=False)
     # content
     template_id = fields.Many2one('sms.template', string='Use Template', domain="[('model', '=', res_model)]")
     body = fields.Text('Message', required=True)
@@ -102,7 +111,7 @@ class SendSMS(models.TransientModel):
                 if len(records) == 1:
                     self.recipient_description = '%s (%s)' % (
                         res[records.id]['partner'].name or records.display_name,
-                        res[records.id]['sanitized']
+                        res[records.id]['sanitized'] or _("Invalid number")
                     )
             else:
                 self.recipient_invalid_count = 0 if (self.sanitized_numbers or (self.composition_mode == 'mass' and self.use_active_domain)) else 1
@@ -124,7 +133,7 @@ class SendSMS(models.TransientModel):
     @api.onchange('composition_mode', 'res_model', 'res_id', 'template_id')
     def _onchange_template_id(self):
         if self.template_id and self.composition_mode == 'comment' and self.res_id:
-            self.body = self.template_id._render_template(self.template_id.body, self.res_model, [self.res_id])[self.res_id]
+            self.body = self.template_id._get_translated_bodies([self.res_id])[self.res_id]
         elif self.template_id:
             self.body = self.template_id.body
 
@@ -138,7 +147,12 @@ class SendSMS(models.TransientModel):
         self._action_send_sms()
         return False
 
-    def _action_send_sms(self, force_send=False):
+    def action_send_sms_mass_now(self):
+        if not self.mass_force_send:
+            self.write({'mass_force_send': True})
+        return self.action_send_sms()
+
+    def _action_send_sms(self):
         records = self._get_records()
         if self.composition_mode == 'numbers':
             return self._action_send_sms_numbers()
@@ -174,17 +188,16 @@ class SendSMS(models.TransientModel):
         records = records if records is not None else self._get_records()
 
         sms_record_values = self._prepare_mass_sms_values(records)
-        sms_create_vals = [sms_record_values[record.id] for record in records]
-        sms = self.env['sms.sms'].sudo().create(sms_create_vals)
+        sms_all = self._prepare_mass_sms(records, sms_record_values)
 
-        if sms and self.mass_keep_log and records and issubclass(type(records), self.pool['mail.thread']):
-            log_values = self._prepare_mass_log_values(sms_record_values)
+        if sms_all and self.mass_keep_log and records and issubclass(type(records), self.pool['mail.thread']):
+            log_values = self._prepare_mass_log_values(records, sms_record_values)
             records._message_log_batch(**log_values)
 
-        if sms and self.mass_force_send:
-            sms.send(auto_commit=False, raise_exception=False)
-
-        return sms
+        if sms_all and self.mass_force_send:
+            sms_all.filtered(lambda sms: sms.state == 'outgoing').send(auto_commit=False, raise_exception=False)
+            return self.env['sms.sms'].sudo().search([('id', 'in', sms_all.ids)])
+        return sms_all
 
     # ------------------------------------------------------------
     # Mass mode specific
@@ -216,17 +229,12 @@ class SendSMS(models.TransientModel):
 
     def _prepare_body_values(self, records):
         if self.template_id and self.body == self.template_id.body:
-            lang_to_rids = self.template_id._get_ids_per_lang(records.ids)
-            all_bodies = {}
-            for lang, rids in lang_to_rids.items():
-                template = self.template_id.with_context(lang=lang)
-                all_bodies.update(template._render_template(template.body, records._name, rids))
+            all_bodies = self.template_id._get_translated_bodies(records.ids)
         else:
             all_bodies = self.env['mail.template']._render_template(self.body, records._name, records.ids)
         return all_bodies
 
-    def _prepare_mass_sms_values(self, records=None):
-        records = records if records is not None else self._get_records()
+    def _prepare_mass_sms_values(self, records):
         all_bodies = self._prepare_body_values(records)
         all_recipients = self._prepare_recipient_values(records)
         blacklist_ids = self._get_blacklist_record_ids(records, all_recipients)
@@ -258,13 +266,17 @@ class SendSMS(models.TransientModel):
             }
         return result
 
+    def _prepare_mass_sms(self, records, sms_record_values):
+        sms_create_vals = [sms_record_values[record.id] for record in records]
+        return self.env['sms.sms'].sudo().create(sms_create_vals)
+
     def _prepare_log_body_values(self, sms_records_values):
         result = {}
         for record_id, sms_values in sms_records_values.items():
             result[record_id] = sms_values['body']
         return result
 
-    def _prepare_mass_log_values(self, sms_records_values):
+    def _prepare_mass_log_values(self, records, sms_records_values):
         return {
             'bodies': self._prepare_log_body_values(sms_records_values),
             'message_type': 'sms',

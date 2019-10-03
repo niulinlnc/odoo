@@ -6,16 +6,18 @@
         <field name="name">repair.tree</field>
         <field name="model">repair.order</field>
         <field name="arch" type="xml">
-            <tree string="Repairs order" decoration-muted="state in ('done','cancel')" decoration-info="state=='draft'">
+            <tree string="Repairs order" multi_edit="1"
+                  decoration-muted="state in ('done','cancel')" decoration-info="state=='draft'">
                 <field name="name" />
-                <field name="product_id" optional="show"/>
+                <field name="product_id" readonly="1" optional="show"/>
                 <field name="product_qty" optional="hide" string="Quantity"/>
-                <field name="product_uom" optional="hide" string="Unit of Measure"/>
-                <field name="partner_id" optional="show"/>
+                <field name="product_uom" string="Unit of Measure" readonly="1" optional="hide"/>
+                <field name="user_id" optional="hide"/>
+                <field name="partner_id" readonly="1" optional="show"/>
                 <field name="address_id" optional="show"/>
                 <field name="guarantee_limit" optional="show"/>
                 <field name="location_id" optional="hide"/>
-                <field name="company_id" groups="base.group_multi_company" optional="show"/>
+                <field name="company_id" groups="base.group_multi_company" readonly="1" optional="show"/>
                 <field name="state" optional="show"/>
                 <field name="activity_exception_decoration" widget="activity_exception"/>
             </tree>
@@ -116,7 +118,7 @@
                             </form>
                             <tree string="Operations" editable="bottom">
                                 <field name="type"/>
-                                <field name="product_id"/>
+                                <field name="product_id" domain="[('type', '!=', 'service')]"/>
                                 <field name='name' optional="show"/>
                                 <field name="product_uom_category_id" invisible="1"/>
                                 <field name="lot_id" domain="[('product_id', '=', product_id)]" context="{'default_product_id': product_id}" groups="stock.group_production_lot"/>
@@ -253,8 +255,6 @@
                 <filter string="Ready To Repair" name="ready_to_repair" domain="[('state', '=', 'ready')]"/>
                 <separator/>
                 <filter string="Invoiced" name="invoiced" domain="[('invoiced', '=', True)]"/>
-                <separator/>
-                <filter string="My Activities" name="activities_my" domain="[('activity_ids.user_id', '=', uid)]"/>
                 <separator/>
                 <filter invisible="1" string="Late Activities" name="activities_overdue"
                     domain="[('activity_ids.date_deadline', '&lt;', context_today().strftime('%Y-%m-%d'))]"

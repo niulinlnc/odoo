@@ -8,7 +8,7 @@ from binascii import Error as binascii_error
 from collections import defaultdict
 from operator import itemgetter
 from email.utils import formataddr
-from openerp.http import request
+from odoo.http import request
 
 from odoo import _, api, fields, models, modules, tools
 from odoo.exceptions import UserError, AccessError
@@ -79,7 +79,7 @@ class Message(models.Model):
         'res.partner', 'Author', index=True,
         ondelete='set null', default=_get_default_author,
         help="Author of the message. If not set, email_from may hold an email address that did not match any partner.")
-    author_avatar = fields.Binary("Author's avatar", related='author_id.image_64', readonly=False)
+    author_avatar = fields.Binary("Author's avatar", related='author_id.image_128', readonly=False)
     # recipients: include inactive partners (they may have been archived after
     # the message was sent, but they should remain visible in the relation)
     partner_ids = fields.Many2many('res.partner', string='Recipients', context={'active_test': False})
@@ -138,6 +138,7 @@ class Message(models.Model):
     # as the cache value for this inverse one2many is up-to-date.
     # Besides for new messages, and messages never sending emails, there was no mail, and it was searching for nothing.
     mail_ids = fields.One2many('mail.mail', 'mail_message_id', string='Mails')
+    canned_response_ids = fields.One2many('mail.shortcode', 'message_ids', string="Canned Responses", store=False)
 
     def _get_needaction(self):
         """ Need action on a mail.message = notified on my channel """

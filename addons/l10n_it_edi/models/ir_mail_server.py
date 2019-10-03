@@ -31,10 +31,10 @@ class FetchmailServer(models.Model):
     l10n_it_is_pec = fields.Boolean('PEC server', help="If PEC Server, only mail from '...@pec.fatturapa.it' will be processed.")
     l10n_it_last_uid = fields.Integer(string='Last message UID', default=1)
 
-    @api.constrains('l10n_it_is_pec', 'type')
+    @api.constrains('l10n_it_is_pec', 'server_type')
     def _check_pec(self):
         for record in self:
-            if record.l10n_it_is_pec and record.type != 'imap':
+            if record.l10n_it_is_pec and record.server_type != 'imap':
                 raise ValidationError(_("PEC mail server must be of type IMAP."))
 
     def fetch_mail(self):
@@ -42,7 +42,7 @@ class FetchmailServer(models.Model):
 
         MailThread = self.env['mail.thread']
         for server in self.filtered(lambda s: s.l10n_it_is_pec):
-            _logger.info('start checking for new emails on %s PEC server %s', server.type, server.name)
+            _logger.info('start checking for new emails on %s PEC server %s', server.server_type, server.name)
 
             count, failed = 0, 0
             imap_server = None
@@ -80,14 +80,14 @@ class FetchmailServer(models.Model):
                         self._attachment_invoice(msg_txt)
                         new_max_uid = max(new_max_uid, int(uid))
                     except Exception:
-                        _logger.info('Failed to process mail from %s server %s.', server.type, server.name, exc_info=True)
+                        _logger.info('Failed to process mail from %s server %s.', server.server_type, server.name, exc_info=True)
                         failed += 1
                     self._cr.commit()
                     count += 1
                 server.write({'l10n_it_last_uid': new_max_uid})
-                _logger.info("Fetched %d email(s) on %s server %s; %d succeeded, %d failed.", count, server.type, server.name, (count - failed), failed)
+                _logger.info("Fetched %d email(s) on %s server %s; %d succeeded, %d failed.", count, server.server_type, server.name, (count - failed), failed)
             except Exception:
-                _logger.info("General failure when trying to fetch mail from %s server %s.", server.type, server.name, exc_info=True)
+                _logger.info("General failure when trying to fetch mail from %s server %s.", server.server_type, server.name, exc_info=True)
             finally:
                 if imap_server:
                     imap_server.close()
@@ -360,3 +360,17 @@ class FetchmailServer(models.Model):
             if descrizione:
                 output_str += "<li>Errore %s: %s</li>" % (element[0].text, descrizione)
         return output_str + "</ul>"
+
+class IrMailServer(models.Model):
+    _name = "ir.mail_server"
+    _inherit = "ir.mail_server"
+
+    def build_email(self, email_from, email_to, subject, body, email_cc=None, email_bcc=None, reply_to=False,
+                attachments=None, message_id=None, references=None, object_id=False, subtype='plain', headers=None,
+                body_alternative=None, subtype_alternative='plain'):
+
+        if self.env.context.get('wo_return_path') and headers:
+            headers.pop('Return-Path', False)
+        return super(IrMailServer, self).build_email(email_from, email_to, subject, body, email_cc=email_cc, email_bcc=email_bcc, reply_to=reply_to,
+                attachments=attachments, message_id=message_id, references=references, object_id=object_id, subtype=subtype, headers=headers,
+                body_alternative=body_alternative, subtype_alternative=subtype_alternative)

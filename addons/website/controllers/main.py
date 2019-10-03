@@ -4,8 +4,8 @@ import base64
 import datetime
 import json
 import os
-import re
 import logging
+import pytz
 import requests
 import werkzeug.utils
 import werkzeug.wrappers
@@ -107,10 +107,14 @@ class Website(Home):
     # Business
     # ------------------------------------------------------
 
+    @http.route('/website/get_languages', type='json', auth="user", website=True)
+    def website_languages(self, **kwargs):
+        return [(lg.code, lg.url_code, lg.name) for lg in request.website.language_ids]
+
     @http.route('/website/lang/<lang>', type='http', auth="public", website=True, multilang=False)
     def change_lang(self, lang, r='/', **kwargs):
         if lang == 'default':
-            lang = request.website.default_lang_code
+            lang = request.website.default_lang_id.url_code
             r = '/%s%s' % (lang, r or '/')
         redirect = werkzeug.utils.redirect(r or ('/%s' % lang), 303)
         redirect.set_cookie('frontend_lang', lang)
@@ -392,6 +396,15 @@ class Website(Home):
         for id_or_xml_id in ids_or_xml_ids:
             res[id_or_xml_id] = View.render_template(id_or_xml_id, values)
         return res
+
+    @http.route(['/website/update_visitor_timezone'], type='json', auth="public", website=True)
+    def update_visitor_timezone(self, timezone):
+        visitor_sudo = request.env['website.visitor']._get_visitor_from_request()
+        if visitor_sudo:
+            if timezone in pytz.all_timezones:
+                visitor_sudo.write({'timezone': timezone})
+                return True
+        return False
 
     # ------------------------------------------------------
     # Server actions

@@ -31,7 +31,7 @@ class SaleOrder(models.Model):
     warehouse_id = fields.Many2one(
         'stock.warehouse', string='Warehouse',
         required=True, readonly=True, states={'draft': [('readonly', False)], 'sent': [('readonly', False)]},
-        default=_default_warehouse_id, domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]")
+        default=_default_warehouse_id, check_company=True)
     picking_ids = fields.One2many('stock.picking', 'sale_id', string='Transfers')
     delivery_count = fields.Integer(string='Delivery Orders', compute='_compute_picking_ids')
     procurement_group_id = fields.Many2one('procurement.group', 'Procurement Group', copy=False)
@@ -105,10 +105,10 @@ class SaleOrder(models.Model):
         for order in self:
             order.delivery_count = len(order.picking_ids)
 
-    @api.onchange('warehouse_id')
-    def _onchange_warehouse_id(self):
-        if self.warehouse_id.company_id:
-            self.company_id = self.warehouse_id.company_id.id
+    @api.onchange('company_id')
+    def _onchange_company_id(self):
+        if self.company_id:
+            self.warehouse_id = self.env['stock.warehouse'].search([('company_id', '=', self.company_id.id)], limit=1)
 
     @api.onchange('partner_shipping_id')
     def _onchange_partner_shipping_id(self):
@@ -139,7 +139,12 @@ class SaleOrder(models.Model):
         elif pickings:
             action['views'] = [(self.env.ref('stock.view_picking_form').id, 'form')]
             action['res_id'] = pickings.id
-        picking_id = pickings.filtered(lambda l: l.picking_type_id.code == 'outgoing')[0]
+        # Prepare the context.
+        picking_id = pickings.filtered(lambda l: l.picking_type_id.code == 'outgoing')
+        if picking_id:
+            picking_id = picking_id[0]
+        else:
+            picking_id = pickings[0]
         action['context'] = dict(self._context, default_partner_id=self.partner_id.id, default_picking_id=picking_id.id, default_picking_type_id=picking_id.picking_type_id.id, default_origin=self.name, default_group_id=picking_id.group_id.id)
         return action
 
@@ -194,15 +199,15 @@ class SaleOrderLine(models.Model):
     _inherit = 'sale.order.line'
 
     qty_delivered_method = fields.Selection(selection_add=[('stock_move', 'Stock Moves')])
-    product_packaging = fields.Many2one('product.packaging', string='Package', default=False)
-    route_id = fields.Many2one('stock.location.route', string='Route', domain=[('sale_selectable', '=', True)], ondelete='restrict')
+    product_packaging = fields.Many2one( 'product.packaging', string='Package', default=False, check_company=True)
+    route_id = fields.Many2one('stock.location.route', string='Route', domain=[('sale_selectable', '=', True)], ondelete='restrict', check_company=True)
     move_ids = fields.One2many('stock.move', 'sale_line_id', string='Stock Moves')
     product_type = fields.Selection(related='product_id.type')
     virtual_available_at_date = fields.Float(compute='_compute_qty_at_date')
     scheduled_date = fields.Datetime(compute='_compute_qty_at_date')
     free_qty_today = fields.Float(compute='_compute_qty_at_date')
     qty_available_today = fields.Float(compute='_compute_qty_at_date')
-    warehouse_id = fields.Many2one(related='order_id.warehouse_id')
+    warehouse_id = fields.Many2one('stock.warehouse', compute='_compute_qty_at_date')
     qty_to_deliver = fields.Float(compute='_compute_qty_to_deliver')
     is_mto = fields.Boolean(compute='_compute_is_mto')
     display_qty_widget = fields.Boolean(compute='_compute_qty_to_deliver')
@@ -231,13 +236,13 @@ class SaleOrderLine(models.Model):
         for line in self:
             if not line.display_qty_widget:
                 continue
-            warehouse = line.order_id.warehouse_id
+            line.warehouse_id = line.order_id.warehouse_id
             if line.order_id.commitment_date:
                 date = line.order_id.commitment_date
             else:
                 confirm_date = line.order_id.date_order if line.order_id.state in ['sale', 'done'] else datetime.now()
                 date = confirm_date + timedelta(days=line.customer_lead or 0.0)
-            grouped_lines[(warehouse.id, date)] |= line
+            grouped_lines[(line.warehouse_id.id, date)] |= line
 
         treated = self.browse()
         for (warehouse, scheduled_date), lines in grouped_lines.items():
@@ -263,6 +268,7 @@ class SaleOrderLine(models.Model):
         remaining.scheduled_date = False
         remaining.free_qty_today = False
         remaining.qty_available_today = False
+        remaining.warehouse_id = False
 
     @api.depends('product_id', 'route_id', 'order_id.warehouse_id', 'product_id.route_ids')
     def _compute_is_mto(self):
@@ -286,7 +292,7 @@ class SaleOrderLine(models.Model):
                     # if route MTO not found in ir_model_data, we treat the product as in MTS
                     pass
 
-            if mto_route and mto_route in product.route_ids:
+            if mto_route and mto_route in product_routes:
                 line.is_mto = True
             else:
                 line.is_mto = False
@@ -397,6 +403,7 @@ class SaleOrderLine(models.Model):
             'route_ids': self.route_id,
             'warehouse_id': self.order_id.warehouse_id or False,
             'partner_id': self.order_id.partner_shipping_id.id,
+            'company_id': self.order_id.company_id,
         })
         for line in self.filtered("order_id.commitment_date"):
             date_planned = fields.Datetime.from_string(line.order_id.commitment_date) - timedelta(days=line.order_id.company_id.security_lead)
