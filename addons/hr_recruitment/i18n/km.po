@@ -487,6 +487,43 @@ msgid ""
 "</table>\n"
 "        "
 msgstr ""
+"<table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"590\" style=\"min-width: 590px; background-color: white; padding: 0px 8px 0px 8px; border-collapse:separate;\">\n"
+"    <tr>\n"
+"        <td valign=\"top\">\n"
+"            <div style=\"font-size: 13px; margin: 0px; padding: 0px;\">\n"
+"                សួស្តី<br/><br/>\n"
+"                សូមអរគុណសម្រាប់ការចាប់អារម្មណ៍ក្នុងការចូលរួមរបស់អ្នក\n"
+"                <b>${object.company_id.name}</b> ក្រុម។  ពួកយើងចង់\n"
+"                អនុញ្ញាតឱ្យអ្នកដឹងថាទោះបីជាប្រវត្តិរូបរបស់អ្នកមានការប្រកួតប្រជែងក៏ដោយ\n"
+"                ក្រុមការងារជ្រើសរើសបុគ្គលិករបស់យើងបានពិនិត្យមើលពាក្យសុំរបស់អ្នកហើយ <b>មិនបាន​ធ្វើ\n"
+"                ជ្រើសរើសវាសម្រាប់ការពិចារណាបន្ថែម</b>.\n"
+"                <br/><br/>\n"
+"               សូមកត់សម្គាល់ថាការជ្រើសរើសបុគ្គលិកគឺពិបាកហើយយើងអាចធ្វើបាន។                 កំហុស។ កុំស្ទាក់ស្ទើរក្នុងការឆ្លើយតបនឹងអ៊ីមែលនេះប្រសិនបើអ្នក។                 គិតថាយើងបានធ្វើខុសឬប្រសិនបើអ្នកចង់បានព័ត៌មានបន្ថែម។                 អំពីការសំរេចចិត្តរបស់យើង។\n"
+"                <br/><br/>\n"
+"                ទោះយ៉ាងណាយើងនឹងរក្សាប្រវត្តិរូបសង្ខេបរបស់អ្នកទុកជាឯកសារ។                 ទាក់ទងជាមួយអ្នកអំពីឱកាសអនាគតដែលអាចជា                 សមល្អសម្រាប់ជំនាញនិងបទពិសោធន៍របស់អ្នក។\n"
+"                <br/><br/>\n"
+"                យើងសូមជូនពរឱ្យអ្នកមានភាពល្អបំផុតក្នុងការស្វែងរកការងាររបស់អ្នកហើយសង្ឃឹមថាយើង។\n"
+"                នឹងមានឱកាសពិចារណាអ្នកសម្រាប់តួនាទីមួយទៀត។\n"
+"                នៅពេលអនាគត។\n"
+"                <br/><br/>\n"
+"                អរគុណ\n"
+"                <div style=\"font-size: 11px; color: grey;\">\n"
+"                    % if object.user_id:\n"
+"                        -- <br/>\n"
+"                        <strong>${object.user_id.name}</strong><br/>\n"
+"                        Email: ${object.user_id.email or ''}<br/>\n"
+"                        Phone: ${object.user_id.phone or ''}\n"
+"                    % else:\n"
+"                        -- <br/>\n"
+"                        ${object.company_id.name}<br/>\n"
+"                        ក្រុមធនធានមនុស្ស\n"
+"                    % endif\n"
+"                </div>\n"
+"            </div>\n"
+"        </td>\n"
+"    </tr>\n"
+"</table>\n"
+"        "
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_applicant__message_needaction
@@ -523,7 +560,7 @@ msgstr "បន្ថែមបុគ្គលិកថ្មី"
 #: model_terms:ir.actions.act_window,help:hr_recruitment.hr_job_stage_act
 #: model_terms:ir.actions.act_window,help:hr_recruitment.hr_recruitment_stage_act
 msgid "Add a new stage in the recruitment process"
-msgstr ""
+msgstr "បន្ថែមដំណាក់កាលថ្មីនៅក្នុងដំណើរការជ្រើសរើសបុគ្គលិក"
 
 #. module: hr_recruitment
 #: model_terms:ir.actions.act_window,help:hr_recruitment.hr_applicant_category_action
@@ -533,7 +570,7 @@ msgstr "បន្ថែមស្លាកថ្មី"
 #. module: hr_recruitment
 #: model:ir.model.fields,help:hr_recruitment.field_hr_job__address_id
 msgid "Address where employees are working"
-msgstr ""
+msgstr "អាស័យដ្ឋានដែលបុគ្គលិកកំពុងធ្វើការ"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_job__alias_id
@@ -543,12 +580,12 @@ msgstr "មោះក្លែងក្លាយ"
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_recruitment_source__alias_id
 msgid "Alias ID"
-msgstr ""
+msgstr "ឈ្មោះហៅក្រៅ"
 
 #. module: hr_recruitment
 #: model:ir.ui.menu,name:hr_recruitment.menu_crm_case_categ_all_app
 msgid "All Applications"
-msgstr ""
+msgstr "ពាក្យសុំទាំងអស់"
 
 #. module: hr_recruitment
 #: model:ir.model,name:hr_recruitment.model_hr_applicant
@@ -559,33 +596,33 @@ msgstr "ការបំពេញ"
 #. module: hr_recruitment
 #: model:ir.model,name:hr_recruitment.model_hr_recruitment_degree
 msgid "Applicant Degree"
-msgstr ""
+msgstr "សញ្ញាប័ត្របេក្ខជន"
 
 #. module: hr_recruitment
 #: model:mail.message.subtype,name:hr_recruitment.mt_applicant_hired
 #: model:mail.message.subtype,name:hr_recruitment.mt_job_applicant_hired
 msgid "Applicant Hired"
-msgstr ""
+msgstr "អ្នកដាក់ពាក្យសុំជួល"
 
 #. module: hr_recruitment
 #: model:mail.message.subtype,name:hr_recruitment.mt_job_applicant_stage_changed
 msgid "Applicant Stage Changed"
-msgstr ""
+msgstr "ដំណាក់កាលអ្នកដាក់ពាក្យត្រូវបានផ្លាស់ប្តូរ។"
 
 #. module: hr_recruitment
 #: model:mail.message.subtype,description:hr_recruitment.mt_applicant_new
 msgid "Applicant created"
-msgstr ""
+msgstr "អ្នកបង្កើតបានបង្កើត"
 
 #. module: hr_recruitment
 #: model:mail.message.subtype,description:hr_recruitment.mt_applicant_hired
 msgid "Applicant hired"
-msgstr ""
+msgstr "បានដាក់ពាក្យសុំជួល"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_applicant__partner_name
 msgid "Applicant's Name"
-msgstr ""
+msgstr "ឈ្មោះបេក្ខជន"
 
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.crm_case_tree_view_job
@@ -748,7 +785,7 @@ msgstr "ដោយអ្នកជ្រើសរើស"
 #. module: hr_recruitment
 #: model:ir.model,name:hr_recruitment.model_hr_applicant_category
 msgid "Category of applicant"
-msgstr ""
+msgstr "ប្រភេទអ្នកដាក់ពាក្យ"
 
 #. module: hr_recruitment
 #. openerp-web
@@ -796,7 +833,7 @@ msgstr "ទំនាក់ទំនង"
 #: code:addons/hr_recruitment/models/hr_recruitment.py:373
 #, python-format
 msgid "Contact Email"
-msgstr ""
+msgstr "ទំនាក់ទំនងអ៊ីមែល"
 
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.ir_attachment_view_search_inherit_hr_recruitment
@@ -811,12 +848,12 @@ msgstr "កុងត្រា"
 #. module: hr_recruitment
 #: model:hr.recruitment.stage,name:hr_recruitment.stage_job4
 msgid "Contract Proposal"
-msgstr ""
+msgstr "សំណើកិច្ចសន្យា"
 
 #. module: hr_recruitment
 #: model:hr.recruitment.stage,name:hr_recruitment.stage_job5
 msgid "Contract Signed"
-msgstr ""
+msgstr "កិច្ចសន្យាដែលបានចុះហត្ថលេខា"
 
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.hr_job_simple_form
@@ -826,23 +863,23 @@ msgstr "ការបង្កើត"
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.crm_case_form_view_job
 msgid "Create Employee"
-msgstr ""
+msgstr "បង្កើតនិយោជិក"
 
 #. module: hr_recruitment
 #: model:ir.actions.act_window,name:hr_recruitment.create_job_simple
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.hr_job_simple_form
 msgid "Create a Job Position"
-msgstr ""
+msgstr "បង្កើតទីតាំងការងារ"
 
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.hr_recruitment_source_tree
 msgid "Create alias"
-msgstr ""
+msgstr "បង្កើតឈ្មោះហៅក្រៅ"
 
 #. module: hr_recruitment
 #: model_terms:ir.actions.act_window,help:hr_recruitment.action_hr_job_sources
 msgid "Create some aliases to track where applicants come from"
-msgstr ""
+msgstr "បង្កើតឈ្មោះហៅក្រៅមួយចំនួនដើម្បីតាមដានថាតើបេក្ខជនមកពីណា"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_applicant__create_uid
@@ -876,7 +913,7 @@ msgstr "កាលបរិច្ឆេទបិទ"
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_applicant__day_open
 msgid "Days to Open"
-msgstr ""
+msgstr "ថ្ងៃដែលបើកដំណើរការ"
 
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.hr_job_simple_form
@@ -886,6 +923,8 @@ msgid ""
 "empty, the default email address will be used which is in human resources "
 "settings"
 msgstr ""
+"កំណត់អាសយដ្ឋានទំនាក់ទំនងជាក់លាក់សម្រាប់ទីតាំងការងារនេះ។ "
+"ប្រសិនបើអ្នកទុកវាឱ្យនៅទទេអាសយដ្ឋានអ៊ីមែលលំនាំដើមនឹងត្រូវបានប្រើដែលមាននៅក្នុងការកំណត់ធនធានមនុស្ស"
 
 #. module: hr_recruitment
 #: model_terms:ir.actions.act_window,help:hr_recruitment.hr_job_stage_act
@@ -894,6 +933,9 @@ msgid ""
 "            qualification call, first interview, second interview, refused,\n"
 "            hired."
 msgstr ""
+"កំណត់ដំណាក់កាលរបស់អ្នកនៃដំណើរការជ្រើសរើសបុគ្គលិកឧទាហរណ៍៖             \n"
+"ការហៅចេញពីវគ្គជម្រុះការសម្ភាសន៍លើកទី ១ ការសម្ភាសន៍លើកទី ២ បានបដិសេធ           \n"
+"  ជួល។"
 
 #. module: hr_recruitment
 #: model:ir.actions.act_window,name:hr_recruitment.hr_recruitment_degree_action
@@ -904,17 +946,17 @@ msgstr ""
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.hr_recruitment_degree_tree
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.view_crm_case_jobs_filter
 msgid "Degree"
-msgstr ""
+msgstr "សញ្ញាប័ត្រ"
 
 #. module: hr_recruitment
 #: model:ir.ui.menu,name:hr_recruitment.menu_hr_recruitment_degree
 msgid "Degrees"
-msgstr ""
+msgstr "សញ្ញាបត្រ"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_applicant__delay_close
 msgid "Delay to Close"
-msgstr ""
+msgstr "ពន្យាពេលបិទ"
 
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.hr_kanban_view_applicant
@@ -930,7 +972,7 @@ msgstr "ដេប៉ាតឺម៉ង់"
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_job__manager_id
 msgid "Department Manager"
-msgstr ""
+msgstr "អ្នក​ចាត់​ការ​ទូទៅ​នាយកដ្ឋាន"
 
 #. module: hr_recruitment
 #: model:ir.actions.act_window,name:hr_recruitment.action_hr_department
@@ -973,12 +1015,12 @@ msgstr ""
 #. module: hr_recruitment
 #: model:hr.recruitment.degree,name:hr_recruitment.degree_bac5
 msgid "Doctoral Degree"
-msgstr ""
+msgstr "សញ្ញាប័ត្របណ្ឌិត"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_job__documents_count
 msgid "Document Count"
-msgstr ""
+msgstr "ការរាប់ឯកសារ"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_job__document_ids
@@ -994,6 +1036,8 @@ msgid ""
 "Don't forget to specify the department if your recruitment process\n"
 "            is different according to the job position."
 msgstr ""
+"កុំភ្លេចបញ្ជាក់មន្ទីរប្រសិនបើដំណើរការជ្រើសរើសរបស់អ្នក។\n"
+"            គឺខុសគ្នាយោងទៅតាមទីតាំងការងារ។"
 
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.hr_kanban_view_applicant
@@ -1028,6 +1072,8 @@ msgid ""
 "Email alias for this job position. New emails will automatically create new "
 "applicants for this job position."
 msgstr ""
+"ឈ្មោះក្លែងក្លាយតាមអ៊ីមែលសម្រាប់មុខតំណែងការងារនេះ។ "
+"អ៊ីមែលថ្មីនឹងបង្កើតបេក្ខជនថ្មីដោយស្វ័យប្រវត្តិសម្រាប់មុខតំណែងការងារនេះ។"
 
 #. module: hr_recruitment
 #: model:ir.model,name:hr_recruitment.model_hr_employee
@@ -1044,7 +1090,7 @@ msgstr "មោះ​បុគ្គលិក"
 #. module: hr_recruitment
 #: model:ir.model.fields,help:hr_recruitment.field_hr_applicant__emp_id
 msgid "Employee linked to the applicant."
-msgstr ""
+msgstr "និយោជិកមានទំនាក់ទំនងជាមួយអ្នកដាក់ពាក្យ។"
 
 #. module: hr_recruitment
 #: model:ir.actions.act_window,name:hr_recruitment.action_hr_job_no_employee
@@ -1061,12 +1107,12 @@ msgstr "ព្រិត្តិការណ៍"
 #. module: hr_recruitment
 #: selection:hr.applicant,priority:0
 msgid "Excellent"
-msgstr ""
+msgstr "ល្អណាស់"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_department__expected_employee
 msgid "Expected Employee"
-msgstr ""
+msgstr "និយោជិករំពឹងទុក"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_applicant__salary_expected
@@ -1126,42 +1172,42 @@ msgstr "សកម្មភាពទៅមុខ"
 #. module: hr_recruitment
 #: model:ir.model.fields,help:hr_recruitment.field_hr_recruitment_degree__sequence
 msgid "Gives the sequence order when displaying a list of degrees."
-msgstr ""
+msgstr "ផ្តល់លំដាប់តាមលំដាប់លំដោយនៅពេលបង្ហាញបញ្ជីដឺក្រេ"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,help:hr_recruitment.field_hr_recruitment_stage__sequence
 msgid "Gives the sequence order when displaying a list of stages."
-msgstr ""
+msgstr "ផ្តល់លំដាប់តាមលំដាប់លំដោយនៅពេលបង្ហាញបញ្ជីដំណាក់កាល"
 
 #. module: hr_recruitment
 #: selection:hr.applicant,priority:0
 msgid "Good"
-msgstr ""
+msgstr "ល្អ"
 
 #. module: hr_recruitment
 #: model:hr.recruitment.degree,name:hr_recruitment.degree_graduate
 msgid "Graduate"
-msgstr ""
+msgstr "បញ្ចប់ការសិក្សា"
 
 #. module: hr_recruitment
 #: selection:hr.applicant,kanban_state:0
 msgid "Green"
-msgstr ""
+msgstr "បៃតង"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_recruitment_stage__legend_done
 msgid "Green Kanban Label"
-msgstr ""
+msgstr "ស្លាកបៃតងកានខាន"
 
 #. module: hr_recruitment
 #: selection:hr.applicant,kanban_state:0
 msgid "Grey"
-msgstr ""
+msgstr "ពណ៌ប្រផេះ"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_recruitment_stage__legend_normal
 msgid "Grey Kanban Label"
-msgstr ""
+msgstr "ស្លាកពណ៌ប្រផេះខានប៊ែន"
 
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.hr_applicant_view_search
@@ -1177,7 +1223,7 @@ msgstr "នាយកដ្ឋានធនធានមនុស្ស"
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_job__hr_responsible_id
 msgid "HR Responsible"
-msgstr ""
+msgstr "ធនធានមនុស្សទទួលខុសត្រូវ"
 
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.view_hr_job_kanban
@@ -1214,6 +1260,7 @@ msgid ""
 "If set, a message is posted on the applicant using the template when the "
 "applicant is set to the stage."
 msgstr ""
+"ប្រសិនបើកំណត់សារត្រូវបានបង្ហោះលើអ្នកដាក់ពាក្យដោយប្រើគំរូនៅពេលអ្នកដាក់ពាក្យត្រូវបានកំណត់ទៅដំណាក់កាល។"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,help:hr_recruitment.field_hr_applicant__active
@@ -1221,6 +1268,7 @@ msgid ""
 "If the active field is set to false, it will allow you to hide the case "
 "without removing it."
 msgstr ""
+"ប្រសិនបើវាលសកម្មត្រូវបានកំណត់មិនពិតវានឹងអនុញ្ញាតឱ្យអ្នកលាក់បាំងករណីដោយមិនចាំបាច់ដកវាចេញ។"
 
 #. module: hr_recruitment
 #: code:addons/hr_recruitment/models/hr_recruitment.py:69
@@ -1304,7 +1352,7 @@ msgstr "ការបង្កើតមុខតំណែងថ្មី"
 #. module: hr_recruitment
 #: model:mail.message.subtype,name:hr_recruitment.mt_job_new
 msgid "Job Position created"
-msgstr ""
+msgstr "បានបង្កើតទីតាំងការងារ"
 
 #. module: hr_recruitment
 #: model:ir.actions.act_window,name:hr_recruitment.action_hr_job
@@ -1317,12 +1365,12 @@ msgstr "មុខតំណែងការងារ"
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.res_config_settings_view_form
 msgid "Job Posting"
-msgstr ""
+msgstr "ប្រកាស​ការ​ងារ"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_recruitment_stage__job_id
 msgid "Job Specific"
-msgstr ""
+msgstr "ការងារជាក់លាក់"
 
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.hr_applicant_view_search
@@ -1332,22 +1380,22 @@ msgstr "ការងារ"
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.crm_case_form_view_job
 msgid "Jobs - Recruitment Form"
-msgstr ""
+msgstr "ការងារ - ទម្រង់ជ្រើសរើសបុគ្គលិក"
 
 #. module: hr_recruitment
 #: model:ir.actions.act_window,name:hr_recruitment.action_hr_job_sources
 msgid "Jobs Sources"
-msgstr ""
+msgstr "ប្រភពការងារ។"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_applicant__legend_blocked
 msgid "Kanban Blocked"
-msgstr ""
+msgstr "រារាំងខានប៊ិន"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_applicant__legend_normal
 msgid "Kanban Ongoing"
-msgstr ""
+msgstr "កានបានកំពុងដំណើរការ"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_applicant__kanban_state
@@ -1357,12 +1405,12 @@ msgstr "រដ្ឋកាណាន"
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_applicant__legend_done
 msgid "Kanban Valid"
-msgstr ""
+msgstr "កានបានសុពលភាព។"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_digest_digest__kpi_hr_recruitment_new_colleagues_value
 msgid "Kpi Hr Recruitment New Colleagues Value"
-msgstr ""
+msgstr "Kpi Hr ជ្រើសរើសមិត្តរួមការងារថ្មីតម្លៃ"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_applicant____last_update
@@ -1490,23 +1538,23 @@ msgstr "ការដាក់ពាក្យជាថ្មី"
 #. module: hr_recruitment
 #: model:ir.actions.act_window,name:hr_recruitment.action_hr_job_new_application
 msgid "New Application"
-msgstr ""
+msgstr "ពាក្យសុំថ្មី"
 
 #. module: hr_recruitment
 #: model:ir.actions.act_window,name:hr_recruitment.hr_applicant_action_from_department
 msgid "New Applications"
-msgstr ""
+msgstr "ពាក្យសុំថ្មី"
 
 #. module: hr_recruitment
 #: code:addons/hr_recruitment/models/hr_recruitment.py:447
 #, python-format
 msgid "New Employee %s Hired"
-msgstr ""
+msgstr "និយោជិកថ្មី %s ជួល"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_department__new_hired_employee
 msgid "New Hired Employee"
-msgstr ""
+msgstr "និយោជិកថ្មី"
 
 #. module: hr_recruitment
 #: model_terms:digest.tip,tip_description:hr_recruitment.digest_tip_hr_recruitment_0
@@ -1514,21 +1562,23 @@ msgid ""
 "New applicants can be generated from incoming emails. You just need to set "
 "email aliases in configuration of job positions.<br>"
 msgstr ""
+"បេក្ខជនថ្មីអាចត្រូវបានបង្កើតពីអ៊ីមែលចូល។ "
+"អ្នកគ្រាន់តែត្រូវកំណត់ឈ្មោះក្លែងក្លាយតាមអ៊ីមែលនៅក្នុងការកំណត់រចនាសម្ព័ន្ធមុខតំណែងការងារ។<br>"
 
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.hr_employee_view_search
 msgid "Newly Hired"
-msgstr ""
+msgstr "ជួលថ្មី"
 
 #. module: hr_recruitment
 #: model:ir.actions.act_window,name:hr_recruitment.hr_employee_action_from_department
 msgid "Newly Hired Employees"
-msgstr ""
+msgstr "និយោជិកថ្មី"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_employee__newly_hired_employee
 msgid "Newly hired employee"
-msgstr ""
+msgstr "និយោជិកថ្មី"
 
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.hr_applicant_view_tree_activity
@@ -1628,7 +1678,7 @@ msgstr ""
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.hr_job_survey
 msgid "Offer"
-msgstr ""
+msgstr "ការផ្តល់ជូន"
 
 #. module: hr_recruitment
 #: model:res.groups,name:hr_recruitment.group_hr_recruitment_user
@@ -1638,13 +1688,13 @@ msgstr "មន្រ្តី"
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.hr_applicant_view_search
 msgid "Ongoing"
-msgstr ""
+msgstr "កំពុងបន្ត"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_res_config_settings__module_website_hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.res_config_settings_view_form
 msgid "Online Posting"
-msgstr ""
+msgstr "ការបិទផ្សាយតាមអ៊ីនធឺណិត"
 
 #. module: hr_recruitment
 #: selection:hr.applicant,activity_state:0
@@ -1654,7 +1704,7 @@ msgstr "ហួសកំណត់"
 #. module: hr_recruitment
 #: model:ir.model.fields,help:hr_recruitment.field_hr_job__hr_responsible_id
 msgid "Person responsible of validating the employee's contracts."
-msgstr ""
+msgstr "អ្នកទទួលខុសត្រូវក្នុងការធ្វើឱ្យកិច្ចសន្យារបស់និយោជិកមានសុពលភាព"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_applicant__partner_phone
@@ -1674,12 +1724,12 @@ msgstr "ប្រូបាប"
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_applicant__salary_proposed
 msgid "Proposed Salary"
-msgstr ""
+msgstr "ប្រាក់ខែដែលបានស្នើសុំ"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_applicant__salary_proposed_extra
 msgid "Proposed Salary Extra"
-msgstr ""
+msgstr "ប្រាក់ខែស្នើបន្ថែម"
 
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.res_config_settings_view_form
@@ -1817,42 +1867,42 @@ msgstr "អ្នកទទួលខុសត្រូវ"
 #: model:ir.actions.act_window,name:hr_recruitment.hr_applicant_resumes
 #: model:ir.ui.menu,name:hr_recruitment.menu_crm_case_categ0_act_job02
 msgid "Resumes and Letters"
-msgstr ""
+msgstr "ប្រវត្តិរូបនិងលិខិត"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,help:hr_recruitment.field_hr_applicant__salary_expected
 msgid "Salary Expected by Applicant"
-msgstr ""
+msgstr "ប្រាក់ខែរំពឹងទុកដោយអ្នកដាក់ពាក្យ"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,help:hr_recruitment.field_hr_applicant__salary_expected_extra
 msgid "Salary Expected by Applicant, extra advantages"
-msgstr ""
+msgstr "ប្រាក់ខែរំពឹងដោយអ្នកដាក់ពាក្យសុំគុណសម្បត្តិបន្ថែម"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,help:hr_recruitment.field_hr_applicant__salary_proposed
 msgid "Salary Proposed by the Organisation"
-msgstr ""
+msgstr "ប្រាក់ខែស្នើដោយអង្គការ"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,help:hr_recruitment.field_hr_applicant__salary_proposed_extra
 msgid "Salary Proposed by the Organisation, extra advantages"
-msgstr ""
+msgstr "ប្រាក់ខែស្នើដោយអង្គការគុណសម្បត្តិបន្ថែម"
 
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.hr_kanban_view_applicant
 msgid "Schedule Interview"
-msgstr ""
+msgstr "សម្ភាសន៍កាលវិភាគ"
 
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.crm_case_form_view_job
 msgid "Schedule interview with this applicant"
-msgstr ""
+msgstr "ណាត់ជួបសម្ភាសន៍ជាមួយបេក្ខជននេះ"
 
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.view_crm_case_jobs_filter
 msgid "Search Applicants"
-msgstr ""
+msgstr "ស្វែងរកបេក្ខជន"
 
 #. module: hr_recruitment
 #: model:hr.recruitment.stage,name:hr_recruitment.stage_job3
@@ -1926,7 +1976,7 @@ msgstr "ដំណាក់កាលត្រូវបានផ្លាស់ប
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.hr_recruitment_stage_form
 msgid "Stage Definition"
-msgstr ""
+msgstr "និយមន័យដំណាក់កាល"
 
 #. module: hr_recruitment
 #: model:mail.message.subtype,description:hr_recruitment.mt_applicant_stage_changed
@@ -1936,7 +1986,7 @@ msgstr "ដំណាក់កាលត្រូវបានផ្លាស់ប
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_recruitment_stage__name
 msgid "Stage name"
-msgstr ""
+msgstr "ឈ្មោះដំណាក់កាល"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,help:hr_recruitment.field_hr_applicant__last_stage_id
@@ -1944,6 +1994,8 @@ msgid ""
 "Stage of the applicant before being in the current stage. Used for lost "
 "cases analysis."
 msgstr ""
+"ដំណាក់កាលរបស់អ្នកដាក់ពាក្យមុនពេលស្ថិតនៅក្នុងដំណាក់កាលបច្ចុប្បន្ន។ "
+"ប្រើសម្រាប់ការវិភាគករណីបាត់បង់។"
 
 #. module: hr_recruitment
 #: model:ir.actions.act_window,name:hr_recruitment.hr_recruitment_stage_act
@@ -1960,7 +2012,7 @@ msgstr "ចាប់ផ្តើមជ្រើសរើសបុគ្គលិ
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.view_hr_job_kanban
 msgid "Start recruitment"
-msgstr ""
+msgstr "ចាប់ផ្តើមជ្រើសរើសបុគ្គលិក"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,help:hr_recruitment.field_hr_applicant__activity_state
@@ -1978,12 +2030,12 @@ msgstr ""
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.view_crm_case_jobs_filter
 msgid "Subject / Applicant"
-msgstr ""
+msgstr "មុខវិជ្ជា / អ្នកដាក់ពាក្យ"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_applicant__name
 msgid "Subject / Application Name"
-msgstr ""
+msgstr "ឈ្មោះមុខវិជ្ជា / ពាក្យសុំ"
 
 #. module: hr_recruitment
 #: sql_constraint:hr.applicant.category:0
@@ -2001,12 +2053,12 @@ msgstr "ធែក"
 #. module: hr_recruitment
 #: model:ir.model.fields,help:hr_recruitment.field_hr_applicant__availability
 msgid "The date at which the applicant will be available to start working"
-msgstr ""
+msgstr "កាលបរិច្ឆេទដែលអ្នកដាក់ពាក្យនឹងអាចរកបានដើម្បីចាប់ផ្តើមធ្វើការ។"
 
 #. module: hr_recruitment
 #: sql_constraint:hr.recruitment.degree:0
 msgid "The name of the Degree of Recruitment must be unique!"
-msgstr ""
+msgstr "ឈ្មោះសញ្ញាប័ត្រជ្រើសរើសត្រូវតែមានតែមួយគត់!"
 
 #. module: hr_recruitment
 #: model_terms:ir.actions.act_window,help:hr_recruitment.action_hr_job_sources
@@ -2014,6 +2066,8 @@ msgid ""
 "These aliases can be emails or urls for every source. When the applicant "
 "arrives here through one of these you'll know where he came from."
 msgstr ""
+"ឈ្មោះហៅក្រៅទាំងនេះអាចជាអ៊ីមែលឬ url សម្រាប់រាល់ប្រភព។ "
+"នៅពេលអ្នកដាក់ពាក្យមកដល់ទីនេះតាមរយៈរបស់ទាំងនេះអ្នកនឹងដឹងថាគាត់មកពីណា។"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,help:hr_recruitment.field_hr_applicant__email_cc
@@ -2029,7 +2083,7 @@ msgstr ""
 #. module: hr_recruitment
 #: model:ir.model.fields,help:hr_recruitment.field_hr_applicant__email_from
 msgid "These people will receive email."
-msgstr ""
+msgstr "មនុស្សទាំងនេះនឹងទទួលបានអ៊ីមែល។"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,help:hr_recruitment.field_hr_applicant__campaign_id
@@ -2062,6 +2116,10 @@ msgid ""
 "                files so that you can search keywords from the content of these\n"
 "                files."
 msgstr ""
+"ម៉ឺនុយនេះជួយអ្នកស្វែងរកតាមរយៈប្រវត្តិរូបនិងការលើកទឹកចិត្ត។\n"
+"                អក្សរ។ សន្ទស្សន៍អូដូអូស្វ័យប្រវត្តិ .PDF, .DOC, DOCX, .TXT ។\n"
+"                ឯកសារដូច្នេះអ្នកអាចស្វែងរកពាក្យគន្លឹះពីមាតិកាទាំងនេះ។\n"
+"                ឯកសារ។"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,help:hr_recruitment.field_hr_recruitment_stage__fold
@@ -2084,7 +2142,7 @@ msgstr "សកម្មភាពថ្ងៃនេះ"
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.hr_recruitment_stage_form
 msgid "Tooltips"
-msgstr ""
+msgstr "ព័ត៌មានជំនួយ"
 
 #. module: hr_recruitment
 #. openerp-web
@@ -2093,7 +2151,7 @@ msgstr ""
 msgid ""
 "Try to send an email to this address, it will create an application "
 "automatically."
-msgstr ""
+msgstr "ព្យាយាមផ្ញើអ៊ីមែលទៅអាសយដ្ឋាននេះវានឹងបង្កើតកម្មវិធីដោយស្វ័យប្រវត្តិ។"
 
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.hr_applicant_view_search
@@ -2117,7 +2175,7 @@ msgstr "រាប់សារមិនទាន់អាន"
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.res_config_settings_view_form
 msgid "Use interview forms during recruitment process"
-msgstr ""
+msgstr "ប្រើទម្រង់សម្ភាសន៍ក្នុងពេលជ្រើសរើសបុគ្គលិក"
 
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.res_config_settings_view_form
@@ -2126,13 +2184,16 @@ msgid ""
 "process. Select the form to use in the job position detail form. This relies"
 " on Survey app."
 msgstr ""
+"ប្រើទម្រង់សម្ភាសន៍ដែលត្រូវនឹងមុខតំណែងការងារនីមួយៗក្នុងកំឡុងពេលជ្រើសរើសបុគ្គលិក។"
+" ជ្រើសរើសទំរង់បែបបទដែលត្រូវប្រើក្នុងសំណុំបែបបទលម្អិតទីតាំងការងារ។ "
+"នេះពឹងផ្អែកលើកម្មវិធីស្ទង់មតិ។"
 
 #. module: hr_recruitment
 #. openerp-web
 #: code:addons/hr_recruitment/static/src/js/tour.js:32
 #, python-format
 msgid "Use the breadcrumbs to <b>go back to the dashboard</b>."
-msgstr ""
+msgstr "ប្រើស្នាមមេដៃទៅ <b>ត្រលប់ទៅផ្ទាំងគ្រប់គ្រង</b>."
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_applicant__user_email
@@ -2151,11 +2212,13 @@ msgstr "ល្អខ្លំាងណាស់"
 #, python-format
 msgid "Want to <b>start recruiting</b> like a pro? <i>Start here.</i>"
 msgstr ""
+"ចង់ទៅ <b>ចាប់ផ្តើមជ្រើសរើសបុគ្គលិក</b>ដូចជាការគាំទ្រមួយ? "
+"<i>ចាប់​ផ្តើ​ម​នៅ​ទីនេះ</i>"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_applicant__email_cc
 msgid "Watchers Emails"
-msgstr ""
+msgstr "អ៊ីមែលឃ្លាំមើល"
 
 #. module: hr_recruitment
 #: model:ir.model.fields,field_description:hr_recruitment.field_hr_applicant__website_message_ids
@@ -2184,19 +2247,22 @@ msgid ""
 "You can define here the labels that will be displayed for the kanban state instead\n"
 "                        of the default labels."
 msgstr ""
+"អ្នកអាចកំណត់ស្លាកនៅទីនេះដែលនឹងត្រូវបានបង្ហាញសម្រាប់រដ្ឋកានប៊នជំនួសវិញ។\n"
+"                        នៃស្លាកលំនាំដើម។"
 
 #. module: hr_recruitment
 #: code:addons/hr_recruitment/models/hr_recruitment.py:450
 #, python-format
 msgid "You must define an Applied Job and a Contact Name for this applicant."
 msgstr ""
+"អ្នកត្រូវកំណត់ការងារដែលបានអនុវត្តនិងឈ្មោះទំនាក់ទំនងសម្រាប់អ្នកដាក់ពាក្យនេះ។"
 
 #. module: hr_recruitment
 #: model:mail.template,subject:hr_recruitment.email_template_data_applicant_congratulations
 #: model:mail.template,subject:hr_recruitment.email_template_data_applicant_interest
 #: model:mail.template,subject:hr_recruitment.email_template_data_applicant_refuse
 msgid "Your Job Application: ${object.job_id.name | safe}"
-msgstr ""
+msgstr "ពាក្យសុំការងាររបស់អ្នក៖ $ {object.job_id.name | ។ សុវត្ថិភាព}"
 
 #. module: hr_recruitment
 #: model_terms:ir.ui.view,arch_db:hr_recruitment.hr_job_simple_form
@@ -2207,4 +2273,4 @@ msgstr "ឧ។ អ្នកគ្រប់គ្រង​ផ្នែក​ល�
 #: code:addons/hr_recruitment/models/hr_recruitment.py:295
 #, python-format
 msgid "job applicant"
-msgstr ""
+msgstr "អ្នកដាក់ពាក្យសុំការងារ។"

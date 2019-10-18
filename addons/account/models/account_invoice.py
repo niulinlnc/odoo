@@ -216,7 +216,7 @@ class AccountInvoice(models.Model):
                 amount_to_show = amount_currency
             else:
                 currency = payment.company_id.currency_id
-                amount_to_show = currency._convert(amount, self.currency_id, payment.company_id, self.date or fields.Date.today())
+                amount_to_show = currency._convert(amount, self.currency_id, payment.company_id, payment.date or fields.Date.today())
             if float_is_zero(amount_to_show, precision_rounding=self.currency_id.rounding):
                 continue
             payment_ref = payment.move_id.name
@@ -1521,10 +1521,7 @@ class AccountInvoice(models.Model):
 
         values['type'] = TYPE2REFUND[invoice['type']]
         values['date_invoice'] = date_invoice or fields.Date.context_today(invoice)
-        if values.get('date_due', False) and values['date_invoice']:
-            # To ensure that the date_invoice is a date object
-            if self._fields['date_invoice'].to_date(values['date_invoice']) > values['date_due']:
-                values['date_due'] = values['date_invoice']
+        values['date_due'] = values['date_invoice']
         values['state'] = 'draft'
         values['number'] = False
         values['origin'] = invoice.number

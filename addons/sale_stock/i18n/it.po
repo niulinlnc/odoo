@@ -12,6 +12,7 @@
 # nle_odoo, 2018
 # Léonie Bouchat <lbo@odoo.com>, 2019
 # Paolo Valier, 2019
+# Lorenzo Battistini <lorenzo.battistini@agilebg.com>, 2019
 # Sergio Zanchetta <primes2h@gmail.com>, 2019
 # 
 msgid ""
@@ -101,9 +102,9 @@ msgid ""
 "specific.\" role=\"img\" aria-label=\"Values set here are company-"
 "specific.\" groups=\"base.group_multi_company\"/>"
 msgstr ""
-"<span class=\"fa fa-lg fa-building-o\" title=\"Values set here are company-"
-"specific.\" role=\"img\" aria-label=\"Values set here are company-"
-"specific.\" groups=\"base.group_multi_company\"/>"
+"<span class=\"fa fa-lg fa-building-o\" title=\"I valori impostati qui sono "
+"specifici per azienda.\" role=\"img\" aria-label=\"Values set here are "
+"company-specific.\" groups=\"base.group_multi_company\"/>"
 
 #. module: sale_stock
 #: model_terms:ir.ui.view,arch_db:sale_stock.stock_production_lot_view_form
@@ -322,7 +323,7 @@ msgstr "Lotto/Serie"
 #: code:addons/sale_stock/models/sale_order.py:418
 #, python-format
 msgid "Make To Order"
-msgstr "Produci su ordine"
+msgstr "Su ordine (MTO)"
 
 #. module: sale_stock
 #: selection:sale.order.line,qty_delivered_method:0

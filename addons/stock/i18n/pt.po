@@ -11,6 +11,7 @@
 # Joao Felix <jrmfelix@gmail.com>, 2018
 # Diogo Fonseca <dsf@thinkopensolutions.pt>, 2018
 # Pedro Castro Silva <pedrocs@exo.pt>, 2019
+# Marcelo Pereira <marcelo.pereira@arxi.pt>, 2019
 # Nuno Silva <nuno.silva@arxi.pt>, 2019
 # 
 msgid ""
@@ -646,7 +647,7 @@ msgstr "Assim que possível"
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.view_picking_form
 msgid "Assign Owner"
-msgstr "Atribuido ao Responsável"
+msgstr "Atribuir Responsável"
 
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.view_picking_internal_search
@@ -1189,7 +1190,7 @@ msgstr "Criar Transferência Diferida?"
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.stock_scrap_tree_view
 msgid "Create Date"
-msgstr "Criar Data"
+msgstr "Data de criação"
 
 #. module: stock
 #: model:ir.model.fields,field_description:stock.field_stock_move_line__picking_type_use_create_lots
@@ -6342,7 +6343,7 @@ msgstr ""
 #. module: stock
 #: model:ir.model.fields,help:stock.field_stock_production_lot__name
 msgid "Unique Lot/Serial Number"
-msgstr "Lote/Número de Série única"
+msgstr "Lote/Número de Série único"
 
 #. module: stock
 #: model_terms:ir.ui.view,arch_db:stock.view_move_picking_form
@@ -6451,7 +6452,7 @@ msgstr "Não Reservado"
 #: model_terms:ir.ui.view,arch_db:stock.stock_inventory_line_tree2
 #: model_terms:ir.ui.view,arch_db:stock.view_inventory_form
 msgid "UoM"
-msgstr "UdM"
+msgstr "U.M."
 
 #. module: stock
 #: model:ir.ui.menu,name:stock.menu_stock_uom_categ_form_action
@@ -7041,6 +7042,9 @@ msgid ""
 "You cannot validate a transfer if no quantites are reserved nor done. To "
 "force the transfer, switch in edit more and encode the done quantities."
 msgstr ""
+"Não é possível validar uma transferência sem quantidades reservadas ou "
+"concluídas. Para forçar a transferência, altere para modo de edição e "
+"atualize as quantidades concluídas."
 
 #. module: stock
 #: code:addons/stock/wizard/stock_picking_return.py:112
