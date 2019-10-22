@@ -3,15 +3,13 @@
 
 """ High-level objects for fields. """
 
-from collections import OrderedDict, defaultdict
+from collections import defaultdict
 from datetime import date, datetime, time
-from dateutil.relativedelta import relativedelta
-from functools import partial
 from operator import attrgetter
 import itertools
 import logging
 import base64
-
+import binascii
 import pytz
 
 try:
@@ -28,6 +26,7 @@ from .tools import DEFAULT_SERVER_DATE_FORMAT as DATE_FORMAT
 from .tools import DEFAULT_SERVER_DATETIME_FORMAT as DATETIME_FORMAT
 from .tools.translate import html_translate, _
 from .tools.mimetypes import guess_mimetype
+from odoo.exceptions import CacheMiss
 
 DATE_LENGTH = len(date.today().strftime(DATE_FORMAT))
 DATETIME_LENGTH = len(datetime.now().strftime(DATETIME_FORMAT))
@@ -1435,7 +1434,7 @@ class _String(Field):
         update_trans = False
         single_lang = len(records.env['res.lang'].get_installed()) <= 1
         if self.translate:
-            lang = records.env.lang or 'en_US'
+            lang = records.env.lang or None  # used in _update_translations below
             if single_lang:
                 # a single language is installed
                 update_trans = True
@@ -1443,10 +1442,11 @@ class _String(Field):
                 # update the source and synchronize translations
                 update_column = True
                 update_trans = True
-            elif lang != 'en_US':
+            elif lang != 'en_US' and lang is not None:
                 # update the translations only except if emptying
                 update_column = cache_value is None
                 update_trans = True
+            # else: lang = None
 
         # update towrite if modifying the source
         if update_column:
@@ -1457,6 +1457,7 @@ class _String(Field):
             if self.translate is True and cache_value is not None:
                 tname = "%s,%s" % (records._name, self.name)
                 records.env['ir.translation']._set_source(tname, real_recs._ids, value)
+                records.invalidate_cache(fnames=[self.name], ids=records.ids)
 
         if update_trans:
             if callable(self.translate):
@@ -1467,7 +1468,7 @@ class _String(Field):
             else:
                 # update translations
                 value = self.convert_to_column(value, records)
-                source_recs = real_recs.with_context(lang='en_US')
+                source_recs = real_recs.with_context(lang=None)
                 source_value = first(source_recs)[self.name]
                 if not source_value:
                     source_recs[self.name] = value
@@ -1896,13 +1897,41 @@ class Binary(Field):
             # If the client requests only the size of the field, we return that
             # instead of the content. Presumably a separate request will be done
             # to read the actual content, if necessary.
-            return human_size(value)
+            value = human_size(value)
+            # human_size can return False (-> None) or a string (-> encoded)
+            return value.encode() if value else None
         return None if value is False else value
 
     def convert_to_record(self, value, record):
         if isinstance(value, _BINARY):
             return bytes(value)
         return False if value is None else value
+
+    def compute_value(self, records):
+        bin_size_name = 'bin_size_' + self.name
+        if records.env.context.get('bin_size') or records.env.context.get(bin_size_name):
+            # always compute without bin_size
+            records_no_bin_size = records.with_context(**{'bin_size': False, bin_size_name: False})
+            super().compute_value(records_no_bin_size)
+            # manually update the bin_size cache
+            cache = records.env.cache
+            for record_no_bin_size, record in zip(records_no_bin_size, records):
+                try:
+                    value = cache.get(record_no_bin_size, self)
+                    try:
+                        value = base64.b64decode(value)
+                    except (TypeError, binascii.Error):
+                        pass
+                    try:
+                        value = human_size(len(value))
+                    except (TypeError):
+                        pass
+                    cache_value = self.convert_to_cache(value, record)
+                    cache.set(record, self, cache_value)
+                except CacheMiss:
+                    pass
+        else:
+            super().compute_value(records)
 
     def read(self, records):
         # values are stored in attachments, retrieve them
@@ -1995,6 +2024,7 @@ class Image(Binary):
     _slots = {
         'max_width': 0,
         'max_height': 0,
+        'verify_resolution': True,
     }
 
     def create(self, record_values):
@@ -2004,22 +2034,30 @@ class Image(Binary):
             # does not resize the same way as its related field
             new_value = self._image_process(value)
             new_record_values.append((record, new_value))
-            record.env.cache.update(record, self, [value if self.related else new_value] * len(record))
+            cache_value = self.convert_to_cache(value if self.related else new_value, record)
+            record.env.cache.update(record, self, [cache_value] * len(record))
         super(Image, self).create(new_record_values)
 
     def write(self, records, value):
         new_value = self._image_process(value)
         super(Image, self).write(records, new_value)
-        records.env.cache.update(records, self, [value if self.related else new_value] * len(records))
+        cache_value = self.convert_to_cache(value if self.related else new_value, records)
+        records.env.cache.update(records, self, [cache_value] * len(records))
 
     def _image_process(self, value):
-        if value and (self.max_width or self.max_height):
-            value = image_process(value, size=(self.max_width, self.max_height))
-        return value
+        return image_process(value,
+            size=(self.max_width, self.max_height),
+            verify_resolution=self.verify_resolution,
+        )
 
     def _process_related(self, value):
         """Override to resize the related value before saving it on self."""
-        return self._image_process(super()._process_related(value))
+        try:
+            return self._image_process(super()._process_related(value))
+        except UserError:
+            # Avoid the following `write` to fail if the related image was saved
+            # invalid, which can happen for pre-existing databases.
+            return False
 
 
 class Selection(Field):
