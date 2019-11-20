@@ -8,9 +8,9 @@
 # Dejan Sraka <dejan.sraka@picolabs.si>, 2019
 # Martin Trigaux, 2019
 # matjaz k <matjaz@mentis.si>, 2019
-# Matjaz Mozetic <m.mozetic@matmoz.si>, 2019
 # Boris Kodelja <boris@hbs.si>, 2019
 # Grega Vavtar <grega@hbs.si>, 2019
+# Matjaz Mozetic <m.mozetic@matmoz.si>, 2019
 # Tadej Lupšina <tadej@hbs.si>, 2019
 # Jasmina Macur <jasmina@hbs.si>, 2019
 # 
@@ -156,7 +156,7 @@ msgstr "'%s' ni pravilen čas"
 #: code:addons/web/static/src/js/fields/field_utils.js:512
 #, python-format
 msgid "'%s' is not a correct float"
-msgstr "'%s' ni prava vrednost z plavajočo vejico (float)"
+msgstr "'%s' ni prava vrednost z decimalko"
 
 #. module: web
 #. openerp-web
@@ -568,7 +568,7 @@ msgstr "Arhivirano"
 #, python-format
 msgid ""
 "Are you sure that you want to archive all the records from this column?"
-msgstr ""
+msgstr "Ali ste prepričani, da želite arhivirati vse zapise iz tega stolpca?"
 
 #. module: web
 #. openerp-web
@@ -1346,7 +1346,7 @@ msgstr "Napaka, geslo ni bilo spremenjeno!"
 #: code:addons/web/static/src/xml/kanban.xml:62
 #, python-format
 msgid "Esc to discard"
-msgstr ""
+msgstr "Esc za zavreči"
 
 #. module: web
 #. openerp-web
@@ -1686,7 +1686,7 @@ msgstr ""
 #: code:addons/web/static/src/xml/base.xml:424
 #, python-format
 msgid "Hit ESCAPE to DISCARD"
-msgstr ""
+msgstr "Pritisnite ESCAPE, da jo zavržete"
 
 #. module: web
 #. openerp-web
@@ -2384,6 +2384,8 @@ msgstr "Veljavne so le vrednosti v celih številih."
 #, python-format
 msgid "Only Integer or Float Value should be valid."
 msgstr ""
+"Veljavne bi morale biti le vrednosti v celih številih ali številih z "
+"decimalkami."
 
 #. module: web
 #: code:addons/web/controllers/main.py:502
@@ -3495,7 +3497,7 @@ msgstr "Posodobitev podatkov (Uvoz-združljiv izvozu)"
 #: code:addons/web/static/src/js/fields/upgrade_fields.js:69
 #, python-format
 msgid "Upgrade now"
-msgstr ""
+msgstr "Nadgradite zdaj"
 
 #. module: web
 #. openerp-web
@@ -3642,7 +3644,7 @@ msgstr "Teden"
 #: code:addons/web/static/src/js/widgets/rainbow_man.js:37
 #, python-format
 msgid "Well Done!"
-msgstr ""
+msgstr "Dobro opravljeno!"
 
 #. module: web
 #. openerp-web
@@ -4048,7 +4050,7 @@ msgstr ""
 #: code:addons/web/static/src/js/views/search/search_inputs.js:237
 #, python-format
 msgid "not a valid integer"
-msgstr "Ne pravilno celo število"
+msgstr "Ni veljavno celo število"
 
 #. module: web
 #. openerp-web
