@@ -9,10 +9,10 @@
 # Mark Lee <odoos@soti.33mail.com>, 2018
 # Goh Gangtai <gangtai.goh@gmail.com>, 2018
 # Seongseok Shin <shinss61@hotmail.com>, 2018
-# Martin Trigaux, 2019
-# JH CHOI <hwangtog@gmail.com>, 2019
 # Link Up링크업 <linkup.way@gmail.com>, 2019
 # Linkup <link-up@naver.com>, 2019
+# Martin Trigaux, 2019
+# JH CHOI <hwangtog@gmail.com>, 2019
 # 
 msgid ""
 msgstr ""
@@ -20,7 +20,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2019-11-14 08:02+0000\n"
 "PO-Revision-Date: 2018-08-24 09:14+0000\n"
-"Last-Translator: Linkup <link-up@naver.com>, 2019\n"
+"Last-Translator: JH CHOI <hwangtog@gmail.com>, 2019\n"
 "Language-Team: Korean (https://www.transifex.com/odoo/teams/41243/ko/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -611,6 +611,11 @@ msgid ""
 "        Colloquially known as \"Month 13\"\n"
 "    "
 msgstr ""
+"\n"
+"        결산 항목에 대한 평가 잔액을 생성할 수 있습니다.\n"
+"\n"
+"        구어체로 \"13번째달\"\n"
+"    "
 
 #. module: base
 #: model:ir.module.module,description:base.module_voip
@@ -851,6 +856,9 @@ msgid ""
 "        This bridge module is auto-installed when the modules stock_barcode and quality_control are installed.\n"
 "    "
 msgstr ""
+"\n"
+"        이 연결 모듈은 stock_barcode 및 quality_control 모듈이 설치될 때 자동 설치됩니다.\n"
+"    "
 
 #. module: base
 #: model:ir.module.module,description:base.module_delivery_barcode
@@ -1069,6 +1077,8 @@ msgid ""
 "\n"
 "        Use myponto.com to retrieve bank statements"
 msgstr ""
+"\n"
+"        myponto.com을 사용하여 은행 거래 내역 확인"
 
 #. module: base
 #: model:ir.module.module,description:base.module_timesheet_grid_sale
@@ -1891,6 +1901,9 @@ msgid ""
 "Advanced features for the PoS like better views \n"
 "for IoT Box config.   \n"
 msgstr ""
+"\n"
+"PoS의 고급 기능은 IoT Box 구성을 위한 \n"
+"더 나은 화면 보기를 제공합니다. \n"
 
 #. module: base
 #: model:ir.module.module,description:base.module_website_calendar
@@ -2832,7 +2845,7 @@ msgid ""
 "    "
 msgstr ""
 "\n"
-"영업 관리의 고급 기능 포함\n"
+"영업 관리를 위한 고급 기능 포함\n"
 "    "
 
 #. module: base
@@ -2843,7 +2856,7 @@ msgid ""
 "    "
 msgstr ""
 "\n"
-"재고 계정에 기업용 뷰 포함\n"
+"재고 계정을 위한 기업용 뷰 포함\n"
 "    "
 
 #. module: base
@@ -2854,7 +2867,7 @@ msgid ""
 "    "
 msgstr ""
 "\n"
-"재고 관리에 기업용 뷰 포함\n"
+"재고 관리를 위한 기업용 뷰 포함\n"
 "    "
 
 #. module: base
@@ -3091,6 +3104,9 @@ msgid ""
 "E-invoice implementation\n"
 "    "
 msgstr ""
+"\n"
+"전자 송장 구현\n"
+"    "
 
 #. module: base
 #: model:ir.module.module,description:base.module_l10n_mx_edi
@@ -4707,6 +4723,16 @@ msgid ""
 "\n"
 "Financial requirement contributor: Baskhuu Lodoikhuu. BumanIT LLC\n"
 msgstr ""
+"\n"
+"몽고 회계 보고서.\n"
+"====================================================\n"
+"-Profit and Loss\n"
+"-Balance Sheet\n"
+"-Cash Flow Statement\n"
+"-VAT Repayment Report\n"
+"-Corporate Revenue Tax Report\n"
+"\n"
+"Financial requirement contributor: Baskhuu Lodoikhuu. BumanIT LLC\n"
 
 #. module: base
 #: model:ir.module.module,description:base.module_l10n_nz
@@ -6258,6 +6284,16 @@ msgstr ""
 "    "
 
 #. module: base
+#: model:ir.module.module,description:base.module_l10n_id
+msgid ""
+"\n"
+"This is the latest Indonesian Odoo localisation necessary to run Odoo accounting for SMEs with:\n"
+"=================================================================================================\n"
+"    - generic Indonesian chart of accounts\n"
+"    - tax structure"
+msgstr ""
+
+#. module: base
 #: model:ir.module.module,description:base.module_l10n_uk
 msgid ""
 "\n"
@@ -6285,6 +6321,11 @@ msgid ""
 "    - a generic chart of accounts\n"
 "    - SARS VAT Ready Structure"
 msgstr ""
+"\n"
+"This is the latest basic 남아프리카공화국 지역화 necessary to run Odoo in ZA:\n"
+"================================================================================\n"
+"    - a generic chart of accounts\n"
+"    - SARS VAT Ready Structure"
 
 #. module: base
 #: model:ir.module.module,description:base.module_l10n_ro
@@ -7402,6 +7443,10 @@ msgid ""
 "============================\n"
 "    "
 msgstr ""
+"\n"
+"우크라이나 - 계정과목 일람표.\n"
+"============================\n"
+"    "
 
 #. module: base
 #: model:ir.module.module,description:base.module_l10n_ae
@@ -7742,7 +7787,7 @@ msgstr " 홍콩의 회계 및 현지화 계정을 관리하는 기본 모듈입�
 msgid ""
 " another model requires the record being deleted. If possible, archive it "
 "instead."
-msgstr ""
+msgstr "다른 모델에서는 레코드를 삭제해야 합니다. 가능하면 대신 보관하십시오."
 
 #. module: base
 #: model_terms:ir.ui.view,arch_db:base.res_lang_form
@@ -8941,7 +8986,7 @@ msgstr "예외를 생성하는 모듈입니다."
 #. module: base
 #: model:ir.module.module,description:base.module_test_lint
 msgid "A module to test Odoo code with various linters."
-msgstr ""
+msgstr "다양한 린터로 오두 코드를 테스트하는 모듈입니다."
 
 #. module: base
 #: model:ir.module.module,description:base.module_test_impex
@@ -8956,7 +9001,7 @@ msgstr "API를 시험하는 모듈입니다."
 #. module: base
 #: model:ir.module.module,description:base.module_test_rpc
 msgid "A module to test the RPC requests."
-msgstr ""
+msgstr "RPC 요청을 시험하는 모듈."
 
 #. module: base
 #: model:ir.module.module,description:base.module_test_uninstall
@@ -8977,7 +9022,7 @@ msgstr "자산 패키징 메커니즘을 확인하기 위한 모듈입니다."
 #: model:ir.module.module,description:base.module_test_inherits_depends
 msgid ""
 "A module to verify the inheritance using _inherits in non-original modules."
-msgstr ""
+msgstr "비 원본 모듈에서 _inherits를 사용하여 상속을 확인하는 모듈입니다."
 
 #. module: base
 #: model:ir.module.module,description:base.module_test_inherits
@@ -9680,7 +9725,7 @@ msgstr "고객 관계 관리-CRM를 위한 고급 기능"
 #. module: base
 #: model:ir.module.module,summary:base.module_pos_enterprise
 msgid "Advanced features for PoS"
-msgstr ""
+msgstr "POS 고급 기능"
 
 #. module: base
 #: model:ir.module.module,summary:base.module_stock_enterprise
@@ -9807,7 +9852,7 @@ msgstr "허용된 회사"
 #. module: base
 #: model:ir.module.module,summary:base.module_stock_barcode_quality_control
 msgid "Allows the usage of quality checks within the barcode views"
-msgstr ""
+msgstr "바코드 화면 내에서 품질 검사를 사용할 수 있습니다."
 
 #. module: base
 #: model:ir.module.module,summary:base.module_sale_coupon_delivery
@@ -10098,7 +10143,7 @@ msgstr "하나 이상의 언어가 활성화되어 있어야 합니다."
 #. module: base
 #: model_terms:ir.actions.act_window,help:base.action_attachment
 msgid "Attach a new document"
-msgstr ""
+msgstr "새 문서 첨부"
 
 #. module: base
 #: model_terms:ir.ui.view,arch_db:base.view_attachment_search
@@ -10426,7 +10471,7 @@ msgstr "바코드"
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_stock_barcode_quality_control
 msgid "Barcode Quality bridge module"
-msgstr ""
+msgstr "품질 바코드 연결 모듈"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_hw_scanner
@@ -10768,7 +10813,7 @@ msgstr "웹사이트를 사용하는 헬프데스크 모듈용 연결 모듈입�
 #. module: base
 #: model:ir.module.module,summary:base.module_project_enterprise
 msgid "Bridge module for project and enterprise"
-msgstr ""
+msgstr "프로젝트 및 엔터프라이즈용 연결 모듈"
 
 #. module: base
 #: model:res.country,name:base.io
@@ -11592,7 +11637,7 @@ msgstr "계산"
 #. module: base
 #: model:ir.module.module,summary:base.module_sale_subscription_taxcloud
 msgid "Compute taxes with TaxCloud after automatic invoice creation."
-msgstr ""
+msgstr "자동 송장 생성 후 TaxCloud로 세금을 계산합니다."
 
 #. module: base
 #: model:ir.module.module,summary:base.module_website_sale_taxcloud_delivery
@@ -11729,7 +11774,7 @@ msgstr "제약 조건 유형"
 #: code:addons/model.py:153
 #, python-format
 msgid "Constraint:"
-msgstr ""
+msgstr "제약 조건 :"
 
 #. module: base
 #: sql_constraint:ir.model.constraint:0
@@ -12044,7 +12089,7 @@ msgstr "새 산업 만들기"
 #. module: base
 #: model_terms:ir.actions.act_window,help:base.action_partner_supplier_form
 msgid "Create a new vendor in your address book"
-msgstr "주소록에서 새 공급 업체 만들기"
+msgstr "주소록에 새 공급 업체 만들기"
 
 #. module: base
 #: model:ir.module.module,summary:base.module_web_studio
@@ -13207,7 +13252,7 @@ msgstr "문서 모델"
 #: code:addons/models.py:3074
 #, python-format
 msgid "Document type:"
-msgstr ""
+msgstr "문서 유형 :"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_test_documentation_examples
@@ -16526,6 +16571,11 @@ msgid "Indonesia"
 msgstr "인도네시아"
 
 #. module: base
+#: model:ir.module.module,shortdesc:base.module_l10n_id
+msgid "Indonesian - Accounting"
+msgstr ""
+
+#. module: base
 #: model:ir.actions.act_window,name:base.res_partner_industry_action
 #: model:ir.model,name:base.model_res_partner_industry
 #: model:ir.model.fields,field_description:base.field_res_partner__industry_id
@@ -17000,7 +17050,7 @@ msgstr "이탈리아 - 회계"
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_it_edi
 msgid "Italy - E-invoicing"
-msgstr ""
+msgstr "이탈리아 - 전자 송장"
 
 #. module: base
 #: model:res.partner.industry,full_name:base.res_partner_industry_J
@@ -17518,7 +17568,7 @@ msgstr "리드 득점"
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_crm_project
 msgid "Lead to Tasks"
-msgstr "리드 작업"
+msgstr "작업으로 연결"
 
 #. module: base
 #: model_terms:ir.ui.view,arch_db:base.module_view_kanban
@@ -18733,12 +18783,12 @@ msgstr "몽골"
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_mn
 msgid "Mongolia - Accounting"
-msgstr ""
+msgstr "몽고 - 회계"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_mn_reports
 msgid "Mongolia - Accounting Reports"
-msgstr ""
+msgstr "몽고 - 회계 보고서"
 
 #. module: base
 #: model:res.country,name:base.me
@@ -20258,7 +20308,7 @@ msgstr "Odoo 멕시코 현지화 보고서"
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_mx_reports_closing
 msgid "Odoo Mexican Localization Reports for Closing"
-msgstr ""
+msgstr "Odoo 멕시코 현지화 결산 보고서"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_mx_edi_customs
@@ -21533,7 +21583,7 @@ msgstr "창 열기"
 #: code:addons/base/models/ir_model.py:1275 code:addons/models.py:3074
 #, python-format
 msgid "Operation:"
-msgstr ""
+msgstr "작업 :"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_sale_crm
@@ -22487,7 +22537,7 @@ msgstr "POS 영수증 재인쇄"
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_pos_enterprise
 msgid "Point of Sale enterprise"
-msgstr ""
+msgstr "점포판매시스템 엔터프라이즈용"
 
 #. module: base
 #: model:res.country,name:base.pl
@@ -22700,7 +22750,7 @@ msgstr "프로젝트 관리"
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_project_enterprise
 msgid "Project Enterprise"
-msgstr ""
+msgstr "엔터프라이즈용 프로젝트"
 
 #. module: base
 #: model:ir.module.module,description:base.module_project
@@ -23682,7 +23732,7 @@ msgstr "SEPA 계좌 이체"
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_account_sepa_direct_debit
 msgid "SEPA Direct Debit"
-msgstr "SEPA 자동 이체"
+msgstr "SEPA 출금 이체"
 
 #. module: base
 #: model:ir.module.module,summary:base.module_sms
@@ -24083,7 +24133,7 @@ msgstr "선택"
 #. module: base
 #: model:ir.model.fields,field_description:base.field_ir_model_fields__selection
 msgid "Selection Options"
-msgstr "항목 선택"
+msgstr "선택 옵션"
 
 #. module: base
 #: model:ir.model.fields,field_description:base.field_res_partner__self
@@ -24578,7 +24628,7 @@ msgstr "남아프리카 공화국"
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_za
 msgid "South Africa - Accounting"
-msgstr ""
+msgstr "남아프리카 공화국 - 회계"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_za_reports
@@ -24734,6 +24784,11 @@ msgstr "단계의 증가는 0이 아니어야 합니다."
 #: model:ir.module.module,summary:base.module_note_pad
 msgid "Sticky memos, Collaborative"
 msgstr "스티커 메모, 협업"
+
+#. module: base
+#: model:ir.module.category,name:base.module_category_stock
+msgid "Stock"
+msgstr "재고"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_stock_barcode_mobile
@@ -26202,7 +26257,7 @@ msgstr "TaxCloud 및 납품 - 전자 상거래"
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_sale_subscription_taxcloud
 msgid "TaxCloud and Subscriptions"
-msgstr ""
+msgstr "TaxCloud 및 구독"
 
 #. module: base
 #: model:ir.module.module,summary:base.module_account_taxcloud
@@ -26281,7 +26336,7 @@ msgstr "성능 테스트"
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_test_rpc
 msgid "Test RPC"
-msgstr ""
+msgstr "RPC 테스트"
 
 #. module: base
 #: model:ir.module.module,summary:base.module_test_marketing_automation
@@ -26640,7 +26695,7 @@ msgstr "유일한 사전 설정 변수는"
 #: code:addons/model.py:121
 #, python-format
 msgid "The operation cannot be completed:"
-msgstr ""
+msgstr "작업을 완료할 수 있습니다 :"
 
 #. module: base
 #: model:ir.model.fields,help:base.field_ir_model_fields__domain
@@ -26738,7 +26793,7 @@ msgstr "반올림 정밀도는 0보다 커야 합니다!"
 msgid ""
 "The server is busy right now, module operations are not possible at this "
 "time, please try again later."
-msgstr ""
+msgstr "현재 서버가 사용 중입니다. 현재 모듈 작업을 수행할 수 없습니다. 나중에 다시 시도하십시오."
 
 #. module: base
 #: code:addons/base/models/ir_mail_server.py:178
@@ -27029,7 +27084,7 @@ msgstr "작업 기록 및 예측"
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_project_timesheet_holidays
 msgid "Timesheet when on Leaves"
-msgstr "작업 기록표에 휴가 표시"
+msgstr "휴가 기간 중 작업 계획"
 
 #. module: base
 #: model:ir.module.category,name:base.module_category_hr_timesheet
@@ -27525,7 +27580,7 @@ msgstr "우크라이나"
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_ua
 msgid "Ukraine - Accounting"
-msgstr ""
+msgstr "우크라이나 - 회계"
 
 #. module: base
 #: code:addons/models.py:3131
@@ -27629,7 +27684,13 @@ msgid "Unknown"
 msgstr "알 수 없음"
 
 #. module: base
-#: code:addons/models.py:1058
+#: code:addons/models.py:873
+#, python-format
+msgid "Unknown database error: '%s'"
+msgstr ""
+
+#. module: base
+#: code:addons/models.py:1067
 #, python-format
 msgid "Unknown database identifier '%s'"
 msgstr "알 수 없는 데이터베이스 식별자 : '%s'"
@@ -28458,12 +28519,12 @@ msgstr "웹사이트 설문 조사"
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_test_website
 msgid "Website Test"
-msgstr ""
+msgstr "웹사이트 테스트"
 
 #. module: base
 #: model:ir.module.module,summary:base.module_test_website
 msgid "Website Test, mainly for module install/uninstall tests"
-msgstr ""
+msgstr "웹 사이트 테스트, 주로 모듈 설치/제거 테스트"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_website_theme_install
@@ -28856,7 +28917,7 @@ msgstr "account_plaid"
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_account_ponto
 msgid "account_ponto"
-msgstr ""
+msgstr "account_ponto"
 
 #. module: base
 #: model:ir.module.module,summary:base.module_l10n_lt
@@ -29244,9 +29305,19 @@ msgid "test-inherits"
 msgstr "test-inherits"
 
 #. module: base
+#: model:ir.module.module,shortdesc:base.module_test_inherits_depends
+msgid "test-inherits-depends"
+msgstr "test-inherits-depends"
+
+#. module: base
 #: model:ir.module.module,shortdesc:base.module_test_limits
 msgid "test-limits"
 msgstr "test-limits"
+
+#. module: base
+#: model:ir.module.module,shortdesc:base.module_test_lint
+msgid "test-lint"
+msgstr "test-lint"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_test_translation_import
