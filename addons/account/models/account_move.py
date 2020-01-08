@@ -334,7 +334,7 @@ class AccountMove(models.Model):
             company_currency = self.company_id.currency_id
             has_foreign_currency = self.currency_id and self.currency_id != company_currency
 
-            for line in self.line_ids:
+            for line in self._get_lines_onchange_currency():
                 new_currency = has_foreign_currency and self.currency_id
                 line.currency_id = new_currency
 
@@ -882,6 +882,10 @@ class AccountMove(models.Model):
                 # Only synchronize one2many in onchange.
                 if invoice != invoice._origin:
                     invoice.invoice_line_ids = invoice.line_ids.filtered(lambda line: not line.exclude_from_invoice_tab)
+
+    def _get_lines_onchange_currency(self):
+        # Override needed for COGS
+        return self.line_ids
 
     def onchange(self, values, field_name, field_onchange):
         # OVERRIDE
@@ -3321,12 +3325,6 @@ class AccountMoveLine(models.Model):
                 partners = move.line_ids[-2:].mapped('partner_id')
                 if len(partners) == 1:
                     values['partner_id'] = partners.id
-
-            # Suggest default value for 'account_id'.
-            if 'account_id' in default_fields and not values.get('account_id'):
-                accounts = move.line_ids[-2:].mapped('account_id')
-                if len(accounts) == 1:
-                    values['account_id'] = accounts.id
         return values
 
     @api.depends('ref', 'move_id')
