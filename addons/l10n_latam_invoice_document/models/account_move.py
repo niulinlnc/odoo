@@ -80,7 +80,7 @@ class AccountMove(models.Model):
             invoice.l10n_latam_tax_ids = not_included_invoice_taxes
         remaining = self - recs_invoice
         remaining.l10n_latam_amount_untaxed = False
-        remaining.l10n_latam_tax_ids = []
+        remaining.l10n_latam_tax_ids = [(5, 0)]
 
     def _compute_invoice_sequence_number_next(self):
         """ If journal use documents disable the next number header"""
@@ -156,7 +156,7 @@ class AccountMove(models.Model):
     @api.depends_context('internal_type')
     def _compute_l10n_latam_document_type(self):
         internal_type = self._context.get('internal_type', False)
-        for rec in self.filtered(lambda x: x.state == 'draft' and x.l10n_latam_available_document_type_ids):
+        for rec in self.filtered(lambda x: x.state == 'draft'):
             document_types = rec.l10n_latam_available_document_type_ids._origin
             document_types = internal_type and document_types.filtered(lambda x: x.internal_type == internal_type) or document_types
             rec.l10n_latam_document_type_id = document_types and document_types[0].id
