@@ -496,6 +496,12 @@ class HolidaysRequest(models.Model):
                 raise ValidationError(_('The number of remaining time off is not sufficient for this time off type.\n'
                                         'Please also check the time off waiting for validation.'))
 
+    @api.constrains('date_from', 'date_to', 'employee_id')
+    def _check_date_state(self):
+        for holiday in self:
+            if holiday.state in ['cancel', 'refuse', 'validate1', 'validate']:
+                raise ValidationError(_("This modification is not allowed in the current state."))
+
     def _get_number_of_days(self, date_from, date_to, employee_id):
         """ Returns a float equals to the timedelta between two dates given as string."""
         if employee_id:
@@ -627,7 +633,7 @@ class HolidaysRequest(models.Model):
             if leave_type.validation_type == 'no_validation':
                 # Automatic validation should be done in sudo, because user might not have the rights to do it by himself
                 holiday_sudo.action_validate()
-                holiday_sudo.message_subscribe(partner_ids=[holiday._get_responsible_for_approval().partner_id.id])
+                holiday_sudo.message_subscribe(partner_ids=[holiday_sudo._get_responsible_for_approval().partner_id.id])
                 holiday_sudo.message_post(body=_("The time off has been automatically approved"), subtype="mt_comment") # Message from OdooBot (sudo)
             elif not self._context.get('import_file'):
                 holiday_sudo.activity_update()
