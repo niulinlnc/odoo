@@ -18,8 +18,9 @@
 # Eric Geens <ericgeens@yahoo.com>, 2019
 # Martin Trigaux, 2019
 # Cécile Collart <cco@odoo.com>, 2019
-# Peter Koenderink <peterkoenderink@gmail.com>, 2019
+# ca2da8678cdb9cbd573eaf985f02c476, 2019
 # Yenthe Van Ginneken <yenthespam@gmail.com>, 2020
+# Antoine Gilard <ang@odoo.com>, 2020
 # Erwin van der Ploeg <erwin@odooexperts.nl>, 2020
 # 
 msgid ""
@@ -655,6 +656,11 @@ msgid "<span>Quantity</span>"
 msgstr "<span>Hoeveelheid</span>"
 
 #. module: account
+#: model_terms:ir.ui.view,arch_db:account.report_payment_receipt_document
+msgid "<span>Reference</span>"
+msgstr "<span>Referentie</span>"
+
+#. module: account
 #: model_terms:ir.ui.view,arch_db:account.account_journal_dashboard_kanban_view
 msgid "<span>Reporting</span>"
 msgstr "<span>Rapportages</span>"
@@ -719,7 +725,7 @@ msgstr "<strong class=\"text-muted\">Verkoper</strong>"
 #. module: account
 #: model_terms:ir.ui.view,arch_db:account.report_invoice_document_with_payments
 msgid "<strong>Amount Due</strong>"
-msgstr "<strong>Openstaande bedragen</strong>"
+msgstr "<strong>Openstaand bedrag</strong>"
 
 #. module: account
 #: model_terms:ir.ui.view,arch_db:account.report_journal
@@ -3151,6 +3157,8 @@ msgid ""
 "Collect information and produce statistics on the trade in goods in Europe "
 "with intrastat"
 msgstr ""
+"Verzamelt informatie en genereert statistieken over het handelen van "
+"goederen in Europa met Intrastat"
 
 #. module: account
 #: model:ir.model.fields,field_description:account.field_account_account_tag__color
@@ -5938,13 +5946,13 @@ msgstr "Interne notities"
 #: model:ir.model.fields.selection,name:account.selection__account_payment__payment_type__transfer
 #: model_terms:ir.ui.view,arch_db:account.account_journal_dashboard_kanban_view
 msgid "Internal Transfer"
-msgstr "Interne mutatie"
+msgstr "Interne overboeking"
 
 #. module: account
 #: model:ir.actions.act_window,name:account.action_account_payments_transfer
 #: model_terms:ir.ui.view,arch_db:account.account_journal_dashboard_kanban_view
 msgid "Internal Transfers"
-msgstr "Interne verplaatsingen"
+msgstr "Interne overboekingen"
 
 #. module: account
 #: model:ir.model.fields,field_description:account.field_account_account__internal_type
@@ -7398,6 +7406,12 @@ msgstr "Volgend nummer"
 #: model:ir.model.fields,field_description:account.field_account_move__invoice_sequence_number_next_prefix
 msgid "Next Number Prefix"
 msgstr "Volgende cijfer prefix"
+
+#. module: account
+#: code:addons/account/models/account_bank_statement.py:545
+#, python-format
+msgid "No default debit and credit account defined on journal %s (ids: %s)"
+msgstr ""
 
 #. module: account
 #: model:ir.model.fields,field_description:account.field_account_move_line__blocked
@@ -11325,8 +11339,8 @@ msgid ""
 "The reconciliation model will only be applied to the selected "
 "customer/vendor categories."
 msgstr ""
-"Het aflettermodel zal enkel toegepast worden op de geselcteerde "
-"klanten/leveranciers categorien."
+"Het aflettermodel zal enkel toegepast worden op de geselecteerde "
+"klanten/leveranciers categorieën."
 
 #. module: account
 #: model:ir.model.fields,help:account.field_account_reconcile_model__match_partner_ids
@@ -11335,7 +11349,7 @@ msgid ""
 "The reconciliation model will only be applied to the selected "
 "customers/vendors."
 msgstr ""
-"het aflettermodel zal enkel toegepast worden op de geslecteerde "
+"Het aflettermodel zal enkel toegepast worden op de geselecteerde "
 "klanten/leveranciers."
 
 #. module: account
@@ -11347,7 +11361,7 @@ msgid ""
 "        * Amount Paid: Only applied when paying an amount.\n"
 "        * Amount Paid/Received: Applied in both cases."
 msgstr ""
-"Het aflettermodel zal enkel toegepast worden op het geselecteerde verrchting type:\n"
+"Het aflettermodel zal enkel toegepast worden op het geselecteerde verrichtingtype:\n"
 "        * Ontvangen bedrag: Enkel toegepast indien bedrag ontvangen.\n"
 "        * Bedrag betaald: Enkel toegepast indien bedrag betaald.\n"
 "        * Bedrag betaald/ontvangen: Toegepast in beide gevallen."
@@ -11369,7 +11383,7 @@ msgid ""
 "than, greater than or between specified amount(s)."
 msgstr ""
 "Het aflettermodel zal enkel toegepast worden indien het bedrag kleiner dan, "
-"groter dan of tussen gespecifieerde bedrag(en) ligt."
+"groter dan of tussen gespecificeerde bedrag(en) ligt."
 
 #. module: account
 #: model:ir.model.fields,help:account.field_account_reconcile_model__match_label
@@ -13351,11 +13365,9 @@ msgstr ""
 "boekingen aan zijn gekoppeld."
 
 #. module: account
+#. module: account
 #: code:addons/account/models/account_analytic_line.py:0
-#, python-format
-msgid ""
-"You can't set a different company on your analytic tags since there are some"
-" journal items linked to it."
+#: code:addons/account/models/account.py:56
+#, python-format, python-format
+msgid "A tag defined to be used on taxes must always have a country set."
 msgstr ""
-"U kunt het bedrijf van uw kostenplaatslabels niet wijzigen, omdat er een "
-"aantal boekingen aan zijn gekoppeld."

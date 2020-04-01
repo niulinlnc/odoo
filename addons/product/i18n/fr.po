@@ -5,12 +5,10 @@
 # Translators:
 # Loic <loic.richard2@gmail.com>, 2019
 # Nathan Noël <nathan070@me.com>, 2019
-# Pierrick Brun <brun.pierrick@protonmail.com>, 2019
 # Thomas Dobbelsteyn <tdo@odoo.com>, 2019
 # JEK Odoo <jek@odoo.com>, 2019
 # Moka Tourisme <hello@mokatourisme.fr>, 2019
 # Aurélien Pillevesse <aurelienpillevesse@hotmail.fr>, 2019
-# Laura Piraux <lap@odoo.com>, 2019
 # Bertrand LATOUR <divoir@gmail.com>, 2019
 # Rémi CAZENAVE <remi@le-filament.com>, 2019
 # Olivier ANDRE <frsw194@gmail.com>, 2019
@@ -20,10 +18,14 @@
 # Richard Mathot <rim@odoo.com>, 2019
 # Florian Hatat, 2019
 # Eloïse Stilmant <est@odoo.com>, 2019
-# Cécile Collart <cco@odoo.com>, 2019
 # Martin Trigaux, 2019
-# Oriane Malburny <oma@odoo.com>, 2019
-# Corentin Delacroix <edc@odoo.com>, 2020
+# omaodoo <oma@odoo.com>, 2019
+# edc <edc@odoo.com>, 2020
+# Vladilsav Kakakovko <vladislav.k@ventor.tech>, 2020
+# Pauline Thiry <pth@odoo.com>, 2020
+# Cécile Collart <cco@odoo.com>, 2020
+# Vallen Delobel <edv@odoo.com>, 2020
+# Laura Piraux <lap@odoo.com>, 2020
 # 
 msgid ""
 msgstr ""
@@ -31,7 +33,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2019-12-05 12:33+0000\n"
 "PO-Revision-Date: 2019-08-26 09:13+0000\n"
-"Last-Translator: Corentin Delacroix <edc@odoo.com>, 2020\n"
+"Last-Translator: Laura Piraux <lap@odoo.com>, 2020\n"
 "Language-Team: French (https://www.transifex.com/odoo/teams/41243/fr/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -83,7 +85,7 @@ msgstr ""
 #: model:ir.actions.report,print_report_name:product.report_product_product_barcode
 #: model:ir.actions.report,print_report_name:product.report_product_template_barcode
 msgid "'Products barcode - %s' % (object.name)"
-msgstr ""
+msgstr "'Products barcode - %s' % (object.name)"
 
 #. module: product
 #: model:ir.actions.report,print_report_name:product.report_product_packaging
@@ -151,7 +153,7 @@ msgstr "<span class=\"o_stat_text\"> Articles</span>"
 #: model_terms:ir.ui.view,arch_db:product.report_simple_barcode
 #: model_terms:ir.ui.view,arch_db:product.report_simple_label
 msgid "<span class=\"text-muted\">No barcode available</span>"
-msgstr ""
+msgstr "<span class=\"text-muted\">Aucun code-barres disponible</span>"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_variant_easy_edit_view
@@ -204,7 +206,7 @@ msgstr "<strong/>"
 #. module: product
 #: model:ir.model.constraint,message:product.constraint_product_product_barcode_uniq
 msgid "A barcode can only be assigned to one product !"
-msgstr "Un code-barre ne peut être assigné qu'à un seul produit !"
+msgstr "Un code-barres ne peut être assigné qu'à un seul produit !"
 
 #. module: product
 #: model:ir.model.fields,help:product.field_product_product__description_sale
@@ -241,7 +243,7 @@ msgstr ""
 #: model:product.product,name:product.product_product_25
 #: model:product.template,name:product.product_product_25_product_template
 msgid "Acoustic Bloc Screens"
-msgstr ""
+msgstr "Écrans ant-bruit"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_product__message_needaction
@@ -311,7 +313,7 @@ msgstr ""
 #: model:product.template.attribute.value,name:product.product_11_attribute_1_value_2
 #: model:product.template.attribute.value,name:product.product_4_attribute_1_value_2
 msgid "Aluminium"
-msgstr ""
+msgstr "Aluminium"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_pricelist_view_inherit
@@ -442,7 +444,7 @@ msgstr "Noir"
 #: model:product.product,name:product.product_product_10
 #: model:product.template,name:product.product_product_10_product_template
 msgid "Cabinet with Doors"
-msgstr ""
+msgstr "Armoire avec portes"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.view_product_price_list
@@ -454,7 +456,7 @@ msgstr ""
 #: model:ir.model.fields,field_description:product.field_product_product__can_image_1024_be_zoomed
 #: model:ir.model.fields,field_description:product.field_product_template__can_image_1024_be_zoomed
 msgid "Can Image 1024 be zoomed"
-msgstr ""
+msgstr "L'Image 1024 peut être agrandie"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_product__can_image_variant_1024_be_zoomed
@@ -559,7 +561,7 @@ msgstr "Calculer le prix"
 #: model:product.product,name:product.product_product_11b
 #: model:product.template,name:product.product_product_11b_product_template
 msgid "Conference Chair (CONFIG)"
-msgstr ""
+msgstr "Chaise de conférence (CONFIG)"
 
 #. module: product
 #: model:product.product,description_sale:product.consu_delivery_02
@@ -606,7 +608,7 @@ msgstr ""
 #: model:product.product,name:product.product_product_13
 #: model:product.template,name:product.product_product_13_product_template
 msgid "Corner Desk Black"
-msgstr ""
+msgstr "Bureau d'angle noir"
 
 #. module: product
 #: model:product.product,name:product.product_product_5
@@ -692,12 +694,12 @@ msgstr "Créé le"
 #. module: product
 #: model:ir.model.fields.selection,name:product.selection__res_config_settings__product_volume_volume_in_cubic_feet__1
 msgid "Cubic Feet"
-msgstr ""
+msgstr "Mètres cubes"
 
 #. module: product
 #: model:ir.model.fields.selection,name:product.selection__res_config_settings__product_volume_volume_in_cubic_feet__0
 msgid "Cubic Meters"
-msgstr ""
+msgstr "Mètres cubes"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_pricelist__currency_id
@@ -720,7 +722,7 @@ msgstr "Réf. client"
 #: model:product.product,name:product.product_product_4d
 #: model:product.template,name:product.product_product_4b_product_template
 msgid "Customizable Desk (CONFIG)"
-msgstr ""
+msgstr "Bureau personnalisable (CONFIG)"
 
 #. module: product
 #: model:product.product,uom_name:product.expense_hotel
@@ -777,7 +779,7 @@ msgstr "Description"
 #: model:product.product,name:product.product_product_3
 #: model:product.template,name:product.product_product_3_product_template
 msgid "Desk Combination"
-msgstr ""
+msgstr "Combinaison de bureau"
 
 #. module: product
 #: model:product.product,name:product.product_product_22
@@ -789,7 +791,7 @@ msgstr ""
 #: model:product.product,description_sale:product.product_product_3
 #: model:product.template,description_sale:product.product_product_3_product_template
 msgid "Desk combination, black-brown: chair + desk + drawer."
-msgstr ""
+msgstr "Combinaison bureau, brun-noir: chaise + bureau + tiroir."
 
 #. module: product
 #: model:ir.model.fields,help:product.field_product_attribute__sequence
@@ -840,7 +842,7 @@ msgstr "Afficher Nom"
 #: model:product.product,name:product.product_product_27
 #: model:product.template,name:product.product_product_27_product_template
 msgid "Drawer"
-msgstr ""
+msgstr "Tiroir"
 
 #. module: product
 #: model:product.product,name:product.product_product_16
@@ -862,7 +864,7 @@ msgstr "Durée"
 #. module: product
 #: model:ir.model.fields.selection,name:product.selection__product_attribute__create_variant__dynamic
 msgid "Dynamically"
-msgstr ""
+msgstr "Dynamique"
 
 #. module: product
 #: model:ir.model.constraint,message:product.constraint_product_template_attribute_value_attribute_value_unique
@@ -951,13 +953,13 @@ msgstr "Formule"
 #: model:product.product,name:product.consu_delivery_03
 #: model:product.template,name:product.consu_delivery_03_product_template
 msgid "Four Person Desk"
-msgstr ""
+msgstr "Bureau pour quatre personnes"
 
 #. module: product
 #: model:product.product,description_sale:product.consu_delivery_03
 #: model:product.template,description_sale:product.consu_delivery_03_product_template
 msgid "Four person modern office workstation"
-msgstr ""
+msgstr "Poste de travail moderne pour quatre personnes"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_search_view
@@ -1109,7 +1111,7 @@ msgstr "Image 512"
 #: code:addons/product/models/product_pricelist.py:0
 #, python-format
 msgid "Import Template for Pricelists"
-msgstr ""
+msgstr "Import du modèle pour les listes de prix"
 
 #. module: product
 #: code:addons/product/models/product_template.py:0
@@ -1121,7 +1123,7 @@ msgstr "Import du template pour les articles"
 #: code:addons/product/models/product.py:0
 #, python-format
 msgid "Import Template for Vendor Pricelists"
-msgstr ""
+msgstr "Import du modèle pour les listes de prix des vendeurs"
 
 #. module: product
 #: model:ir.model.fields,help:product.field_product_product__standard_price
@@ -1147,12 +1149,12 @@ msgstr "Inactive"
 #: model:product.product,name:product.product_product_24
 #: model:product.template,name:product.product_product_24_product_template
 msgid "Individual Workplace"
-msgstr ""
+msgstr "Espace de travail individuel"
 
 #. module: product
 #: model:ir.model.fields.selection,name:product.selection__product_attribute__create_variant__always
 msgid "Instantly"
-msgstr ""
+msgstr "Instantanément"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_form_view
@@ -1175,7 +1177,7 @@ msgstr ""
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_form_view
 msgid "Inventory"
-msgstr "Stock"
+msgstr "Inventaire"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_product__message_is_follower
@@ -1192,7 +1194,7 @@ msgstr ""
 #: model:ir.model.fields,field_description:product.field_product_product__has_configurable_attributes
 #: model:ir.model.fields,field_description:product.field_product_template__has_configurable_attributes
 msgid "Is a configurable product"
-msgstr ""
+msgstr "Est un produit configurable"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_template__is_product_variant
@@ -1208,19 +1210,19 @@ msgstr "Kilogramme"
 #: model:product.product,name:product.product_product_6
 #: model:product.template,name:product.product_product_6_product_template
 msgid "Large Cabinet"
-msgstr ""
+msgstr "Grande armoire"
 
 #. module: product
 #: model:product.product,name:product.product_product_8
 #: model:product.template,name:product.product_product_8_product_template
 msgid "Large Desk"
-msgstr ""
+msgstr "Grand bureau"
 
 #. module: product
 #: model:product.product,name:product.consu_delivery_02
 #: model:product.template,name:product.consu_delivery_02_product_template
 msgid "Large Meeting Table"
-msgstr ""
+msgstr "Grande table de réunion"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_attribute____last_update
@@ -1293,7 +1295,7 @@ msgstr ""
 #. module: product
 #: model:product.attribute,name:product.product_attribute_1
 msgid "Legs"
-msgstr ""
+msgstr "Jambes"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_attribute__attribute_line_ids
@@ -1370,7 +1372,7 @@ msgstr "Quantité min."
 #. module: product
 #: model:ir.model.fields.selection,name:product.selection__res_config_settings__product_pricelist_setting__basic
 msgid "Multiple prices per product"
-msgstr ""
+msgstr "Plusieurs prix par produit"
 
 #. module: product
 #: model:ir.model.fields,help:product.field_res_config_settings__product_pricelist_setting
@@ -1455,13 +1457,13 @@ msgstr "Nombre de messages non lus"
 #: model:product.product,name:product.product_delivery_01
 #: model:product.template,name:product.product_delivery_01_product_template
 msgid "Office Chair"
-msgstr ""
+msgstr "Chaise de bureau"
 
 #. module: product
 #: model:product.product,name:product.product_product_12
 #: model:product.template,name:product.product_product_12_product_template
 msgid "Office Chair Black"
-msgstr ""
+msgstr "Chaise de bureau noire"
 
 #. module: product
 #: model:product.product,name:product.product_order_01
@@ -1473,7 +1475,7 @@ msgstr ""
 #: model:product.product,name:product.product_delivery_02
 #: model:product.template,name:product.product_delivery_02_product_template
 msgid "Office Lamp"
-msgstr ""
+msgstr "Lampe de bureau"
 
 #. module: product
 #: code:addons/product/models/product_attribute.py:0
@@ -1490,6 +1492,8 @@ msgid ""
 "On the product %s you cannot transform the attribute %s into the attribute "
 "%s."
 msgstr ""
+"Sur le produit %s, vous ne pouvez pas transformer l'attribut %s en attribut "
+"%s."
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_supplierinfo_form_view
@@ -1529,7 +1533,7 @@ msgstr "Chemin parent"
 #: model:product.product,name:product.product_product_9
 #: model:product.template,name:product.product_product_9_product_template
 msgid "Pedal Bin"
-msgstr ""
+msgstr "Poubelle à pédale"
 
 #. module: product
 #: model:ir.model.fields.selection,name:product.selection__product_pricelist_item__compute_price__percentage
@@ -1546,12 +1550,14 @@ msgstr "Pourcentage du prix"
 #, python-format
 msgid "Please specify the category for which this rule should be applied"
 msgstr ""
+"Veuillez préciser la catégorie à laquelle cette règle doit être appliquée"
 
 #. module: product
 #: code:addons/product/models/product_pricelist.py:0
 #, python-format
 msgid "Please specify the product for which this rule should be applied"
 msgstr ""
+"Veuillez spécifier l'article pour lequel cette règle doit être appliquée"
 
 #. module: product
 #: code:addons/product/models/product_pricelist.py:0
@@ -1559,6 +1565,8 @@ msgstr ""
 msgid ""
 "Please specify the product variant for which this rule should be applied"
 msgstr ""
+"Veuillez spécifier la variante de l'article pour laquelle cette règle doit "
+"être appliquée"
 
 #. module: product
 #: model:ir.model.fields.selection,name:product.selection__res_config_settings__product_weight_in_lbs__1
@@ -1620,7 +1628,7 @@ msgstr "Surcharge du prix"
 #: model:ir.model.fields,help:product.field_product_template__list_price
 #: model:ir.model.fields,help:product.field_product_template__lst_price
 msgid "Price at which the product is sold to customers."
-msgstr ""
+msgstr "Prix auquel l'article est vendu aux clients."
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_kanban_view
@@ -1668,7 +1676,7 @@ msgstr "Nom de la liste de prix"
 #. module: product
 #: model:ir.model,name:product.model_product_pricelist_item
 msgid "Pricelist Rule"
-msgstr ""
+msgstr "Règle des listes des prix"
 
 #. module: product
 #: model:ir.actions.act_window,name:product.product_pricelist_action2
@@ -1680,7 +1688,7 @@ msgstr "Listes de prix"
 #. module: product
 #: model:ir.model.fields,field_description:product.field_res_config_settings__product_pricelist_setting
 msgid "Pricelists Method"
-msgstr ""
+msgstr "Méthode des listes de prix"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.view_partner_property_form
@@ -1834,7 +1842,7 @@ msgstr ""
 #. module: product
 #: model:ir.model,name:product.model_product_template_attribute_line
 msgid "Product Template Attribute Line"
-msgstr ""
+msgstr "Ligne d'attribut du modèle d'article"
 
 #. module: product
 #: model:ir.model,name:product.model_product_template_attribute_value
@@ -1874,7 +1882,7 @@ msgstr "Variantes d'article"
 #: code:addons/product/models/product_pricelist.py:0
 #, python-format
 msgid "Product: %s"
-msgstr ""
+msgstr "Article : %s"
 
 #. module: product
 #: model:ir.actions.act_window,name:product.product_template_action
@@ -1951,7 +1959,7 @@ msgstr "Quantité"
 #. module: product
 #: model:ir.model.fields,help:product.field_product_packaging__qty
 msgid "Quantity of products contained in the packaging."
-msgstr ""
+msgstr "Quantité d'articles contenus dans l'emballage."
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_price_list__qty1
@@ -1992,7 +2000,7 @@ msgstr "Produits liés"
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_value__ptav_product_variant_ids
 msgid "Related Variants"
-msgstr ""
+msgstr "Variantes associées"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_product__activity_user_id
@@ -2004,7 +2012,7 @@ msgstr "Responsable"
 #: model:product.product,name:product.expense_product
 #: model:product.template,name:product.expense_product_product_template
 msgid "Restaurant Expenses"
-msgstr ""
+msgstr "Restaurant"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_pricelist_item_form_view
@@ -2021,7 +2029,7 @@ msgstr "Vente"
 #: model:ir.model.fields,field_description:product.field_product_template__description_sale
 #: model_terms:ir.ui.view,arch_db:product.product_template_form_view
 msgid "Sales Description"
-msgstr ""
+msgstr "Description vente"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_res_config_settings__module_sale_product_matrix
@@ -2168,13 +2176,13 @@ msgstr ""
 #: model:product.template.attribute.value,name:product.product_11_attribute_1_value_1
 #: model:product.template.attribute.value,name:product.product_4_attribute_1_value_1
 msgid "Steel"
-msgstr ""
+msgstr "Acier"
 
 #. module: product
 #: model:product.product,name:product.product_product_7
 #: model:product.template,name:product.product_product_7_product_template
 msgid "Storage Box"
-msgstr ""
+msgstr "Boîte de rangement"
 
 #. module: product
 #: model:ir.model,name:product.model_product_supplierinfo
@@ -2200,7 +2208,7 @@ msgstr ""
 #: code:addons/product/models/product_attribute.py:0
 #, python-format
 msgid "The attribute %s must have at least one value for the product %s."
-msgstr ""
+msgstr "L'attribut %s doit avoir au moins une valeur pour le produit %s."
 
 #. module: product
 #: model:ir.model.fields,help:product.field_product_attribute_value__attribute_id
@@ -2287,25 +2295,25 @@ msgstr ""
 #: code:addons/product/models/product_attribute.py:0
 #, python-format
 msgid "The value %s is not defined for the attribute %s on the product %s."
-msgstr ""
+msgstr "La valeur %s n'est pas définie pour l'attribut %s sur le produit %s."
 
 #. module: product
 #: code:addons/product/models/product_template.py:0
 #, python-format
 msgid "There are no possible combination."
-msgstr ""
+msgstr "Il n'y a pas de combinaison possible."
 
 #. module: product
 #: code:addons/product/models/product_template.py:0
 #, python-format
 msgid "There are no remaining closest combination."
-msgstr ""
+msgstr "Il ne reste aucune combinaison la plus proche."
 
 #. module: product
 #: code:addons/product/models/product_template.py:0
 #, python-format
 msgid "There are no remaining possible combination."
-msgstr ""
+msgstr "Il ne reste aucune combinaison possible."
 
 #. module: product
 #: model:ir.model.fields,help:product.field_product_supplierinfo__product_uom
@@ -2321,7 +2329,7 @@ msgstr ""
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_form_view
 msgid "This note is added to sales orders and invoices."
-msgstr ""
+msgstr "Cette note est ajoutée aux bons de commande et aux factures."
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_form_view
@@ -2360,13 +2368,13 @@ msgstr ""
 #: model:product.product,description_sale:product.consu_delivery_01
 #: model:product.template,description_sale:product.consu_delivery_01_product_template
 msgid "Three Seater Sofa with Lounger in Steel Grey Colour"
-msgstr ""
+msgstr "Canapé trois places avec chaise longue de couleur gris acier"
 
 #. module: product
 #: model:product.product,name:product.consu_delivery_01
 #: model:product.template,name:product.consu_delivery_01_product_template
 msgid "Three-Seat Sofa"
-msgstr ""
+msgstr "Canapé trois places"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_search_view
@@ -2562,7 +2570,7 @@ msgstr "Valeurs de la variante"
 #: code:addons/product/models/product_pricelist.py:0
 #, python-format
 msgid "Variant: %s"
-msgstr ""
+msgstr "Variante : %s"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_res_config_settings__group_product_variant
@@ -2631,7 +2639,7 @@ msgstr ""
 #: model:product.product,name:product.product_product_1
 #: model:product.template,name:product.product_product_1_product_template
 msgid "Virtual Interior Design"
-msgstr ""
+msgstr "Design d'intérieur virtuel"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_product__volume
@@ -2676,7 +2684,7 @@ msgstr "Unité de mesure du poids"
 #: model:ir.model.fields,field_description:product.field_product_product__weight_uom_name
 #: model:ir.model.fields,field_description:product.field_product_template__weight_uom_name
 msgid "Weight unit of measure label"
-msgstr ""
+msgstr "Intitulé de l'unité de mesure de poids "
 
 #. module: product
 #: model:product.attribute.value,name:product.product_attribute_value_3
@@ -2715,6 +2723,8 @@ msgid ""
 "You cannot change the attribute of the value %s because it is used on the "
 "following products:%s"
 msgstr ""
+"Vous ne pouvez pas modifier l'attribut de la valeur %s car il est utilisé "
+"sur les produits suivants : %s"
 
 #. module: product
 #: code:addons/product/models/product_attribute.py:0
@@ -2727,6 +2737,7 @@ msgstr ""
 #, python-format
 msgid "You cannot change the value of the value %s set on product %s."
 msgstr ""
+"Vous ne pouvez changer la valeur de la valeur %sdéfinie sur le produit %s."
 
 #. module: product
 #: code:addons/product/models/product.py:0
@@ -2758,6 +2769,8 @@ msgid ""
 "You cannot delete the attribute %s because it is used on the following products:\n"
 "%s"
 msgstr ""
+"Vous ne pouvez pas supprimer l'attribut %s car il est utilisé sur les produits suivants :\n"
+"%s"
 
 #. module: product
 #: code:addons/product/models/product_attribute.py:0
@@ -2766,6 +2779,8 @@ msgid ""
 "You cannot delete the value %s because it is used on the following products:\n"
 "%s"
 msgstr ""
+"Vous ne pouvez pas supprimer la valeur %s car elle est utilisée sur les produits suivants :\n"
+"%s"
 
 #. module: product
 #: code:addons/product/models/product_attribute.py:0
@@ -2773,6 +2788,7 @@ msgstr ""
 msgid ""
 "You cannot move the attribute %s from the product %s to the product %s."
 msgstr ""
+"Vous ne pouvez pas déplacer l'attribut %s du produit %s vers le produit %s."
 
 #. module: product
 #: code:addons/product/models/product_attribute.py:0
@@ -2863,7 +2879,7 @@ msgstr "ex. Revendeurs USD"
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_form_view
 msgid "per"
-msgstr ""
+msgstr "par "
 
 #. module: product
 #: code:addons/product/models/product.py:0

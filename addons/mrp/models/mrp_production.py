@@ -502,6 +502,10 @@ class MrpProduction(models.Model):
         if not values.get('procurement_group_id'):
             values['procurement_group_id'] = self.env["procurement.group"].create({'name': values['name']}).id
         production = super(MrpProduction, self).create(values)
+        production.move_raw_ids.write({
+            'group_id': production.procurement_group_id.id,
+            'reference': production.name,  # set reference when MO name is different than 'New'
+        })
         # Trigger move_raw creation when importing a file
         if 'import_file' in self.env.context:
             production._onchange_move_raw()
@@ -617,8 +621,7 @@ class MrpProduction(models.Model):
             old_qty = move[0].product_uom_qty
             remaining_qty = move[0].raw_material_production_id.product_qty - move[0].raw_material_production_id.qty_produced
             if quantity > 0:
-                move[0]._decrease_reserved_quanity(quantity)
-                move[0].with_context(do_not_unreserve=True).write({'product_uom_qty': quantity})
+                move[0].write({'product_uom_qty': quantity})
                 move[0]._recompute_state()
                 move[0]._action_assign()
                 move[0].unit_factor = remaining_qty and (quantity - move[0].quantity_done) / remaining_qty or 1.0
@@ -661,9 +664,7 @@ class MrpProduction(models.Model):
                 raise UserError(_("Add some materials to consume before marking this MO as to do."))
             for move_raw in production.move_raw_ids:
                 move_raw.write({
-                    'group_id': production.procurement_group_id.id,
                     'unit_factor': move_raw.product_uom_qty / production.product_qty,
-                    'reference': production.name,  # set reference when MO name is different than 'New'
                 })
             production._generate_finished_moves()
             production.move_raw_ids._adjust_procure_method()

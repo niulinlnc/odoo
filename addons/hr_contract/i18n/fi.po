@@ -10,7 +10,6 @@
 # Mikko Salmela <salmemik@gmail.com>, 2019
 # Svante Suominen <svante.suominen@web-veistamo.fi>, 2019
 # Jarmo Kortetjärvi <jarmo.kortetjarvi@gmail.com>, 2019
-# Veikko Väätäjä <veikko.vaataja@gmail.com>, 2019
 # Timo Koukkari <ti.ko@netikka.fi>, 2019
 # Pekko Tuomisto <pekko.tuomisto@web-veistamo.fi>, 2019
 # Sari Mäyrä <sari.mayra@sv-oy.fi>, 2019
@@ -18,6 +17,7 @@
 # Jenni Heikkilä <jenni.heikkila@sv-oy.fi>, 2019
 # Simo Suurla <simo@suurla.fi>, 2019
 # Jukka Paulin <jukka.paulin@gmail.com>, 2020
+# Veikko Väätäjä <veikko.vaataja@gmail.com>, 2020
 # Tuomo Aura <tuomo.aura@web-veistamo.fi>, 2020
 # 
 msgid ""
@@ -444,7 +444,7 @@ msgstr "Viimeksi päivitetty"
 #. module: hr_contract
 #: model_terms:ir.ui.view,arch_db:hr_contract.hr_contract_view_search
 msgid "Late Activities"
-msgstr "Myöhästyneet toimenpiteet"
+msgstr "Myöhässä olevat toimenpiteet"
 
 #. module: hr_contract
 #: model:ir.model.fields,field_description:hr_contract.field_hr_contract__message_main_attachment_id
@@ -511,7 +511,7 @@ msgstr "Toimenpiteiden määrä"
 #. module: hr_contract
 #: model:ir.model.fields,field_description:hr_contract.field_hr_contract__message_has_error_counter
 msgid "Number of errors"
-msgstr ""
+msgstr "Virheiden määrä"
 
 #. module: hr_contract
 #: model:ir.model.fields,help:hr_contract.field_hr_contract__message_needaction_counter

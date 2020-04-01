@@ -10,6 +10,7 @@
 # Batmunkh Ganbat <batmunkh.g@bumanit.mn>, 2019
 # Martin Trigaux, 2019
 # tserendavaa tsogtoo <tseegii011929@gmail.com>, 2019
+# Munkhbaatar Gombosuren <muuguu17@gmail.com>, 2020
 # Baskhuu Lodoikhuu <baskhuujacara@gmail.com>, 2020
 # 
 msgid ""
@@ -163,7 +164,7 @@ msgstr "Ажилбар"
 #: model:ir.model.fields,field_description:hr_expense.field_hr_expense__activity_exception_decoration
 #: model:ir.model.fields,field_description:hr_expense.field_hr_expense_sheet__activity_exception_decoration
 msgid "Activity Exception Decoration"
-msgstr ""
+msgstr "Ажилбарын тайлбар"
 
 #. module: hr_expense
 #: model:ir.model.fields,field_description:hr_expense.field_hr_expense__activity_state
@@ -186,7 +187,7 @@ msgstr "Шинэ зардал үүсгэх,"
 #. module: hr_expense
 #: model:res.groups,name:hr_expense.group_hr_expense_manager
 msgid "Administrator"
-msgstr ""
+msgstr "Администратор"
 
 #. module: hr_expense
 #: model:product.product,name:hr_expense.air_ticket
