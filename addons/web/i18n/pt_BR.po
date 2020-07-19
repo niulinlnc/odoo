@@ -25,6 +25,7 @@
 # Luiz Fernando <lfpsgs@outlook.com>, 2020
 # Martin Trigaux, 2020
 # Mateus Lopes <mateus1@gmail.com>, 2020
+# PopSolutions Cooperativa Digital <popsolutions.co@gmail.com>, 2020
 # Fernando Colus <fcolus1@gmail.com>, 2020
 # 
 msgid ""
@@ -328,7 +329,7 @@ msgstr "ID da Ação:"
 #. module: web
 #: model:ir.model,name:web.model_ir_actions_act_window_view
 msgid "Action Window View"
-msgstr ""
+msgstr "Exibição da janela de ação"
 
 #. module: web
 #. openerp-web
@@ -3035,7 +3036,7 @@ msgstr ""
 #. module: web
 #: model:ir.model,name:web.model_ir_qweb_field_image
 msgid "Qweb Field Image"
-msgstr ""
+msgstr "Qweb Field Image"
 
 #. module: web
 #. openerp-web
@@ -3711,7 +3712,7 @@ msgstr ""
 #: code:addons/web/static/src/xml/kanban.xml:0
 #, python-format
 msgid "There is no available image to be set as cover."
-msgstr ""
+msgstr "Não há imagem disponível para ser definida como capa."
 
 #. module: web
 #. openerp-web
