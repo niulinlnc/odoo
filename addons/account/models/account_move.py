@@ -1756,9 +1756,9 @@ class AccountMove(models.Model):
             return super()._get_creation_message()
         return {
             'out_invoice': _('Invoice Created'),
-            'out_refund': _('Refund Created'),
+            'out_refund': _('Credit Note Created'),
             'in_invoice': _('Vendor Bill Created'),
-            'in_refund': _('Credit Note Created'),
+            'in_refund': _('Refund Created'),
             'out_receipt': _('Sales Receipt Created'),
             'in_receipt': _('Purchase Receipt Created'),
         }[self.type]
@@ -2030,6 +2030,8 @@ class AccountMove(models.Model):
             elif line_vals.get('tax_repartition_line_id'):
                 # Tax line.
                 invoice_repartition_line = self.env['account.tax.repartition.line'].browse(line_vals['tax_repartition_line_id'])
+                if invoice_repartition_line not in tax_repartition_lines_mapping:
+                    raise UserError(_("It seems that the taxes have been modified since the creation of the journal entry. You should create the credit note manually instead."))
                 refund_repartition_line = tax_repartition_lines_mapping[invoice_repartition_line]
 
                 # Find the right account.
@@ -2084,7 +2086,7 @@ class AccountMove(models.Model):
                 'type': reverse_type_map[move.type],
                 'reversed_entry_id': move.id,
             })
-            move_vals_list.append(move._reverse_move_vals(default_values, cancel=cancel))
+            move_vals_list.append(move.with_context(move_reverse_cancel=cancel)._reverse_move_vals(default_values, cancel=cancel))
 
         reverse_moves = self.env['account.move'].create(move_vals_list)
         for move, reverse_move in zip(self, reverse_moves.with_context(check_move_validity=False)):
@@ -3937,6 +3939,7 @@ class AccountMoveLine(models.Model):
 
     def copy_data(self, default=None):
         res = super(AccountMoveLine, self).copy_data(default=default)
+
         for line, values in zip(self, res):
             # Don't copy the name of a payment term line.
             if line.move_id.is_invoice() and line.account_id.user_type_id.type in ('receivable', 'payable'):
