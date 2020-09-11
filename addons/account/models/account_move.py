@@ -303,7 +303,7 @@ class AccountMove(models.Model):
     @api.onchange('invoice_date')
     def _onchange_invoice_date(self):
         if self.invoice_date:
-            if not self.invoice_payment_term_id:
+            if not self.invoice_payment_term_id and (not self.invoice_date_due or self.invoice_date_due < self.invoice_date):
                 self.invoice_date_due = self.invoice_date
             self.date = self.invoice_date
             self._onchange_currency()
@@ -1996,7 +1996,7 @@ class AccountMove(models.Model):
                         mapping[inv_rep_line] = ref_rep_line
             return mapping
 
-        move_vals = self.with_context(include_business_fields=True,active_test=False).copy_data(default=default_values)[0]
+        move_vals = self.with_context(include_business_fields=True).copy_data(default=default_values)[0]
 
         tax_repartition_lines_mapping = compute_tax_repartition_lines_mapping(move_vals)
 
@@ -2311,6 +2311,10 @@ class AccountMove(models.Model):
         ctx = dict(
             default_model='account.move',
             default_res_id=self.id,
+            # For the sake of consistency we need a default_res_model if
+            # default_res_id is set. Not renaming default_model as it can
+            # create many side-effects.
+            default_res_model='account.move',
             default_use_template=bool(template),
             default_template_id=template and template.id or False,
             default_composition_mode='comment',
