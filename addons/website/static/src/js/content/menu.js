@@ -543,8 +543,8 @@ publicWidget.registry.hoverableDropdown = animations.Animation.extend({
         update: '_dropdownHover',
     }],
     events: {
-        'mouseenter .dropdown:not(.position-static)': '_onMouseEnter',
-        'mouseleave .dropdown:not(.position-static)': '_onMouseLeave',
+        'mouseenter .dropdown': '_onMouseEnter',
+        'mouseleave .dropdown': '_onMouseLeave',
     },
 
     /**
@@ -605,6 +605,31 @@ publicWidget.registry.hoverableDropdown = animations.Animation.extend({
         $dropdown.removeClass('show');
         $dropdown.find(this.$dropdownToggles).attr('aria-expanded', 'false');
         $dropdown.find(this.$dropdownMenus).removeClass('show');
+    },
+});
+
+publicWidget.registry.HeaderMainCollapse = publicWidget.Widget.extend({
+    selector: 'header#top',
+    events: {
+        'show.bs.collapse #top_menu_collapse': '_onCollapseShow',
+        'hidden.bs.collapse #top_menu_collapse': '_onCollapseHidden',
+    },
+
+    //--------------------------------------------------------------------------
+    // Handlers
+    //--------------------------------------------------------------------------
+
+    /**
+     * @private
+     */
+    _onCollapseShow() {
+        this.el.classList.add('o_top_menu_collapse_shown');
+    },
+    /**
+     * @private
+     */
+    _onCollapseHidden() {
+        this.el.classList.remove('o_top_menu_collapse_shown');
     },
 });
 
