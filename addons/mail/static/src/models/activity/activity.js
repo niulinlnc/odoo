@@ -114,6 +114,18 @@ function factory(dependencies) {
                     ];
                 }
             }
+            if ('request_partner_id' in data) {
+                if (!data.request_partner_id) {
+                    data2.requestingPartner = [['unlink']];
+                } else {
+                    data2.requestingPartner = [
+                        ['insert', {
+                            id: data.request_partner_id[0],
+                            display_name: data.request_partner_id[1],
+                        }],
+                    ];
+                }
+            }
 
             return data2;
         }
@@ -148,8 +160,13 @@ function factory(dependencies) {
                 method: 'activity_format',
                 args: [this.id],
             }, { shadow: true }));
-            this.update(this.constructor.convertData(data));
-            this.thread.refresh();
+            if (data) {
+                this.update(this.constructor.convertData(data));
+                this.thread.refresh();
+            } else {
+                this.thread.refresh();
+                this.delete();
+            }
         }
 
         /**
@@ -292,6 +309,14 @@ function factory(dependencies) {
                 'note',
             ],
         }),
+        /**
+         * Determines that an activity is linked to a requesting partner or not.
+         * It will be used notably in website slides to know who triggered the
+         * "request access" activity.
+         * Also, be useful when the assigned user is different from the
+         * "source" or "requesting" partner.
+         */
+        requestingPartner: many2one('mail.partner'),
         state: attr(),
         summary: attr(),
         /**
