@@ -2068,7 +2068,6 @@ class ReportController(http.Controller):
         type [1]
         :returns: Response with a filetoken cookie and an attachment header
         """
-        print('>>>>>>>>>>>>>>>>>>>data',data)
         requestcontent = json.loads(data)
         url, type = requestcontent[0], requestcontent[1]
         try:
