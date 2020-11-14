@@ -160,6 +160,15 @@ function factory(dependencies) {
         }
 
         /**
+         *
+         * @private
+         * @returns {mail.message[]}
+         */
+        _computeNonEmptyMessages() {
+            return [['replace', this.messages.filter(message => !message.isEmpty)]]
+        }
+
+        /**
          * @private
          * @returns {mail.message[]}
          */
@@ -194,13 +203,17 @@ function factory(dependencies) {
             if (!wasCacheRefreshRequested && this.threadViews.length === 0) {
                 // don't load message that won't be used
                 return false;
-                }
-            if (!wasCacheRefreshRequested && (this.isLoaded || this.isLoading)) {
+            }
+            if (this.isLoading) {
+                // avoid duplicate RPC
+                return false;
+            }
+            if (!wasCacheRefreshRequested && this.isLoaded) {
                 // avoid duplicate RPC
                 return false;
             }
             const isMainCache = this.thread.mainCache === this;
-            if (isMainCache && (this.isLoaded || this.isLoading)) {
+            if (isMainCache && this.isLoaded) {
                 // Ignore request on the main cache if it is already loaded or
                 // loading. Indeed the main cache is automatically sync with
                 // server updates already, so there is never a need to refresh
@@ -424,6 +437,23 @@ function factory(dependencies) {
             dependencies: [
                 'fetchedMessages',
                 'threadMessages',
+            ],
+        }),
+        /**
+         * IsEmpty trait of all messages.
+         * Serves as compute dependency.
+         */
+        messagesAreEmpty: attr({
+            related: 'messages.isEmpty'
+        }),
+        /**
+         * List of non empty messages linked to this cache.
+         */
+        nonEmptyMessages: many2many('mail.message', {
+            compute: '_computeNonEmptyMessages',
+            dependencies: [
+                'messages',
+                'messagesAreEmpty',
             ],
         }),
         /**

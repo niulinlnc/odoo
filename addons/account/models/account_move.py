@@ -638,7 +638,7 @@ class AccountMove(models.Model):
                     'grouping_dict': False,
                 })
                 taxes_map_entry['amount'] += tax_vals['amount']
-                taxes_map_entry['tax_base_amount'] += tax_vals['base']
+                taxes_map_entry['tax_base_amount'] += self._get_base_amount_to_display(tax_vals['base'], tax_repartition_line)
                 taxes_map_entry['grouping_dict'] = grouping_dict
             line.tax_exigible = tax_exigible
 
@@ -657,9 +657,8 @@ class AccountMove(models.Model):
                     self.line_ids -= taxes_map_entry['tax_line']
                 continue
 
-            tax_base_amount = (-1 if self.is_inbound() else 1) * taxes_map_entry['tax_base_amount']
             # tax_base_amount field is expressed using the company currency.
-            tax_base_amount = currency._convert(tax_base_amount, self.company_currency_id, self.company_id, self.date or fields.Date.context_today(self))
+            tax_base_amount = currency._convert(taxes_map_entry['tax_base_amount'], self.company_currency_id, self.company_id, self.date or fields.Date.context_today(self))
 
             # Recompute only the tax_base_amount.
             if taxes_map_entry['tax_line'] and recompute_tax_base_amount:
@@ -703,6 +702,16 @@ class AccountMove(models.Model):
 
             if in_draft_mode:
                 taxes_map_entry['tax_line'].update(taxes_map_entry['tax_line']._get_fields_onchange_balance(force_computation=True))
+
+    @api.model
+    def _get_base_amount_to_display(self, base_amount, tax_rep_ln):
+        """ The base amount returned for taxes by compute_all has is the balance
+        of the base line. For inbound operations, positive sign is on credit, so
+        we need to invert the sign of this amount before displaying it.
+        """
+        if tax_rep_ln.invoice_tax_id.type_tax_use == 'sale' or tax_rep_ln.refund_tax_id.type_tax_use == 'purchase':
+            return -base_amount
+        return base_amount
 
     def update_lines_tax_exigibility(self):
         if all(account.user_type_id.type not in {'payable', 'receivable'} for account in self.mapped('line_ids.account_id')):
@@ -1054,8 +1063,14 @@ class AccountMove(models.Model):
                 # it. We only check the first move as an approximation (enough for new in form view)
                 pass
             elif (move.name and move.name != '/') or move.state != 'posted':
-                # Has already a name or is not posted, we don't add to a batch
-                continue
+                try:
+                    if not move.posted_before:
+                        move._constrains_date_sequence()
+                    # Has already a name or is not posted, we don't add to a batch
+                    continue
+                except ValidationError:
+                    # Has never been posted and the name doesn't match the date: recompute it
+                    pass
             group = grouped[journal_key(move)][date_key(move)]
             if not group['records']:
                 # Compute all the values needed to sequence this whole group
@@ -1111,8 +1126,10 @@ class AccountMove(models.Model):
 
         if not relaxed:
             domain = [('journal_id', '=', self.journal_id.id), ('id', '!=', self.id or self._origin.id), ('name', 'not in', ('/', False))]
-            reference_move = self.search(domain + [('date', '<=', self.date)], order='date desc', limit=1) or self.search(domain, order='date asc', limit=1)
-            sequence_number_reset = self._deduce_sequence_number_reset(reference_move.name)
+            reference_move_name = self.search(domain + [('date', '<=', self.date)], order='date desc', limit=1).name
+            if not reference_move_name:
+                reference_move_name = self.search(domain, order='date asc', limit=1).name
+            sequence_number_reset = self._deduce_sequence_number_reset(reference_move_name)
             if sequence_number_reset == 'year':
                 where_string += " AND date_trunc('year', date::timestamp without time zone) = date_trunc('year', %(date)s) "
                 param['date'] = self.date
@@ -1261,7 +1278,8 @@ class AccountMove(models.Model):
             if move.is_invoice(include_receipts=True) and move.state == 'posted':
 
                 if currency.is_zero(move.amount_residual):
-                    if all(payment.is_matched for payment in move._get_reconciled_payments()):
+                    reconciled_payments = move._get_reconciled_payments()
+                    if not reconciled_payments or all(payment.is_matched for payment in reconciled_payments):
                         new_pmt_state = 'paid'
                     else:
                         new_pmt_state = move._get_invoice_in_payment_state()
@@ -1665,7 +1683,8 @@ class AccountMove(models.Model):
             # Which is wrong in some case
             # It's better to set the account_id before the partner_id
             # Ensure related fields are well copied.
-            line.partner_id = self.partner_id.commercial_partner_id
+            if line.partner_id != self.partner_id.commercial_partner_id:
+                line.partner_id = self.partner_id.commercial_partner_id
             line.date = self.date
             line.recompute_tax_line = True
             line.currency_id = self.currency_id
@@ -1781,6 +1800,8 @@ class AccountMove(models.Model):
                 raise UserError(_('You cannot overwrite the values ensuring the inalterability of the accounting.'))
             if (move.posted_before and 'journal_id' in vals and move.journal_id.id != vals['journal_id']):
                 raise UserError(_('You cannot edit the journal of an account move if it has been posted once.'))
+            if (move.name and move.name != '/' and 'journal_id' in vals and move.journal_id.id != vals['journal_id']):
+                raise UserError(_('You cannot edit the journal of an account move if it has already a sequence number assigned.'))
 
             # You can't change the date of a move being inside a locked period.
             if 'date' in vals and move.date != vals['date']:
@@ -2915,9 +2936,9 @@ class AccountMoveLine(models.Model):
     # ==== Analytic fields ====
     analytic_line_ids = fields.One2many('account.analytic.line', 'move_id', string='Analytic lines')
     analytic_account_id = fields.Many2one('account.analytic.account', string='Analytic Account',
-        index=True, compute="_compute_analytic_account", store=True, readonly=False, check_company=True)
+        index=True, compute="_compute_analytic_account", store=True, readonly=False, check_company=True, copy=True)
     analytic_tag_ids = fields.Many2many('account.analytic.tag', string='Analytic Tags',
-        compute="_compute_analytic_account", store=True, readonly=False, check_company=True)
+        compute="_compute_analytic_account", store=True, readonly=False, check_company=True, copy=True)
 
     # ==== Onchange / display purpose fields ====
     recompute_tax_line = fields.Boolean(store=False, readonly=True,
@@ -3097,18 +3118,38 @@ class AccountMoveLine(models.Model):
             return self.product_id.uom_id
         return False
 
-    @api.depends('product_id', 'account_id', 'partner_id', 'date_maturity')
+    def _set_price_and_tax_after_fpos(self):
+        self.ensure_one()
+        # Manage the fiscal position after that and adapt the price_unit.
+        # E.g. mapping a price-included-tax to a price-excluded-tax must
+        # remove the tax amount from the price_unit.
+        # However, mapping a price-included tax to another price-included tax must preserve the balance but
+        # adapt the price_unit to the new tax.
+        # E.g. mapping a 10% price-included tax to a 20% price-included tax for a price_unit of 110 should preserve
+        # 100 as balance but set 120 as price_unit.
+        if self.tax_ids and self.move_id.fiscal_position_id:
+            price_subtotal = self._get_price_total_and_subtotal()['price_subtotal']
+            self.tax_ids = self.move_id.fiscal_position_id.map_tax(
+                self.tax_ids._origin,
+                partner=self.move_id.partner_id)
+            accounting_vals = self._get_fields_onchange_subtotal(
+                price_subtotal=price_subtotal,
+                currency=self.move_id.company_currency_id)
+            amount_currency = accounting_vals['amount_currency']
+            business_vals = self._get_fields_onchange_balance(amount_currency=amount_currency)
+            if 'price_unit' in business_vals:
+                self.price_unit = business_vals['price_unit']
+
+    @api.depends('product_id', 'account_id', 'partner_id', 'date')
     def _compute_analytic_account(self):
         for record in self:
-            record.analytic_account_id = (record._origin or record).analytic_account_id
-            record.analytic_tag_ids = (record._origin or record).analytic_tag_ids
-            if not record.exclude_from_invoice_tab:
+            if not record.exclude_from_invoice_tab or not record.move_id.is_invoice(include_receipts=True):
                 rec = self.env['account.analytic.default'].account_get(
                     product_id=record.product_id.id,
                     partner_id=record.partner_id.commercial_partner_id.id or record.move_id.partner_id.commercial_partner_id.id,
                     account_id=record.account_id.id,
                     user_id=record.env.uid,
-                    date=record.date_maturity,
+                    date=record.date,
                     company_id=record.move_id.company_id.id
                 )
                 if rec:
@@ -3294,7 +3335,7 @@ class AccountMoveLine(models.Model):
     # ONCHANGE METHODS
     # -------------------------------------------------------------------------
 
-    @api.onchange('amount_currency', 'currency_id', 'debit', 'credit', 'tax_ids', 'account_id')
+    @api.onchange('amount_currency', 'currency_id', 'debit', 'credit', 'tax_ids', 'account_id', 'price_unit')
     def _onchange_mark_recompute_taxes(self):
         ''' Recompute the dynamic onchange based on taxes.
         If the edited line is a tax line, don't recompute anything as the user must be able to
@@ -3324,25 +3365,8 @@ class AccountMoveLine(models.Model):
             line.product_uom_id = line._get_computed_uom()
             line.price_unit = line._get_computed_price_unit()
 
-            # Manage the fiscal position after that and adapt the price_unit.
-            # E.g. mapping a price-included-tax to a price-excluded-tax must
-            # remove the tax amount from the price_unit.
-            # However, mapping a price-included tax to another price-included tax must preserve the balance but
-            # adapt the price_unit to the new tax.
-            # E.g. mapping a 10% price-included tax to a 20% price-included tax for a price_unit of 110 should preserve
-            # 100 as balance but set 120 as price_unit.
-            if line.tax_ids and line.move_id.fiscal_position_id:
-                price_subtotal = line._get_price_total_and_subtotal()['price_subtotal']
-                line.tax_ids = line.move_id.fiscal_position_id.map_tax(
-                    line.tax_ids._origin,
-                    partner=line.move_id.partner_id)
-                accounting_vals = line._get_fields_onchange_subtotal(
-                    price_subtotal=price_subtotal,
-                    currency=line.move_id.company_currency_id)
-                amount_currency = accounting_vals['amount_currency']
-                business_vals = line._get_fields_onchange_balance(amount_currency=amount_currency)
-                if 'price_unit' in business_vals:
-                    line.price_unit = business_vals['price_unit']
+            # price_unit and taxes may need to be adapted following Fiscal Position
+            line._set_price_and_tax_after_fpos()
 
             # Convert the unit price to the invoice's currency.
             company = line.move_id.company_id
@@ -4315,14 +4339,6 @@ class AccountMoveLine(models.Model):
         company = self[0].company_id
         journal = company.currency_exchange_journal_id
 
-        # Check the configuration of the exchange difference journal.
-        if not journal:
-            raise UserError(_("You should configure the 'Exchange Gain or Loss Journal' in your company settings, to manage automatically the booking of accounting entries related to differences between exchange rates."))
-        if not journal.company_id.expense_currency_exchange_account_id:
-            raise UserError(_("You should configure the 'Loss Exchange Rate Account' in your company settings, to manage automatically the booking of accounting entries related to differences between exchange rates."))
-        if not journal.company_id.income_currency_exchange_account_id.id:
-            raise UserError(_("You should configure the 'Gain Exchange Rate Account' in your company settings, to manage automatically the booking of accounting entries related to differences between exchange rates."))
-
         exchange_diff_move_vals = {
             'move_type': 'entry',
             'date': date.min,
@@ -4343,6 +4359,14 @@ class AccountMoveLine(models.Model):
         # ==========================================================================
 
         if exchange_diff_move_vals['line_ids']:
+            # Check the configuration of the exchange difference journal.
+            if not journal:
+                raise UserError(_("You should configure the 'Exchange Gain or Loss Journal' in your company settings, to manage automatically the booking of accounting entries related to differences between exchange rates."))
+            if not journal.company_id.expense_currency_exchange_account_id:
+                raise UserError(_("You should configure the 'Loss Exchange Rate Account' in your company settings, to manage automatically the booking of accounting entries related to differences between exchange rates."))
+            if not journal.company_id.income_currency_exchange_account_id.id:
+                raise UserError(_("You should configure the 'Gain Exchange Rate Account' in your company settings, to manage automatically the booking of accounting entries related to differences between exchange rates."))
+
             exchange_diff_move_vals['date'] = max(exchange_diff_move_vals['date'], company._get_user_fiscal_lock_date())
 
             exchange_move = self.env['account.move'].create(exchange_diff_move_vals)
@@ -4671,13 +4695,13 @@ class AccountMoveLine(models.Model):
         return ids
 
     def open_reconcile_view(self):
-        [action] = self.env.ref('account.action_account_moves_all_a').read()
+        action = self.env['ir.actions.act_window']._for_xml_id('account.action_account_moves_all_a')
         ids = self._reconciled_lines()
         action['domain'] = [('id', 'in', ids)]
         return action
 
     def action_automatic_entry(self):
-        [action] = self.env.ref('account.account_automatic_entry_wizard_action').read()
+        action = self.env['ir.actions.act_window']._for_xml_id('account.account_automatic_entry_wizard_action')
         # Force the values of the move line in the context to avoid issues
         ctx = dict(self.env.context)
         ctx.pop('active_id', None)

@@ -94,7 +94,7 @@ class PickingType(models.Model):
                 vals['sequence_id'] = self.env['ir.sequence'].create({
                     'name': _('Sequence') + ' ' + vals['sequence_code'],
                     'prefix': vals['sequence_code'], 'padding': 5,
-                    'company_id': self.env.company.id,
+                    'company_id': vals.get('company_id') or self.env.company.id,
                 }).id
 
         picking_type = super(PickingType, self).create(vals)
@@ -292,7 +292,7 @@ class Picking(models.Model):
         help="Date Promise to the customer on the top level document (SO/PO)")
     has_deadline_issue = fields.Boolean(
         "Is late", compute='_compute_has_deadline_issue', store=True, default=False,
-        help="Is late or will be late depending of the deadline and scheduled date")
+        help="Is late or will be late depending on the deadline and scheduled date")
     date = fields.Datetime(
         'Creation Date',
         default=fields.Datetime.now, index=True, tracking=True,
@@ -574,7 +574,7 @@ class Picking(models.Model):
 
     @api.onchange('picking_type_id', 'partner_id')
     def onchange_picking_type(self):
-        if self.picking_type_id:
+        if self.picking_type_id and self.state == 'draft':
             self = self.with_company(self.company_id)
             if self.picking_type_id.default_location_src_id:
                 location_id = self.picking_type_id.default_location_src_id.id
@@ -590,11 +590,13 @@ class Picking(models.Model):
             else:
                 location_dest_id, supplierloc = self.env['stock.warehouse']._get_partner_locations()
 
-            if self.state == 'draft':
-                self.location_id = location_id
-                self.location_dest_id = location_dest_id
+            self.location_id = location_id
+            self.location_dest_id = location_dest_id
+            (self.move_lines | self.move_ids_without_package).update({
+                "picking_type_id": self.picking_type_id,
+                "company_id": self.company_id,
+            })
 
-        # TDE CLEANME move into onchange_partner_id
         if self.partner_id and self.partner_id.picking_warn:
             if self.partner_id.picking_warn == 'no-message' and self.partner_id.parent_id:
                 partner = self.partner_id.parent_id
@@ -649,7 +651,7 @@ class Picking(models.Model):
         if vals.get('picking_type_id'):
             for move in res.move_lines:
                 if not move.description_picking:
-                    move.description_picking = move.product_id._get_description(move.picking_id.picking_type_id)
+                    move.description_picking = move.product_id.with_context(lang=move._get_lang())._get_description(move.picking_id.picking_type_id)
 
         return res
 
