@@ -45,6 +45,9 @@ function factory(dependencies) {
         }
 
         detectSuggestionDelimiter() {
+            if (this.textInputCursorStart !== this.textInputCursorEnd) {
+                return;
+            }
             const lastInputChar = this.textInputContent.substring(this.textInputCursorStart - 1, this.textInputCursorStart);
             const suggestionDelimiters = ['@', ':', '#', '/'];
             if (suggestionDelimiters.includes(lastInputChar) && !this.hasSuggestions) {
@@ -188,6 +191,10 @@ function factory(dependencies) {
          * @returns {mail.partner[]}
          */
         _computeRecipients() {
+            if (this.thread && this.thread.model === 'mail.channel') {
+                // prevent from notifying/adding to followers non-members
+                return [['unlink-all']];
+            }
             const recipients = [...this.mentionedPartners];
             if (this.thread && !this.isLog) {
                 for (const recipient of this.thread.suggestedRecipientInfoList) {
@@ -265,19 +272,33 @@ function factory(dependencies) {
             if (this.subjectContent) {
                 postData.subject = this.subjectContent;
             }
-            let messageId;
-            if (thread.model === 'mail.channel') {
-                const command = this._getCommandFromText(body);
-                Object.assign(postData, {
-                    subtype_xmlid: 'mail.mt_comment',
-                });
-                if (command) {
-                    messageId = await this.async(() => this.env.models['mail.thread'].performRpcExecuteCommand({
-                        channelId: thread.id,
-                        command: command.name,
-                        postData,
-                    }));
+            try {
+                let messageId;
+                this.update({ isPostingMessage: true });
+                if (thread.model === 'mail.channel') {
+                    const command = this._getCommandFromText(body);
+                    Object.assign(postData, {
+                        subtype_xmlid: 'mail.mt_comment',
+                    });
+                    if (command) {
+                        messageId = await this.async(() => this.env.models['mail.thread'].performRpcExecuteCommand({
+                            channelId: thread.id,
+                            command: command.name,
+                            postData,
+                        }));
+                    } else {
+                        messageId = await this.async(() =>
+                            this.env.models['mail.thread'].performRpcMessagePost({
+                                postData,
+                                threadId: thread.id,
+                                threadModel: thread.model,
+                            })
+                        );
+                    }
                 } else {
+                    Object.assign(postData, {
+                        subtype_xmlid: this.isLog ? 'mail.mt_note' : 'mail.mt_comment',
+                    });
                     messageId = await this.async(() =>
                         this.env.models['mail.thread'].performRpcMessagePost({
                             postData,
@@ -285,42 +306,33 @@ function factory(dependencies) {
                             threadModel: thread.model,
                         })
                     );
+                    const [messageData] = await this.async(() => this.env.services.rpc({
+                        model: 'mail.message',
+                        method: 'message_format',
+                        args: [[messageId]],
+                    }, { shadow: true }));
+                    this.env.models['mail.message'].insert(Object.assign(
+                        {},
+                        this.env.models['mail.message'].convertData(messageData),
+                        {
+                            originThread: [['insert', {
+                                id: thread.id,
+                                model: thread.model,
+                            }]],
+                        })
+                    );
+                    thread.loadNewMessages();
                 }
-            } else {
-                Object.assign(postData, {
-                    subtype_xmlid: this.isLog ? 'mail.mt_note' : 'mail.mt_comment',
-                });
-                messageId = await this.async(() =>
-                    this.env.models['mail.thread'].performRpcMessagePost({
-                        postData,
-                        threadId: thread.id,
-                        threadModel: thread.model,
-                    })
-                );
-                const [messageData] = await this.async(() => this.env.services.rpc({
-                    model: 'mail.message',
-                    method: 'message_format',
-                    args: [[messageId]],
-                }, { shadow: true }));
-                this.env.models['mail.message'].insert(Object.assign(
-                    {},
-                    this.env.models['mail.message'].convertData(messageData),
-                    {
-                        originThread: [['insert', {
-                            id: thread.id,
-                            model: thread.model,
-                        }]],
-                    })
-                );
-                thread.loadNewMessages();
+                for (const threadView of this.thread.threadViews) {
+                    // Reset auto scroll to be able to see the newly posted message.
+                    threadView.update({ hasAutoScrollOnMessageReceived: true });
+                }
+                thread.refreshFollowers();
+                thread.fetchAndUpdateSuggestedRecipients();
+                this._reset();
+            } finally {
+                this.update({ isPostingMessage: false });
             }
-            for (const threadView of this.thread.threadViews) {
-                // Reset auto scroll to be able to see the newly posted message.
-                threadView.update({ hasAutoScrollOnMessageReceived: true });
-            }
-            thread.refreshFollowers();
-            thread.fetchAndUpdateSuggestedRecipients();
-            this._reset();
         }
 
         /**
@@ -449,7 +461,7 @@ function factory(dependencies) {
             if (!this.textInputContent && this.attachments.length === 0) {
                 return false;
             }
-            return !this.hasUploadingAttachment;
+            return !this.hasUploadingAttachment && !this.isPostingMessage;
         }
 
         /**
@@ -874,6 +886,7 @@ function factory(dependencies) {
             dependencies: [
                 'attachments',
                 'hasUploadingAttachment',
+                'isPostingMessage',
                 'textInputContent',
             ],
             default: false,
@@ -947,6 +960,10 @@ function factory(dependencies) {
         isLog: attr({
             default: false,
         }),
+        /**
+         * Determines whether a post_message request is currently pending.
+         */
+        isPostingMessage: attr(),
         mainSuggestedRecordsList: attr({
             compute: '_computeMainSuggestedRecordsList',
             dependencies: [
@@ -1028,6 +1045,9 @@ function factory(dependencies) {
         }),
         textInputCursorStart: attr({
             default: 0,
+        }),
+        textInputSelectionDirection: attr({
+            default: "none",
         }),
         thread: one2one('mail.thread', {
             inverse: 'composer',
