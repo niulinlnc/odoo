@@ -528,7 +528,7 @@ class Picking(models.Model):
 
     def _compute_has_packages(self):
         for picking in self:
-            picking.has_packages = picking.move_line_ids.filtered(lambda ml: ml.result_package_id)
+            picking.has_packages = bool(self.env['stock.move.line'].search_count([('picking_id', '=', picking.id), ('result_package_id', '!=', False)]))
 
     @api.depends('immediate_transfer', 'state')
     def _compute_show_check_availability(self):
@@ -785,7 +785,7 @@ class Picking(models.Model):
         else:
             for move in self.move_lines:
                 if not move.package_level_id:
-                    if move.state in ('assigned', 'done'):
+                    if move.state == 'assigned' and move.picking_id and not move.picking_id.immediate_transfer or move.state == 'done':
                         if any(not ml.package_level_id for ml in move.move_line_ids):
                             move_ids_without_package |= move
                     else:
@@ -1304,6 +1304,7 @@ class Picking(models.Model):
             picking_move_lines = self.move_line_ids
             if (
                 not self.picking_type_id.show_reserved
+                and not self.immediate_transfer
                 and not self.env.context.get('barcode_view')
             ):
                 picking_move_lines = self.move_line_nosuggest_ids
