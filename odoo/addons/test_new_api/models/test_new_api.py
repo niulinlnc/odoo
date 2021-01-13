@@ -400,6 +400,7 @@ class ComputeInverse(models.Model):
 
     foo = fields.Char()
     bar = fields.Char(compute='_compute_bar', inverse='_inverse_bar', store=True)
+    baz = fields.Char()
 
     @api.depends('foo')
     def _compute_bar(self):
@@ -411,6 +412,11 @@ class ComputeInverse(models.Model):
         self._context.get('log', []).append('inverse')
         for record in self:
             record.foo = record.bar
+
+    @api.constrains('bar', 'baz')
+    def _check_constraint(self):
+        if self._context.get('log_constraint'):
+            self._context.get('log', []).append('constraint')
 
 
 class MultiComputeInverse(models.Model):
@@ -663,19 +669,27 @@ class ComputeUnassigned(models.Model):
 
     @api.depends('foo')
     def _compute_bar(self):
-        pass
+        for record in self:
+            if record.foo == "assign":
+                record.bar = record.foo
 
     @api.depends('foo')
     def _compute_bare(self):
-        pass
+        for record in self:
+            if record.foo == "assign":
+                record.bare = record.foo
 
     @api.depends('foo')
     def _compute_bars(self):
-        pass
+        for record in self:
+            if record.foo == "assign":
+                record.bars = record.foo
 
     @api.depends('foo')
     def _compute_bares(self):
-        pass
+        for record in self:
+            if record.foo == "assign":
+                record.bares = record.foo
 
 
 class ModelBinary(models.Model):
